@@ -6,7 +6,8 @@
   "main": "./server/index.js",
   "types": "./server/index.d.ts",
   "bin": {
-    "openchamber": "./bin/cli.js"
+    "openchamber": "./bin/cli.js",
+    "openherdr": "./bin/openherdr.js"
   },
   "publishConfig": {
     "access": "public"
@@ -25,7 +26,10 @@
     "type-check": "tsc -b",
     "lint": "oxlint -c ../../oxlint.config.ts --report-unused-disable-directives src",
     "test": "vitest run",
-    "start": "node bin/cli.js serve"
+    "start": "node bin/cli.js serve",
+    "build:herdr": "vite build --config vite.herdr.config.ts",
+    "dev:herdr": "vite --config vite.herdr.config.ts --open /herdr.html",
+    "test:herdr": "node --test server/herdr/*.test.js"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
@@ -104,6 +108,7 @@
   },
   "files": [
     "dist",
+    "dist-herdr",
     "server",
     "bin",
     "public",

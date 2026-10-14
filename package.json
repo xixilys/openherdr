@@ -102,7 +102,14 @@
     "profile:composer": "node scripts/profile-composer.mjs",
     "profile:toggle": "node scripts/profile-toggle.mjs",
     "profile:serve": "node scripts/perf/isolated-server.mjs",
-    "profile:analyze": "node scripts/perf/analyze-run.mjs"
+    "profile:analyze": "node scripts/perf/analyze-run.mjs",
+    "build:herdr": "bun run --cwd packages/web build:herdr",
+    "start:herdr": "node packages/web/bin/openherdr.js start",
+    "dev:herdr": "bun run --cwd packages/web dev:herdr",
+    "test:herdr": "bun run --cwd packages/web test:herdr",
+    "mobile:herdr:prepare": "node packages/mobile/scripts/prepare-herdr.mjs",
+    "mobile:herdr:ios": "node packages/mobile/scripts/build-herdr-ios.mjs",
+    "mobile:herdr:android": "node packages/mobile/scripts/build-herdr-android.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

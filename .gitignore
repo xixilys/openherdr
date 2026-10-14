@@ -82,4 +82,5 @@ artifacts/
 
 # TypeScript build-mode caches: UI declarations for project references
 packages/ui/.tsbuild/
+packages/web/dist-herdr/
 *.tsbuildinfo

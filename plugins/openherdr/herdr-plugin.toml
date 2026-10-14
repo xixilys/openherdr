@@ -1,0 +1,36 @@
+id = "openherdr"
+name = "OpenHerdr"
+version = "0.1.0"
+min_herdr_version = "0.9.3"
+description = "OpenChamber-style mobile access to your Herdr workspaces"
+platforms = ["macos", "linux"]
+
+[[actions]]
+id = "start"
+title = "Start mobile access"
+contexts = ["workspace"]
+command = ["node", "./run.mjs", "start", "--cf"]
+
+[[actions]]
+id = "connect"
+title = "Pair a phone"
+contexts = ["workspace"]
+command = ["node", "./run.mjs", "pair-pane"]
+
+[[actions]]
+id = "status"
+title = "Mobile access status"
+contexts = ["workspace"]
+command = ["node", "./run.mjs", "status"]
+
+[[actions]]
+id = "stop"
+title = "Stop mobile access"
+contexts = ["workspace"]
+command = ["node", "./run.mjs", "stop"]
+
+[[panes]]
+id = "connect"
+title = "Pair your phone"
+placement = "overlay"
+command = ["node", "./run.mjs", "connect", "--qr"]

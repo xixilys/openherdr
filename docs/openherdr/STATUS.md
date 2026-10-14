@@ -2,22 +2,44 @@
 
 ## Current state
 
-Implementation in progress. Original request and decisions are in `OPENHERDR.md`.
+The first working OpenHerdr implementation is present. Original request and
+decisions are in `OPENHERDR.md`; usage and feature coverage are in `README.md`.
 
 - Upstream cloned, MIT license retained; branch `openherdr/main` starts at `c5b690df9`.
-- Frozen dependencies installed successfully with local Bun 1.3.14 and Node 25.8.2.
-- Herdr installed 0.9.3, schema private protocol 22. Native plugin commands exist.
-- Independent architecture review recommends a dedicated Herdr entrypoint and reused UI/auth primitives. Full upstream application stays intact.
-- Dot notified through MCP; its agreement and cloud dispatch are pending.
-- No feature is currently accepted as implemented or remotely verified.
+- Dedicated authenticated server, responsive UI, PWA assets and native Herdr
+  workflow plugin are implemented. The upstream application remains intact.
+- Actual local HTTP and phone-sized browser input/output passed in an owned test
+  session. Files opened through the rendered UI. Closing its selected pane kept
+  the draft and disabled sending; choosing a sibling manually restored control.
+- Cloudflare public HTTPS health, unauthenticated rejection, authenticated input,
+  output and a full terminal frame passed. The test command executed once.
+- Saved WSL SSH profile input/read passed with multiline text and quotes. Native
+  revision/truncation fields survived. The corrected remote observer returned an
+  actual 60x20 full terminal frame. Owned remote workspaces were closed.
+- Final web assets built. iOS Simulator and Android debug builds succeeded.
+  The final iOS app was installed and launched in the owned iPhone 17 Pro iOS 27
+  simulator. The connection screen and safe area were visually checked.
+- Independent review covered target selection, uncertain mutation delivery,
+  SSH quoting/session compatibility, observer cleanup and CLI shutdown.
+- Final focused checks passed: 31 server/bridge/content tests and 13 client
+  transport tests. `bun run check:changed` passed type-check, lint, dead-code and
+  the anti-slop comparison. The final web and both native builds succeeded.
+- Dot received MCP delivery callbacks, but no substantive agreement or cloud
+  dispatch reply has arrived. Callback acceptance is not an agreement.
 
 ## Active ownership
 
-- Main: CLI/plugin lifecycle, transport integration, application packaging, actual local/remote verification, Git integration.
-- Backend worker: pending assignment.
-- UI worker: pending assignment, coordination with dot pending.
-- Architect: read-only architecture review in progress.
+- Main owns integration, final checks, Git iteration and the user-facing app.
+- Backend/UI/native implementation tasks have returned their bounded work.
+- Architect supplied independent targeted reviews. Dot coordination is pending.
 
 ## Next
 
-Implement server and responsive client against the recorded API contract, integrate a real Herdr workflow plugin, then run an isolated session to verify actual input and output. Record feature support and unresolved gaps explicitly.
+Commit the integrated source, provide a runnable default bridge, and deliver a
+source snapshot to dot for independent cloud review. Port 4310 is occupied by
+QQ; the owned default bridge uses 4318 and leaves QQ untouched.
+
+Physical-phone input/output, Android runtime, native credential write/relaunch
+and install-to-home-screen behavior have not been exercised. Remote files/Git
+and provider-independent OpenCode chat features are unsupported as detailed in
+the feature table. Complete upstream feature parity is not established.

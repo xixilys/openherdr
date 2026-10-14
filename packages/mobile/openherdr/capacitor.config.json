@@ -1,0 +1,9 @@
+{
+  "appId": "dev.openherdr.mobile",
+  "appName": "OpenHerdr",
+  "webDir": "dist",
+  "includePlugins": ["@aparajita/capacitor-secure-storage"],
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "checked_at_utc": "2026-10-14",
+  "server_tests": {
+    "passed": 31,
+    "failed": 0
+  },
+  "client_transport_tests": {
+    "passed": 13,
+    "failed": 0,
+    "assertions": 69
+  },
+  "repository_checks": {
+    "type_check": "passed",
+    "lint": "passed",
+    "dead_code": "passed",
+    "anti_slop": "no_new_findings"
+  },
+  "web_build": "passed",
+  "ios_simulator_build": "passed",
+  "android_debug_build": "passed",
+  "physical_phone_control": "not_run",
+  "android_runtime": "not_run",
+  "native_credential_write_restore": "not_run",
+  "browser_home_screen_install": "not_run",
+  "public_https": {
+    "origin": "https://adjusted-republican-golden-literature.trycloudflare.com",
+    "local": "http://127.0.0.1:4318",
+    "session": "default",
+    "health": true,
+    "unauthenticated": 401,
+    "inputRead": true,
+    "terminalFrame": {
+      "width": 60,
+      "height": 20,
+      "full": true
+    },
+    "ownedWorkspaceClosed": true,
+    "testClientRevoked": true
+  },
+  "saved_wsl_ssh": {
+    "route": "HTTP -> saved WSL profile -> SSH -> official remote observer",
+    "pane": "w11:p1",
+    "workspace": "w11",
+    "inputAndRead": true,
+    "metadataPreserved": true,
+    "frame": {
+      "type": "terminal.frame",
+      "width": 60,
+      "height": 20,
+      "full": true,
+      "encodedBytes": 1992
+    },
+    "ownedWorkspaceClosed": true
+  },
+  "cli_target_selection": {
+    "stop": {
+      "status": "stopped"
+    },
+    "socketRecorded": true,
+    "sameInheritedSocketReused": true,
+    "inheritedMismatchRejected": true,
+    "explicitMismatchRejected": true,
+    "stillRunning": true
+  }
+}

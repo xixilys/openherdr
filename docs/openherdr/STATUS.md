@@ -35,9 +35,16 @@ decisions are in `OPENHERDR.md`; usage and feature coverage are in `README.md`.
 
 ## Next
 
-Commit the integrated source, provide a runnable default bridge, and deliver a
-source snapshot to dot for independent cloud review. Port 4310 is occupied by
-QQ; the owned default bridge uses 4318 and leaves QQ untouched.
+The integrated implementation is committed on `openherdr/main`. The owned
+default bridge is running on `http://127.0.0.1:4318`; port 4310 belongs to QQ and
+was preserved. Its current Quick Tunnel is
+`https://adjusted-republican-golden-literature.trycloudflare.com`. Final default
+session HTTPS input/read and full-frame observation passed, and the test client
+was revoked. `openherdr connect --qr` creates a fresh device pairing.
+
+The symlinked `openherdr` command was exercised directly, including version,
+status and import without CLI side effects. Validation details are saved in
+`validation.json`. Deliver a source snapshot to dot for independent cloud review.
 
 Physical-phone input/output, Android runtime, native credential write/relaunch
 and install-to-home-screen behavior have not been exercised. Remote files/Git

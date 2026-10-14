@@ -5,7 +5,7 @@ import { mkdir, open, writeFile, chmod, unlink, access } from 'node:fs/promises'
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { readEnterprisePolicy } from '../server/lib/enterprise-mode.js';
@@ -332,4 +332,4 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await runOpenHerdr();
+if (import.meta.main) process.exitCode = await runOpenHerdr();

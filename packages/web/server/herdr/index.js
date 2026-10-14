@@ -46,7 +46,7 @@ const parse = (schema, value) => {
 
 export async function createHerdrServer(options = {}) {
   const host = options.host ?? '127.0.0.1';
-  const port = options.port ?? 4310;
+  const port = options.port ?? 4318;
   const stateDir = path.resolve(options.stateDir ?? path.join(os.homedir(), '.local/state/openherdr'));
   const adminSocketPath = path.join(stateDir, 'admin.sock');
   const bridge = options.bridge ?? createHerdrBridge(options);
@@ -278,7 +278,7 @@ export async function startHerdrServer(options = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const runtime = await startHerdrServer({ session: process.env.OPENHERDR_SESSION ?? 'default', port: Number(process.env.OPENHERDR_PORT ?? 4310) });
+  const runtime = await startHerdrServer({ session: process.env.OPENHERDR_SESSION ?? 'default', port: Number(process.env.OPENHERDR_PORT ?? 4318) });
   const stop = () => runtime.close().then(() => process.exit(0));
   process.once('SIGTERM', stop); process.once('SIGINT', stop);
 }

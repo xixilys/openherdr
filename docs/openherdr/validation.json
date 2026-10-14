@@ -13,7 +13,8 @@
     "type_check": "passed",
     "lint": "passed",
     "dead_code": "passed",
-    "anti_slop": "no_new_findings"
+    "anti_slop": "no_new_findings",
+    "transient_failure": "Shared bunx temporary cache lost fast-glob metadata; unchanged checks rerun in a task-local TMPDIR."
   },
   "web_build": "passed",
   "ios_simulator_build": "passed",
@@ -61,5 +62,22 @@
     "inheritedMismatchRejected": true,
     "explicitMismatchRejected": true,
     "stillRunning": true
+  },
+  "plugin_restart_public_https": {
+    "origin": "https://promotes-translation-spas-big.trycloudflare.com",
+    "local": "http://127.0.0.1:4318",
+    "pluginRestart": true,
+    "port": 4318,
+    "socketPathMatchesDefault": true,
+    "health": true,
+    "unauthenticated": 401,
+    "inputRead": true,
+    "terminalFrame": {
+      "width": 60,
+      "height": 20,
+      "full": true
+    },
+    "ownedWorkspaceClosed": true,
+    "testClientRevoked": true
   }
 }

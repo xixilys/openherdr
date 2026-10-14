@@ -21,7 +21,7 @@ Options:
 | `session` | Explicit named local Herdr session. Required unless `socketPath` is given. |
 | `socketPath` | Explicit local Herdr Unix API socket. Overrides session resolution. |
 | `host` | HTTP listening address, default `127.0.0.1`. |
-| `port` | HTTP listening port, default `4310`. |
+| `port` | HTTP listening port, default `4318`. |
 | `stateDir` | Defaults to `~/.local/state/openherdr`. Mode 0700, owned by current user. |
 | `publicOrigins` | Exact HTTP/HTTPS origins, without a trailing slash or path. |
 | `nativeOrigins` | Subset of `capacitor://localhost` and `https://localhost`; both allowed by default. |
@@ -31,7 +31,7 @@ Options:
 | `bridge`, `readPolicy` | Dependency injection for focused integration tests. |
 
 The direct module entrypoint uses `OPENHERDR_SESSION`, default `default`, and
-`OPENHERDR_PORT`, default `4310`. The owning CLI should pass explicit options.
+`OPENHERDR_PORT`, default `4318`. The owning CLI should pass explicit options.
 It owns Cloudflare/SSH lifecycle and stale-instance recovery.
 
 ## Private admin socket
@@ -77,9 +77,10 @@ The API in `OPENHERDR.md` is implemented, with these additional routes:
   100 columns and 30 rows. The endpoint is read-only and does not resize desktop
   splits. Disconnect, revocation or shutdown terminates its observer child.
 
-Terminal events retain the installed Herdr wire format. Observation requires a
-named session; an explicit socket-only target returns unsupported. The request
-uses bearer headers, so a fetch streaming reader works across HTTPS tunnels.
+Terminal events retain the installed Herdr wire format. Local observation uses
+the configured session or the explicit socket inherited from a plugin. Saved
+remote profiles supply their own session. The request uses bearer headers, so a
+fetch streaming reader works across HTTPS tunnels.
 No WebSocket or OpenChamber private relay is introduced here.
 
 `contracts.js` owns the strict method and parameter allowlist. Arbitrary Herdr

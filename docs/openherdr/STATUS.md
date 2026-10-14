@@ -38,13 +38,24 @@ decisions are in `OPENHERDR.md`; usage and feature coverage are in `README.md`.
 The integrated implementation is committed on `openherdr/main`. The owned
 default bridge is running on `http://127.0.0.1:4318`; port 4310 belongs to QQ and
 was preserved. Its current Quick Tunnel is
-`https://adjusted-republican-golden-literature.trycloudflare.com`. Final default
+`https://promotes-translation-spas-big.trycloudflare.com`. Final default
 session HTTPS input/read and full-frame observation passed, and the test client
 was revoked. `openherdr connect --qr` creates a fresh device pairing.
 
 The symlinked `openherdr` command was exercised directly, including version,
 status and import without CLI side effects. Validation details are saved in
-`validation.json`. Deliver a source snapshot to dot for independent cloud review.
+`validation.json`.
+
+Default CLI/server/dev-proxy ports are 4318. After stopping the bridge, the
+native Herdr plugin's start action recreated it on 4318 with exit code 0. Its
+inherited default Herdr socket matched the original target. Actual public HTTPS
+input/read and full-frame observation passed after this plugin restart.
+
+An immutable source snapshot at commit `8a9aac797` was sent to dot through
+Local Agents Mac MCP, message `c83a9603-dd2f-42bc-a2df-6268b5d9032b`.
+The callback confirms delivery; source access, technical feedback and cloud
+dispatch agreement remain unconfirmed. The later default-port correction is
+included in the current Git checkout.
 
 Physical-phone input/output, Android runtime, native credential write/relaunch
 and install-to-home-screen behavior have not been exercised. Remote files/Git

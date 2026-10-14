@@ -28,7 +28,7 @@ Usage: openherdr <command> [options]
 Options:
   --session NAME      Herdr session (default: default)
   --socket PATH       Explicit Herdr socket (plugin context is inherited)
-  --port N            HTTP port (default: 4310)
+  --port N            HTTP port (default: 4318)
   --host ADDRESS      Listen address (default: 127.0.0.1)
   --state-dir PATH    Separate bridge state and credentials
   --server URL        Reachable public/LAN/SSH URL for pairing
@@ -40,13 +40,13 @@ Options:
   --json              JSON-only output
   --quiet             Print only the result
   --target SSH_ALIAS  Existing SSH target for the ssh command
-  --remote-port N     Remote OpenHerdr port for ssh (default: 4310)
+  --remote-port N     Remote OpenHerdr port for ssh (default: 4318)
 
 Examples:
   openherdr start --cf
   openherdr connect --qr
   openherdr serve --session work --server https://herdr.example.com
-  openherdr ssh --target workstation --port 4310
+  openherdr ssh --target workstation --port 4318
 
 Cloudflare URLs are temporary. Stop only affects this OpenHerdr bridge.
 The underlying Herdr server and its agents keep running.
@@ -213,12 +213,12 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
   try {
     const parsed = parseArgs({ args: argv, allowPositionals: true, options: {
       help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'V' },
-      session: { type: 'string' }, socket: { type: 'string' }, port: { type: 'string', default: '4310' },
+      session: { type: 'string' }, socket: { type: 'string' }, port: { type: 'string', default: '4318' },
       host: { type: 'string', default: '127.0.0.1' }, 'state-dir': { type: 'string', default: defaultStateDir },
       server: { type: 'string' }, 'public-origin': { type: 'string', multiple: true, default: [] },
       cf: { type: 'boolean', default: false }, qr: { type: 'boolean' }, open: { type: 'boolean' },
       json: { type: 'boolean' }, quiet: { type: 'boolean' }, label: { type: 'string' },
-      target: { type: 'string' }, 'remote-port': { type: 'string', default: '4310' },
+      target: { type: 'string' }, 'remote-port': { type: 'string', default: '4318' },
     } });
     values = parsed.values;
     const [command = 'start', ...extra] = parsed.positionals;
@@ -266,7 +266,9 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
     if (!['start', 'serve'].includes(command)) throw new Error(`Unknown command: ${command}`);
     const current = await runningStatus(stateDir);
     if (current) {
-      if ((values.session && values.session !== current.session) || (socketPath && socketPath !== current.socketPath)) {
+      const { createHerdrBridge } = await import('../server/herdr/bridge.js');
+      const expectedSocket = socketPath || (values.session ? createHerdrBridge({ session }).socketPath : undefined);
+      if (expectedSocket && expectedSocket !== current.socketPath) {
         throw new Error('This state directory already serves a different Herdr target. Choose another --state-dir and --port.');
       }
       if (values.cf && !current.publicOrigins?.some((origin) => origin.endsWith('.trycloudflare.com'))) throw new Error('Bridge is already running without a Cloudflare tunnel. Stop it, then start --cf.');

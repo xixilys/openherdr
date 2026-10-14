@@ -47,6 +47,13 @@ Pairing issuance uses a private mode-0600 Unix admin socket owned by this server
 
 Main Codex chat `01a13b81-92a9-7f52-95c6-ac4bb6ee6cc8`; MCP peer `codex-openherdr-20261014`. Dot peer `dot-dac-dse` was sent message `965751cb-b710-4711-9c7a-ebf037033f10` requesting UI review and agreement to dispatch independent cloud UI/QA. Delivery callback was received; substantive reply and dispatch agreement are pending. Do not call receipt an agreement. No private collaboration remote exists yet.
 
+The working implementation is committed locally on `openherdr/main`. Source
+snapshot `8a9aac797` was exported from the approved Mac Direct project and sent
+in message `c83a9603-dd2f-42bc-a2df-6268b5d9032b`; its callback was received.
+Dot has not confirmed reading or dispatch. The owning runtime uses port 4318,
+including plugin restart; 4310 belongs to QQ. `docs/openherdr/STATUS.md` records
+the current temporary Cloudflare URL and remaining feature/native limits.
+
 ## Validation and safe experiments
 
 Use a new named Herdr session `openherdr-test`, explicit returned IDs and an owned fixture directory. Never send input to existing user panes. Check actual phone-sized browser rendering and real HTTP input/output through the installed Herdr API. Verify unauthenticated rejection, invalid origin, one-use pairing, revoke, target switching and unknown mutation receipts. Test a real remote connection path when available. Native compile, simulator validation and physical-phone validation are distinct claims.

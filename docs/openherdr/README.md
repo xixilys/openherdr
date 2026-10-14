@@ -19,7 +19,7 @@ browser. The one-time link expires after 10 minutes. A paired device can access
 the selected Herdr session and its enabled saved SSH machines. Keep pairing links
 private. Generate a fresh link for each device.
 
-The local application is at `http://127.0.0.1:4310`. Cloudflare prints its actual
+The local application is at `http://127.0.0.1:4318`. Cloudflare prints its actual
 HTTPS URL on startup. Quick Tunnel addresses change after a restart. Browser
 credentials belong to that exact origin, so a new address needs a new pairing.
 The PWA manifest supports adding the page to the home screen; live data always
@@ -53,12 +53,12 @@ loopback bridge. An SSH-only alternative is available when OpenHerdr already
 runs on the target machine:
 
 ```sh
-node packages/web/bin/openherdr.js ssh --target workstation --port 4310
+node packages/web/bin/openherdr.js ssh --target workstation --port 4318
 ```
 
-This foreground command forwards local port 4310 to the target's loopback port
-4310 using the existing SSH configuration. Run pairing on that target with
-`--server http://127.0.0.1:4310`. SSH port forwarding belongs on a computer or a
+This foreground command forwards local port 4318 to the target's loopback port
+4318 using the existing SSH configuration. Run pairing on that target with
+`--server http://127.0.0.1:4318`. SSH port forwarding belongs on a computer or a
 phone SSH client. Browsers use HTTP/HTTPS.
 
 Inside the app, select an enabled machine saved by `herdr machine add`. This

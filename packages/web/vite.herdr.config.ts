@@ -22,7 +22,7 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
     port: 5180,
-    proxy: { '/api': 'http://127.0.0.1:4310', '/health': 'http://127.0.0.1:4310' },
+    proxy: { '/api': 'http://127.0.0.1:4318', '/health': 'http://127.0.0.1:4318' },
   },
   build: {
     outDir: 'dist-herdr',

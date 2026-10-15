@@ -1,4 +1,4 @@
-.herdr-shell,.herdr-connect { color:var(--surface-foreground); background:var(--surface-background); font-family:var(--font-family-sans); font-size:13px; height:100dvh; overflow:hidden; }
+.herdr-shell { color:var(--surface-foreground); background:var(--surface-background); font-family:var(--font-family-sans); font-size:13px; height:100dvh; overflow:hidden; }
 .herdr-shell { display:flex; }
 .herdr-brand { display:flex; align-items:center; gap:9px; font-weight:650; letter-spacing:-.025em; font-size:16px; white-space:nowrap; }
 .herdr-row { display:flex; align-items:center; gap:6px; min-width:0; }
@@ -70,14 +70,7 @@
 .herdr-detail-card h2 { font-weight:500; }
 .herdr-detail-card p,.herdr-detail-card code { color:var(--surface-muted-foreground); font-size:11px; overflow-wrap:anywhere; margin-block-start:6px; }
 .herdr-dialog form { display:flex; flex-direction:column; gap:20px; }
-.herdr-dialog label,.herdr-connect-card label { display:flex; flex-direction:column; gap:9px; font-size:12px; }
-.herdr-connect { overflow:auto; padding-block-start:var(--oc-safe-area-top, env(safe-area-inset-top)); padding-block-end:var(--oc-safe-area-bottom, env(safe-area-inset-bottom)); padding-inline-start:var(--oc-safe-area-left, env(safe-area-inset-left)); padding-inline-end:var(--oc-safe-area-right, env(safe-area-inset-right)); }
-.herdr-connect>header { padding:24px 32px; display:flex; justify-content:space-between; gap:16px; }
-.herdr-connect-card { margin:7vh auto 40px; width:min(420px,calc(100% - 40px)); display:flex; flex-direction:column; gap:20px; padding:28px; background:var(--surface-elevated); border:1px solid var(--interactive-border); border-radius:16px; }
-.herdr-connect-card h1 { font-size:24px; letter-spacing:-.03em; font-weight:550; }
-.herdr-connect-card>p { line-height:1.7; color:var(--surface-muted-foreground); }
-.herdr-connect-card>p.herdr-error { color:var(--status-error-text); padding:10px; border-radius:6px; }
-.herdr-connect-mark { color:var(--surface-muted-foreground); margin-block-end:4px; }
+.herdr-dialog label { display:flex; flex-direction:column; gap:9px; font-size:12px; }
 .herdr-mobile-only { display:none; }
 @media(max-width:720px) {
   .herdr-mobile-only { display:inline-flex; }
@@ -102,9 +95,6 @@
   .herdr-detail { padding:20px 16px; }
   .herdr-detail-card { flex-wrap:wrap; }
   .herdr-detail-card>button { margin-inline-start:34px; }
-  .herdr-connect>header { padding:18px 20px; }
-  .herdr-connect>header select { max-width:130px; }
-  .herdr-connect-card { margin-block-start:5vh; padding:22px; }
   .herdr-banner { padding:8px 12px; font-size:12px; }
 }
 @media(prefers-reduced-motion:reduce) { .herdr-sidebar { transition:none; } }
@@ -126,8 +116,6 @@
 }
 
 .herdr-terminal-fallback { position:absolute; inset:0; display:flex; flex-direction:column; }
-.herdr-connect-dialog-form { display:flex; flex-direction:column; gap:18px; overflow:auto; max-height:70dvh; }
-.herdr-connect-dialog-form label { display:flex; flex-direction:column; gap:8px; }
 .herdr-sidebar-body { display:flex; flex-direction:column; flex:1; min-height:0; }
 .herdr-session-group { padding-inline-start:12px; }
 .herdr-wrap { flex-wrap:wrap; }

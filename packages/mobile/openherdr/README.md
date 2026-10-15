@@ -39,7 +39,9 @@ SwiftPM uses its `netrc` authorization provider for public build dependencies, w
 
 The Android command requires a configured `ANDROID_HOME` or `ANDROID_SDK_ROOT`, a working Java installation compatible with Capacitor 8, and installed SDK platforms/build-tools. It rebuilds the web assets, synchronizes Capacitor and generates a debug APK at `android/app/build/outputs/apk/debug/app-debug.apk`. It does not install or launch an emulator.
 
-Use an HTTPS server URL, including a registered Cloudflare tunnel URL. The server must explicitly permit the packaged origins `capacitor://localhost` on iOS and `https://localhost` on Android. Pairing, bearer authorization and administrator network policy are enforced by the OpenHerdr server. The shell does not open a local listener or create a tunnel. Push notifications and QR camera scanning are not included.
+Use an HTTPS server URL, including a registered Cloudflare tunnel URL. The server must explicitly permit the packaged origins `capacitor://localhost` on iOS and `https://localhost` on Android. Pairing, bearer authorization and administrator network policy are enforced by the OpenHerdr server. The shell does not open a local listener or create a tunnel. Push notifications are not included. Android registers the existing MLKit barcode scanner and requests camera permission for QR pairing. Its bundled CameraX model works without Google Play Services. Permission denial and cancellation leave the connection form unchanged. The camera preview and scan-to-connection flow still require a physical-device check.
+
+iOS registers the `openherdr` URL scheme. The shared parser accepts only the exact `openherdr://connect` route and validates its pairing payload before filling the form. Camera scanning is unavailable in this iOS app: its SwiftPM project cannot include the installed MLKit plugin, which provides only CocoaPods integration. The original OpenChamber iOS scanner remains unchanged.
 
 Capacitor bridge logging is disabled in the packaged app, including debug builds,
 so secure-storage values and pairing URL callbacks are not written to bridge logs.

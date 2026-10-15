@@ -1,6 +1,8 @@
 import { useI18n, type Locale } from '@/lib/i18n';
 
 const en = {
+  connectTitle: 'Connect to OpenHerdr',
+  credentialSave: 'Connection approved. It could not be saved on this device. Try connecting again to save it.',
   currentFile: 'Current file',
   openCurrentFile: 'Open current file',
   preferencesLoadError: "Preferences could not be loaded. Your current settings are kept.",
@@ -66,9 +68,11 @@ const rows = {
   he: ["Enter מוסיף שורה · Ctrl/⌘+Enter שולח","בדיקת מסירה","בדקתי את המסוף","Herdr אישר מסירה. בדקו את המסוף לפני המשך הקלדה.","Herdr דחה את הבקשה. לא נשלחה בקשה חוזרת.","לא ניתן לפתוח את מעקב המסירה. בדקו את המסוף לפני הסרת האזהרה.","לא ניתן לפתוח את פרטי האימות. בטלו את נעילת המכשיר ופתחו שוב את היישום.","פרטי האימות נשמרים בכספת המאובטחת של המכשיר.",'סביבות עבודה','מחשבים','מכשירים מותאמים','כתובת שרת','קישור התאמה','פתחו קישור מהמחשב או הדביקו אותו כאן.','צרו קישור חד פעמי במחשב באמצעות openherdr connect.','מחובר','מנותק','עדיין אין סביבות עבודה','סביבת עבודה חדשה','בחרו חלונית להצגת המסוף.','ממתין לפלט המסוף...','שליחת טקסט לחלונית זו...','Enter שולח · Shift+Enter מוסיף שורה','מצב המסירה לא ידוע. בדקו את המסוף לפני שליחה חוזרת.','יעד','פיצול חלונית','הפעלת סוכן','שליחת הנחיה לסוכן','ביטול גישה','לסגור פריט זה ולעצור את התהליכים שלו?','לבטל גישה למכשיר? יהיה צורך בקישור חדש.','הקישור לא תקין. צרו קישור חדש במחשב.','הזינו כתובת שרת HTTP או HTTPS ללא נתיב.','אין פריטים','צילום פלט','הפלט הישן נחתך.','הדפדפן שומר את פרטי האימות במכשיר זה.','מעקב אחר הפלט','תיקיית עבודה'],
 } satisfies Record<Exclude<Locale, 'en'>, string[]>;
 
-const extraOrder: Key[] = ["hostUnknown", "hostChecked", "hostTargetChanged", "conversations", "newConversation", "history", "nativeReadOnly", "createFirst", "rebind", "rebindConfirm", "noNativeSession", "draftPlaceholder", "conversationDisconnected", "unknownSourceFields", "messageError", "catalogLoading", "enqueued", "attachmentTooLarge", "preferencesLoadError", "preferencesSaveError", "preferencesConflict", "currentFile", "openCurrentFile"];
+const extraOrder: Key[] = ["connectTitle", "credentialSave", "hostUnknown", "hostChecked", "hostTargetChanged", "conversations", "newConversation", "history", "nativeReadOnly", "createFirst", "rebind", "rebindConfirm", "noNativeSession", "draftPlaceholder", "conversationDisconnected", "unknownSourceFields", "messageError", "catalogLoading", "enqueued", "attachmentTooLarge", "preferencesLoadError", "preferencesSaveError", "preferencesConflict", "currentFile", "openCurrentFile"];
 const extraRows = {
   "zh-CN": [
+    "连接 OpenHerdr",
+    "连接已批准，但无法保存在此设备上。请再次点击连接以重试保存。",
     "结果未知。再次操作前，请先检查文件、仓库或对话。",
     "我已检查受影响的文件、仓库或对话",
     "窗格目录已改变。修改前请重新加载。编辑内容已保留。",
@@ -94,6 +98,8 @@ const extraRows = {
     "打开当前文件"
   ],
   "zh-TW": [
+    "連線至 OpenHerdr",
+    "連線已核准，但無法儲存在此裝置上。請再次點選連線以重試儲存。",
     "結果未知。再次操作前，請先檢查檔案、儲存庫或對話。",
     "我已檢查受影響的檔案、儲存庫或對話",
     "窗格目錄已變更。修改前請重新載入。編輯內容已保留。",
@@ -119,6 +125,8 @@ const extraRows = {
     "開啟目前檔案"
   ],
   "de": [
+    "Mit OpenHerdr verbinden",
+    "Verbindung genehmigt. Sie konnte auf diesem Gerät nicht gespeichert werden. Verbinde dich erneut, um das Speichern zu wiederholen.",
     "Das Ergebnis ist unklar. Prüfe Dateien, Repository oder Unterhaltung vor einem weiteren Versuch.",
     "Ich habe die betroffenen Dateien, das Repository oder die Unterhaltung geprüft",
     "Das Bereichsverzeichnis wurde geändert. Lade es vor Änderungen neu. Deine Bearbeitungen bleiben erhalten.",
@@ -144,6 +152,8 @@ const extraRows = {
     "Aktuelle Datei öffnen"
   ],
   "fr": [
+    "Se connecter à OpenHerdr",
+    "Connexion autorisée. Impossible de l'enregistrer sur cet appareil. Appuyez à nouveau sur Connexion pour réessayer l'enregistrement.",
     "Le résultat est inconnu. Vérifiez les fichiers, le dépôt ou la conversation avant de réessayer.",
     "J'ai vérifié les fichiers, le dépôt ou la conversation concernés",
     "Le répertoire du volet a changé. Rechargez avant de modifier. Vos modifications sont conservées.",
@@ -169,6 +179,8 @@ const extraRows = {
     "Ouvrir le fichier actuel"
   ],
   "nl": [
+    "Verbinden met OpenHerdr",
+    "Verbinding goedgekeurd. Opslaan op dit apparaat is mislukt. Klik opnieuw op Verbinden om het opslaan opnieuw te proberen.",
     "Het resultaat is onbekend. Controleer bestanden, repository of gesprek voordat je het opnieuw probeert.",
     "Ik heb de betrokken bestanden, repository of het gesprek gecontroleerd",
     "De map van het deelvenster is gewijzigd. Laad opnieuw voordat je wijzigingen maakt. Je bewerkingen blijven bewaard.",
@@ -194,6 +206,8 @@ const extraRows = {
     "Huidig bestand openen"
   ],
   "uk": [
+    "Підключитися до OpenHerdr",
+    "З’єднання схвалено, але не вдалося зберегти його на цьому пристрої. Натисніть підключення ще раз, щоб повторити збереження.",
     "Результат невідомий. Перевірте файли, репозиторій або розмову перед повторною спробою.",
     "Я перевірив відповідні файли, репозиторій або розмову",
     "Каталог панелі змінився. Перезавантажте перед змінами. Ваші правки збережено.",
@@ -219,6 +233,8 @@ const extraRows = {
     "Відкрити поточний файл"
   ],
   "es": [
+    "Conectar a OpenHerdr",
+    "Conexión aprobada. No se pudo guardar en este dispositivo. Pulsa conectar de nuevo para guardarla.",
     "El resultado es desconocido. Revisa los archivos, el repositorio o la conversación antes de reintentar.",
     "Ya revisé los archivos, el repositorio o la conversación afectados",
     "El directorio del panel cambió. Recarga antes de modificar. Se conservan tus cambios.",
@@ -244,6 +260,8 @@ const extraRows = {
     "Abrir archivo actual"
   ],
   "pt-BR": [
+    "Conectar ao OpenHerdr",
+    "Conexão aprovada. Não foi possível salvá-la neste dispositivo. Clique em conectar novamente para tentar salvar.",
     "O resultado é desconhecido. Confira os arquivos, repositório ou conversa antes de tentar novamente.",
     "Conferi os arquivos, repositório ou conversa afetados",
     "O diretório do painel mudou. Recarregue antes de alterar. Suas edições foram mantidas.",
@@ -269,6 +287,8 @@ const extraRows = {
     "Abrir arquivo atual"
   ],
   "ko": [
+    "OpenHerdr에 연결",
+    "연결이 승인되었지만 이 기기에 저장하지 못했습니다. 연결을 다시 눌러 저장을 재시도하세요.",
     "결과를 알 수 없습니다. 다시 시도하기 전에 파일, 저장소 또는 대화를 확인하세요.",
     "영향받은 파일, 저장소 또는 대화를 확인했습니다",
     "창의 디렉터리가 변경되었습니다. 수정하기 전에 다시 불러오세요. 편집 내용은 유지됩니다.",
@@ -294,6 +314,8 @@ const extraRows = {
     "현재 파일 열기"
   ],
   "pl": [
+    "Połącz z OpenHerdr",
+    "Połączenie zatwierdzone. Nie udało się zapisać go na tym urządzeniu. Kliknij ponownie Połącz, aby powtórzyć zapis.",
     "Wynik jest nieznany. Sprawdź pliki, repozytorium lub rozmowę przed kolejną próbą.",
     "Sprawdziłem odpowiednie pliki, repozytorium lub rozmowę",
     "Katalog panelu się zmienił. Wczytaj ponownie przed zmianami. Twoje edycje zachowano.",
@@ -319,6 +341,8 @@ const extraRows = {
     "Otwórz bieżący plik"
   ],
   "ja": [
+    "OpenHerdr に接続",
+    "接続は承認されましたが、この端末に保存できませんでした。もう一度接続を押して保存を再試行してください。",
     "結果が不明です。再試行する前にファイル、リポジトリ、または会話を確認してください。",
     "対象のファイル、リポジトリ、または会話を確認しました",
     "ペインのディレクトリが変わりました。変更前に再読み込みしてください。編集内容は保持されます。",
@@ -344,6 +368,8 @@ const extraRows = {
     "現在のファイルを開く"
   ],
   "tr": [
+    "OpenHerdr'a bağlan",
+    "Bağlantı onaylandı ancak bu cihaza kaydedilemedi. Kaydetmeyi yeniden denemek için tekrar bağlanın.",
     "Sonuç bilinmiyor. Yeniden denemeden önce dosyaları, depoyu veya konuşmayı kontrol edin.",
     "İlgili dosyaları, depoyu veya konuşmayı kontrol ettim",
     "Bölme dizini değişti. Değişiklikten önce yeniden yükleyin. Düzenlemeleriniz korunur.",
@@ -369,6 +395,8 @@ const extraRows = {
     "Geçerli dosyayı aç"
   ],
   "ar": [
+    "الاتصال بـ OpenHerdr",
+    "تمت الموافقة على الاتصال، لكن تعذر حفظه على هذا الجهاز. اضغط على الاتصال مجددًا لإعادة محاولة الحفظ.",
     "النتيجة غير معروفة. افحص الملفات أو المستودع أو المحادثة قبل إعادة المحاولة.",
     "تحققت من الملفات أو المستودع أو المحادثة المتأثرة",
     "تغير مجلد الجزء. أعد التحميل قبل التعديل. تم الاحتفاظ بتعديلاتك.",
@@ -394,6 +422,8 @@ const extraRows = {
     "فتح الملف الحالي"
   ],
   "he": [
+    "התחברות ל-OpenHerdr",
+    "החיבור אושר, אך לא ניתן לשמור אותו במכשיר הזה. לחצו שוב על התחברות כדי לנסות לשמור.",
     "התוצאה אינה ידועה. בדקו את הקבצים, המאגר או השיחה לפני ניסיון נוסף.",
     "בדקתי את הקבצים, המאגר או השיחה שהושפעו",
     "תיקיית החלונית השתנתה. טענו מחדש לפני שינויים. העריכות נשמרו.",

@@ -30,7 +30,53 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current window-monitoring increment
+## Current connection-flow increment
+
+OpenHerdr now uses the original Welcome presentation for manual pairing and
+saved origins. Its Server URL entry reopens that screen, pauses the underlying
+monitor/content reads and closes shell portals. Cancel returns to the same
+monitor. Android has the existing MLKit scanner registered; scanner/OS intake
+previews the resolved HTTPS server and requires Connect. The OpenChamber
+protocol wrapper keeps its original behavior around the same shared view.
+
+The local controller prevents duplicate confirmation, captures each operation's
+server/code, checks vault initialization before redemption and keeps a confirmed
+credential for save-only retry. New intents cannot be overwritten by old
+completion. A warm app-link event supersedes a late cold-launch URL. Saved
+selection persists the chosen origin before activation without redemption.
+
+Focused adapter/controller tests pass 50/50; shared view and actual Herdr app
+DOM tests pass 15/15, and overlay Back/visibility cleanup passes 3/3. Independent
+source review found and verified the old-portal correction, with no remaining
+P1/P2. These are fixtures/source checks, including the successful redemption
+and vault-failure paths; they do not establish native vault behavior.
+
+The actual 412x915 CF browser showed the shared Welcome, rejected an OpenChamber
+v2 link, switched Arabic/English, selected its existing saved origin, returned
+to the real monitor and restored authentication on reload. Both old drawer
+portals were hidden and non-interactive. No new pairing, model request or
+terminal input was sent in that browser check. The screenshot is
+`assets/connection-welcome.jpg`. A transient HTTP 530 appeared during the
+check; subsequent public and local health checks returned 200 without restarting
+the existing bridge or tunnel. This is not a long-term connectivity test.
+
+The Android APK is 40,701,131 bytes and packages `herdr-4D0XehLa.js`. Its HTML
+and entry match the web build exactly. The packaged registry contains the
+scanner plugin and the APK includes the bundled barcode models and native
+libraries. The first offline build lacked CameraX/MLKit cache artifacts; online
+resolution in the task-owned cache succeeded. Gradle then encountered the
+SDK's partial NDK 27.0 directory. Selecting the existing working NDK 27.1 through
+a task-only init script produced a successful build. The final source rebuild passed in 12 seconds,
+245 tasks, 27 executed and 218 up-to-date. Shared SDK and Gradle configuration were not
+changed. Records use `.tmp/connection-*` and `.tmp/android-connection-*`.
+
+This APK has not been installed or interactively accepted. Camera permission,
+CameraX preview/scan, native Back, KeyStore write/relaunch and physical-phone
+use remain unverified. iOS now declares the `openherdr` URL scheme in source;
+its SwiftPM project still has no scanner plugin, and that scheme change was
+not built or tested on iOS. Full feature/UI parity remains unfinished.
+
+## Previous window-monitoring increment
 
 The app now opens the existing-window monitor. Its machine, workspace, tab and
 pane tree includes ordinary dashboards as well as agent terminals. Chat is an
@@ -61,7 +107,7 @@ The final focused regression is 13/13 in
 `.tmp/herdr-monitor-first-frame-tests.log`; independent source review found no
 blocking P1/P2. `check:changed` passed on the final source in
 `.tmp/check-window-monitor-final.log`. The original web build and Herdr Android
-build passed. The current APK is 17,140,452 bytes and packages
+build passed. That increment's APK is 17,140,452 bytes and packages
 `herdr-BLLJAMLv.js`; its HTML and entry asset match the web build exactly.
 `.tmp/window-monitor-apk.json` records that comparison. The final isolated
 offline Gradle build took 10 seconds, with 213 tasks, 27 executed and 186

@@ -5,6 +5,7 @@
   "webDir": "dist",
   "includePlugins": [
     "@aparajita/capacitor-secure-storage",
+    "@capacitor-mlkit/barcode-scanning",
     "@capacitor/app",
     "@capacitor/keyboard",
     "@capacitor/status-bar"

@@ -33,6 +33,25 @@ public HTTPS path. The current Quick Tunnel address changes after a tunnel
 restart; persistent named-tunnel support from the original application remains
 part of broader parity work.
 
+The current increment restores the original Welcome connection presentation for
+OpenHerdr, with saved server selection, manual one-use pairing and Android QR
+intake. Pairing remains explicit and uses the existing authenticated CF origin.
+The controller must preserve a confirmed credential across a failed vault write,
+retry only that write, and prevent an old completion from replacing a newer
+connection intent. This work adds no connection provider or tunnel mode. Android
+camera, Back and secure-vault runtime acceptance remain separate from source and
+browser checks. iOS scanner packaging stays unsupported if the existing plugin
+cannot be registered without a package-manager migration.
+
+Runtime scope for this increment: browser and hosted mobile use manual pairing
+and saved origins; OpenHerdr Capacitor Android also exposes the registered native
+scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and
+app-link intake but has no scanner in its current SwiftPM build. The original
+OpenChamber Capacitor wrappers retain their own protocol and scanner behavior.
+Electron and VS Code retain the original application and do not acquire an
+OpenHerdr credential or native scanner path. Existing server-side pairing and
+enterprise network policy continue to enforce the same exposure boundary.
+
 Upstream OpenChamber is MIT licensed, baseline `c5b690df9`. Keep the license and original application. OpenHerdr is an independent entrypoint inside `packages/web`; sharing UI primitives does not require OpenCode to run. Existing OpenCode-specific functions remain part of the upstream application and must not be advertised as supported for arbitrary Herdr agents without an implementation.
 
 Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS.md and the user's global instructions apply. The user explicitly authorizes Git iteration and autonomous implementation. The user now explicitly authorizes a public source repository. Store/app releases, changes to shared services or credentials, and stopping unrelated agents remain outside this task.
@@ -208,8 +227,19 @@ keeps CF pairing as its primary remote path. Real public HTTPS checks and a
 412x915 browser read Local, WSL, JP API and Kansas, including ordinary Kansas
 dashboards. The browser restored its saved binding on reload. A successful-frame
 status/resize loop found in this flow was repaired and rechecked. The current
-APK packages `herdr-BLLJAMLv.js`, with exact web HTML/entry readback, but has no
+monitoring APK packaged `herdr-BLLJAMLv.js`, with exact web HTML/entry readback, but had no
 native interactive acceptance. Current evidence and limits are in STATUS.md
 and `packages/mobile/openherdr/VALIDATION.md`.
+
+The following connection increment shares the original Welcome and saved rows,
+adds explicit Android scan intake and repairs confirmation/persistence races.
+Actual CF browser re-entry, invalid protocol, locale, saved selection, Cancel
+and reload checks passed without issuing another credential or sending input.
+The APK now packages `herdr-4D0XehLa.js`, 40,701,131 bytes, with bundled scanner
+models and exact web asset readback. Building used the existing working NDK
+27.1 via a task-owned init script because the default NDK 27.0 is partial.
+Camera and native vault/Back acceptance remain unperformed; iOS scanner remains
+unsupported in its SwiftPM project. Continue the broader Android goal from
+these limits, keeping existing-window monitoring and CF binding primary.
 
 Use a new named Herdr session `openherdr-test`, explicit returned IDs and an owned fixture directory. Never send input to existing user panes. Check actual phone-sized browser rendering and real HTTP input/output through the installed Herdr API. Verify unauthenticated rejection, invalid origin, one-use pairing, revoke, target switching and unknown mutation receipts. Test a real remote connection path when available. Native compile, simulator validation and physical-phone validation are distinct claims.

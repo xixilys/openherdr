@@ -25,6 +25,13 @@ type QrScanResult =
   | { status: 'invalid' }
   | { status: 'failed' };
 
+type QrTextScanResult =
+  | { status: 'ok'; rawValue: string }
+  | { status: 'cancelled' }
+  | { status: 'unsupported' }
+  | { status: 'permission-denied' }
+  | { status: 'failed' };
+
 type ScannedBarcode = { rawValue?: string; displayValue?: string };
 type ListenerHandle = { remove: () => void | Promise<void> };
 type BarcodeScannerPlugin = {
@@ -82,19 +89,24 @@ const resultFromRawValue = (raw: string, options?: { pairingStringFallback?: boo
 const scanWithBundledAndroidScanner = async (
   plugin: BarcodeScannerPlugin,
   signal?: AbortSignal,
-): Promise<QrScanResult> => {
+): Promise<QrTextScanResult> => {
   if (!plugin.startScan || !plugin.stopScan || !plugin.addListener) return { status: 'unsupported' };
   if (signal?.aborted) return { status: 'cancelled' };
+  const addListener = plugin.addListener.bind(plugin);
+  const startScan = plugin.startScan.bind(plugin);
+  const stopScan = plugin.stopScan.bind(plugin);
 
   let barcodeListener: ListenerHandle | undefined;
   let errorListener: ListenerHandle | undefined;
   let settled = false;
-  let resolveResult: (result: QrScanResult) => void = () => undefined;
+  let startTask: Promise<void> | undefined;
+  let startPending = false;
+  let resolveResult: (result: QrTextScanResult) => void = () => undefined;
 
-  const result = new Promise<QrScanResult>((resolve) => {
+  const result = new Promise<QrTextScanResult>((resolve) => {
     resolveResult = resolve;
   });
-  const finish = (scanResult: QrScanResult) => {
+  const finish = (scanResult: QrTextScanResult) => {
     if (settled) return;
     settled = true;
     resolveResult(scanResult);
@@ -104,54 +116,84 @@ const scanWithBundledAndroidScanner = async (
 
   try {
     const listenerResults = await Promise.allSettled([
-      Promise.resolve(plugin.addListener('barcodesScanned', ({ barcodes }) => {
+      Promise.resolve().then(() => addListener('barcodesScanned', ({ barcodes }) => {
         const barcode = barcodes?.[0];
         const raw = (barcode?.rawValue ?? barcode?.displayValue ?? '').trim();
-        if (raw) finish(resultFromRawValue(raw, { pairingStringFallback: true }));
+        if (raw) finish({ status: 'ok', rawValue: raw });
       })).then((handle) => { barcodeListener = handle; }),
-      Promise.resolve(plugin.addListener('scanError', () => finish({ status: 'failed' })))
+      Promise.resolve().then(() => addListener('scanError', () => finish({ status: 'failed' })))
         .then((handle) => { errorListener = handle; }),
     ]);
 
     if (listenerResults.some(({ status }) => status === 'rejected')) {
       finish({ status: 'failed' });
     } else if (!settled) {
-      void plugin.startScan({ formats: ['QR_CODE'] }).catch(() => finish({ status: 'failed' }));
+      startPending = true;
+      try {
+        startTask = startScan({ formats: ['QR_CODE'] })
+          .then(() => { startPending = false; }, () => {
+            startPending = false;
+            finish({ status: 'failed' });
+          });
+      } catch {
+        startPending = false;
+        finish({ status: 'failed' });
+      }
     }
 
     return await result;
   } finally {
     signal?.removeEventListener('abort', abort);
+    const stopAfterStart = startPending;
     await Promise.allSettled([
-      Promise.resolve(barcodeListener?.remove()),
-      Promise.resolve(errorListener?.remove()),
-      plugin.stopScan(),
+      Promise.resolve().then(() => barcodeListener?.remove()),
+      Promise.resolve().then(() => errorListener?.remove()),
+      Promise.resolve().then(() => stopScan()),
     ]);
+    // A native start already in flight can enable the camera after the first stop.
+    // Finish that cleanup before another scan can start.
+    if (stopAfterStart) {
+      await startTask;
+      await Promise.resolve().then(() => stopScan()).catch(() => undefined);
+    }
   }
 };
 
 export const isQrScanSupported = (): boolean => getScannerPlugin() !== null;
 
-export const scanConnectionQr = async (options?: { signal?: AbortSignal }): Promise<QrScanResult> => {
+export const scanQrText = async (options?: { signal?: AbortSignal }): Promise<QrTextScanResult> => {
+  if (options?.signal?.aborted) return { status: 'cancelled' };
   const plugin = getScannerPlugin();
   if (!plugin) return { status: 'unsupported' };
 
   try {
     if (plugin.requestPermissions) {
       const permission = await plugin.requestPermissions();
+      if (options?.signal?.aborted) return { status: 'cancelled' };
       const camera = permission?.camera;
       if (camera && camera !== 'granted' && camera !== 'limited') return { status: 'permission-denied' };
     }
 
     if (options?.signal?.aborted) return { status: 'cancelled' };
-    if (isAndroid()) return scanWithBundledAndroidScanner(plugin, options?.signal);
+    if (isAndroid()) {
+      const result = await scanWithBundledAndroidScanner(plugin, options?.signal);
+      return options?.signal?.aborted ? { status: 'cancelled' } : result;
+    }
     if (!plugin.scan) return { status: 'unsupported' };
 
     const result = await plugin.scan({ formats: ['QR_CODE'] });
+    if (options?.signal?.aborted) return { status: 'cancelled' };
     const barcode = result?.barcodes?.[0];
     const raw = (barcode?.rawValue ?? barcode?.displayValue ?? '').trim();
-    return raw ? resultFromRawValue(raw) : { status: 'cancelled' };
+    return raw ? { status: 'ok', rawValue: raw } : { status: 'cancelled' };
   } catch {
-    return { status: 'failed' };
+    return { status: options?.signal?.aborted ? 'cancelled' : 'failed' };
   }
+};
+
+export const scanConnectionQr = async (options?: { signal?: AbortSignal }): Promise<QrScanResult> => {
+  const result = await scanQrText(options);
+  return result.status === 'ok'
+    ? resultFromRawValue(result.rawValue, { pairingStringFallback: isAndroid() })
+    : result;
 };

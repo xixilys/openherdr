@@ -1,8 +1,42 @@
 # Native build validation
 
-## Latest window-monitoring artifact
+## Latest connection-flow artifact
 
-The current debug APK is 17,140,452 bytes and packages `herdr-BLLJAMLv.js`.
+The debug APK is 40,701,131 bytes and packages `herdr-4D0XehLa.js`. HTML and
+entry bytes match the web build in `.tmp/connection-apk.json`. Its native
+plugin registry includes MLKit BarcodeScanner, with 12 packaged native
+libraries and the bundled barcode model assets. Package identity and
+versionCode are unchanged. This APK has not been installed or launched.
+
+The web build, native asset preparation and Android Capacitor sync passed.
+The offline Gradle attempt failed because the isolated cache lacked CameraX
+and MLKit artifacts. Online resolution filled only the task-owned cache.
+The SDK's NDK 27.0 directory has no `llvm-strip`; a task-owned Gradle init
+selected the existing working NDK 27.1.12297006. The final build succeeded in
+12 seconds with 245 tasks, 27 executed and 218 up-to-date, in
+`.tmp/android-connection-final-source-build.log`. No shared SDK/cache setting changed.
+The normal command on this host still needs that NDK selection until its
+partial default NDK installation is separately repaired.
+
+The actual CF browser exercised the shared Welcome, malformed-protocol error,
+Arabic/English layout, existing saved-origin selection, Cancel to the same
+monitor and authenticated reload. No new credential was issued. The browser
+flow used `herdr-Bq3rq6Io.js`. The final `herdr-4D0XehLa.js` also restored
+the saved binding and reopened/closed Welcome after removal of unused old
+connection CSS. Its screenshot is
+`docs/openherdr/assets/connection-welcome.jpg`. A transient CF 530 was followed
+by successful public/local health reads without a bridge or tunnel restart.
+Source/fixture tests cover explicit redemption, save-only retry, stale intents,
+scanner cancellation and cleanup; they do not validate CameraX or KeyStore.
+
+Android camera permission/preview/scan, real system Back and secure-vault
+write/relaunch remain unverified. The checked-in iOS scheme is now declared,
+but it has not been built/tested. OpenHerdr iOS still has no scanner registration
+in its SwiftPM project. Release signing and store distribution remain unperformed.
+
+## Previous window-monitoring artifact
+
+That debug APK is 17,140,452 bytes and packages `herdr-BLLJAMLv.js`.
 Its bundled HTML and entry asset match the final web build byte for byte.
 `.tmp/window-monitor-apk.json` records that comparison. The package identity,
 versionCode and native source are unchanged. This APK has not been installed or

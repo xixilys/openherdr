@@ -40,6 +40,18 @@ The shared public host API is `packages/ui/src/lib/api/types.ts:RuntimeAPIs`, co
 
 ## Navigation and screen reuse
 
+### Connection welcome
+
+`MobileConnectionWelcomeView` now owns the original Welcome geometry, scan
+entry, saved rows, manual expansion and caller-owned form slots. Its original
+wrapper keeps OpenChamber passwords, candidate selection, diagnostics and QR
+auto-connect. Herdr's `ConnectionWelcome` supplies its one-use pairing form and
+`HerdrConnectionController`; it shares no OpenChamber connection credentials.
+The raw `scanQrText` adapter owns platform scanning, while each wrapper parses
+its own protocol. Android OpenHerdr registers the existing MLKit plugin and
+camera permission. iOS remains scanner-unsupported in its current SwiftPM
+package. Native camera/vault/Back acceptance is still pending.
+
 ### Header, session drawer and workspace drawer
 
 `apps/MobileHeader.tsx` already implements the intended mobile header, recent-session switcher, metadata popover and workspace activity marker. It reads `useSession`, `useSessionUIStore`, `useDirectoryStore`, `useGitStore`, multi-run state and `MobileSessionSwitcher`. Adding only a title prop will not remove those data reads. Split its presentation from the existing OpenCode container: title, subtitle/metadata, selected identity, activity, switcher items and callbacks must arrive from one selected-session owner.

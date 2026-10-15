@@ -37,6 +37,24 @@ slots. It reads no OpenCode stores, effective directory or runtime APIs.
 subscription, pending global file focus and lazy full editor. Herdr supplies its
 host-owned directory and manual editor through the same view.
 
+`../MobileConnectionWelcomeView.tsx` owns the original connection welcome
+geometry, scan action, saved rows and collapsing manual section. It accepts
+caller-supplied logo, title, notice, manual/replacement forms and toolbar, plus
+scan state, saved display records and callbacks. It imports no connection store,
+scanner or runtime bootstrap. The original `MobileConnectionWelcome` keeps its
+connection hook, password flow, QR lifecycle, URL payload parsing and long-press
+diagnostics. Herdr supplies its own pairing/confirmation owner through the same
+view without exposing original connection or token records to the presentation.
+The manual form remains mounted while collapsed; its owner controls hidden input
+tab order and its own errors. The view shows its separate error only when manual
+entry is closed. Replacement forms own their contents and error presentation.
+
+`MobileConnectionWelcomeView.vitest.tsx` covers original phone geometry,
+source-free view rendering, supplied manual/replacement forms, scan/saved/manual
+callbacks, busy rows, and the original wrapper's saved metadata, notice, keyboard
+attributes and logo diagnostics. It performs no server requests. Native scanning,
+secure storage and actual pairing/recovery remain controller/runtime acceptance.
+
 ## Controller contract
 
 `types.ts` defines the exact input records:

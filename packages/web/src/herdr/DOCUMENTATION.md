@@ -83,6 +83,29 @@ system Back and native lifecycle acceptance require their own runtime checks.
 
 ## Transport and credentials
 
+`ConnectionWelcome` uses the original `MobileConnectionWelcomeView`. Its saved
+rows contain origins only. The original OpenChamber wrapper retains its own
+connection/password controller and protocol. Herdr returns to the same monitor
+when the connection page closes; hidden shell portals and content reads are
+disabled while it is open. Camera intake uses the shared raw `scanQrText`
+adapter and the existing Back/visibility overlay. Herdr parses the returned
+text itself and never passes it to the OpenChamber pairing controller.
+
+`HerdrConnectionController` owns explicit confirmation, synchronous single
+dispatch, captured server/payload and credential persistence. It checks storage
+initialization before consuming a code. A confirmed credential stays in memory
+when saving fails; confirmation then retries only the save. A newer app/QR
+intent waits for the captured operation, remains a preview and suppresses old
+navigation. Saved selection persists its order before activation and does not
+redeem. Unmount prevents a late navigation callback while the captured save can
+finish. New OS events supersede a delayed cold-launch URL.
+
+Camera and OS intake accept the CLI's HTTPS root `#pairing=` link and precise
+`openherdr://connect` form. The outer origin and payload origin must agree.
+OpenChamber v2, bare URLs, credential queries and other protocols are rejected.
+The manual form retains HTTP origins and fragment-plus-typed-server support,
+including local development. Intake never automatically confirms a connection.
+
 `transport.ts` owns server normalization, pairing, bearer requests and parsed
 Herdr contracts. A server identity is an explicit HTTP/HTTPS origin. Pairing
 links carry `{pairingId,secret,server?}` as base64url JSON in `#pairing=`. The

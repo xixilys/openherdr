@@ -21,6 +21,17 @@ browser. The one-time link expires after 10 minutes. A paired device can access
 the selected Herdr session and its enabled saved SSH machines. Keep pairing links
 private. Generate a fresh link for each device.
 
+The Android app also has an in-app QR scanner. Scanning or opening an
+`openherdr://connect` link previews the server and still requires Connect.
+The connection screen shares OpenChamber's original Welcome layout and saved
+connection rows. Open Server URL from the window drawer to switch to a saved
+origin or pair another server; Cancel returns to the monitor. A failed device
+credential save retains that confirmed connection in memory for a save-only
+retry. Android camera and secure-vault relaunch acceptance remain unverified.
+The current OpenHerdr iOS SwiftPM project does not include the scanner.
+
+![Shared connection page in the actual mobile-width browser](assets/connection-welcome.jpg)
+
 The local application is at `http://127.0.0.1:4318`. Cloudflare prints its actual
 HTTPS URL on startup. Quick Tunnel addresses change after a restart. Browser
 credentials belong to that exact origin, so a new address needs a new pairing.

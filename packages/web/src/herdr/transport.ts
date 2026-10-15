@@ -27,12 +27,26 @@ export function normalizeServer(value: string): string {
 }
 
 export function parsePairing(value: string): Pairing {
-  const fragment = value.startsWith('#') ? value : new URL(value).hash;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('openherdr:')) return parseNativePairing(trimmed);
+  let outerOrigin: string | null = null;
+  let fragment = trimmed;
+  if (!trimmed.startsWith('#')) {
+    let url: URL;
+    try { url = new URL(trimmed); } catch { throw new Error('invalidPairing'); }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.pathname !== '/') throw new Error('invalidPairing');
+    outerOrigin = url.origin;
+    fragment = url.hash;
+  }
   const encoded = new URLSearchParams(fragment.slice(1)).get('pairing');
   if (!encoded || encoded.length > 10000 || !/^[a-zA-Z0-9_-]+$/.test(encoded)) throw new Error('invalidPairing');
+  let pairing: Pairing;
   try {
-    return pairingSchema.parse(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')), char => char.charCodeAt(0)))));
+    pairing = pairingSchema.parse(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')), char => char.charCodeAt(0)))));
   } catch { throw new Error('invalidPairing'); }
+  const server = pairing.server ? normalizeServer(pairing.server) : outerOrigin;
+  if (outerOrigin && server !== outerOrigin) throw new Error('invalidServer');
+  return server ? { ...pairing, server } : pairing;
 }
 
 export function parseNativePairing(value: string): Pairing {

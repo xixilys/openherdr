@@ -121,6 +121,24 @@ afterEach(async () => {
   finally { restore(); }
 });
 
+test('Server opens the shared Welcome above the window drawer and Cancel restores its monitor', async () => {
+  await until(() => monitorText()?.includes('LOCAL_VISIBLE') === true);
+  await openWindows();
+  expect(document.querySelector('[role="dialog"][aria-label="Sessions"]')).not.toBeNull();
+  await click('Server URL'); await wait(240);
+  const closedDrawer = document.querySelector<HTMLElement>('[role="dialog"][aria-label="Sessions"]');
+  expect(closedDrawer?.getAttribute('aria-hidden')).toBe('true');
+  expect(closedDrawer?.style.pointerEvents).toBe('none');
+  expect([...document.querySelectorAll('h1')].some(item => item.textContent === 'Connect to OpenHerdr')).toBe(true);
+  const readsBefore = rpcs.length; await wait(240);
+  expect(rpcs).toHaveLength(readsBefore);
+  expect(requests.includes('/api/pairing/redeem')).toBe(false);
+  await click('Cancel'); await wait(240);
+  expect([...document.querySelectorAll('h1')].some(item => item.textContent === 'Connect to OpenHerdr')).toBe(false);
+  await until(() => monitorText()?.includes('LOCAL_VISIBLE') === true);
+  expect(host.querySelector('[data-herdr-pane]')?.getAttribute('data-herdr-pane')).toBe('w1:p1');
+});
+
 test('the default mobile entry reads existing windows without conversations or write controls', async () => {
   await until(() => monitorText()?.includes('LOCAL_VISIBLE') === true);
   expect(requests.some(path => path.includes('/conversations/'))).toBe(false);

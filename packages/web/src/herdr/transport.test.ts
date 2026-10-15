@@ -17,6 +17,13 @@ describe('pairing and endpoint boundary', () => {
     expect(normalizeServer('https://work.example/')).toBe('https://work.example');
     for (const value of ['https://user:pass@work.example', 'https://work.example/api', 'https://work.example/?token=secret', 'file:///tmp/local']) expect(() => normalizeServer(value)).toThrow();
   });
+  test('manual localhost links retain HTTP support while origins must agree', () => {
+    const payload = { pairingId: 'local-once', secret: 'fixture-secret', server: 'http://127.0.0.1:4318' };
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    expect(parsePairing(`http://127.0.0.1:4318/#pairing=${encoded}`)).toEqual(payload);
+    expect(() => parsePairing(`https://other.test/#pairing=${encoded}`)).toThrow('invalidServer');
+    expect(() => parsePairing(`ftp://127.0.0.1/#pairing=${encoded}`)).toThrow('invalidPairing');
+  });
   test('all supported translations have a complete scoped dictionary', () => {
     for (const translated of Object.values(rows)) { expect(translated).toHaveLength(order.length); expect(translated.every(value => value.length > 0)).toBe(true); }
   });

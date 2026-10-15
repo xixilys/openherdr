@@ -4,9 +4,10 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@/components/icon/Icon';
 import { Button } from '@/components/ui/button';
 import { OpenChamberLogo } from '@/components/ui/OpenChamberLogo';
+import { registerBackLayer } from '@/lib/mobileBackLayers';
 import { useI18n } from '@/lib/i18n';
 
-export const MobileQrScannerOverlay: React.FC<{ onCancel: () => void }> = ({ onCancel }) => {
+export const MobileQrScannerOverlay: React.FC<{ onCancel: () => void; hint?: string }> = ({ onCancel, hint }) => {
   const { t } = useI18n();
   const overlayRef = React.useRef<HTMLDivElement>(null);
 
@@ -63,6 +64,8 @@ export const MobileQrScannerOverlay: React.FC<{ onCancel: () => void }> = ({ onC
     };
   }, []);
 
+  React.useEffect(() => registerBackLayer(onCancel), [onCancel]);
+
   React.useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') onCancel();
@@ -82,7 +85,7 @@ export const MobileQrScannerOverlay: React.FC<{ onCancel: () => void }> = ({ onC
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <div className="aspect-square w-full max-w-72 rounded-[28px] border-2 border-foreground/90 shadow-[0_0_0_9999px_color-mix(in_srgb,var(--surface-background)_18%,transparent)]" aria-hidden />
         <p className="max-w-sm rounded-[16px] border border-border/60 bg-background px-4 py-3 text-center typography-body text-foreground shadow-sm">
-          {t('mobile.connect.welcome.scanHint')}
+          {hint ?? t('mobile.connect.welcome.scanHint')}
         </p>
       </div>
       <Button type="button" variant="outline" size="lg" className="mx-auto min-h-12 w-full max-w-sm bg-background" onClick={onCancel}>

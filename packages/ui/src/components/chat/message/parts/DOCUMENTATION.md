@@ -314,6 +314,21 @@ Why: only navigation tools use the compact static path; all other tools need obs
 ## Quick map of files in this folder
 
 - Text: `AssistantTextPart.tsx`, `UserTextPart.tsx`
+- `UserMessagePresentation.tsx` owns the shared end-aligned, 85-percent user
+  bubble and two-line text collapse. `UserTextView` accepts controlled expansion
+  and prepared inline children. `UserTextPart` keeps source context, skills,
+  attachments and message-level truncation reporting; `ChatMessage` keeps its
+  actions outside the shared bubble through the footer slot.
+- `ToolSummaryView.tsx` owns the compact inline tool header and expandable
+  connector/body presentation. It accepts resolved title, icon, summary,
+  status, source timestamps and detail children. `ToolPart` keeps editor and
+  subagent actions, content loading, deferred mounting and multi-file patch
+  headers. `toolSummaryStyles.ts` shares the original row tokens. Standalone
+  hosts import these view files directly, without the OpenCode containers.
+- `toolDescription.ts` owns the original localized tool summary and relative
+  display-path helpers. Both the OpenCode wrapper and standalone hosts use
+  `getToolDescription` and `getToolDescriptionPath`; tool input/metadata parsing
+  stays in `lib/opencode/tools`.
 - `GeneratedJsonResultCard.tsx` keeps recognized commit and change-request JSON
   in the shared card presentation. With `MarkdownPresentationContext`, it uses
   generic change-request wording without session or repository hooks. The

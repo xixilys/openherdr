@@ -11,14 +11,17 @@ and is kept outside published source. See OPENHERDR.md and UI_PARITY_MAP.md.
 
 The current implementation is a functional integration increment. It does not
 establish complete UI or feature parity. The original OpenChamber entrypoint
-is retained. A public source repository was authorized and created at
-`xixilys/openherdr`; a repository's existence does not prove a source push.
+is retained. Public `xixilys/openherdr` hosts the development source. The first
+published integration revision was `c1b07b395`. The current chat presentation
+iteration follows that baseline; complete native interaction remains pending.
 
 ## Integrated source
 
-- Original mobile header/drawer presentation, themes, typography and native
-  Back/lifecycle helpers are shared. The standalone conversation layout,
-  session rows and composer still need closer original presentation reuse.
+- Original mobile header/drawers, right-aligned user bubbles, two-line long
+  message expansion, inline tool summaries, floating pill composer and title
+  session popup are shared with the original OpenCode wrappers. Herdr retains
+  its own source controller and actual mutations. Themes, typography and native
+  Back/lifecycle helpers remain shared. Full interaction fidelity is pending.
 - Local and saved-SSH Files/Git provide real manual editing, revision conflict
   refusal, uploads/downloads, status/diff, stage/unstage, commits, branches and
   checkout. Native Herdr worktree create/open/remove is connected.
@@ -52,6 +55,20 @@ is retained. A public source repository was authorized and created at
 - Through the rendered browser editor, a fixture file was edited and saved;
   disk readback matched. The actual original diff renderer displayed the change.
   Latest mobile-width source now opens the original header and drawers.
+- The restored chat ran one bounded real model request through the public HTTPS
+  bridge. It displayed the actual shell marker, tool duration, Markdown table
+  and code block. Tool details and long-message expansion/collapse were exercised.
+  On the final web build, keyboard scrolling exposed the original return-to-latest
+  action; clicking it returned to the measured end of the transcript.
+  An isolated Herdr session restart required explicit history rebind; the saved
+  conversation remained available. A transient event disconnect cleared after
+  recovery. These are browser checks.
+- The current DOM integration check covers stream failure/recovery, viewport
+  changes, reader position, return to latest, permission-before-form docking and
+  retaining a form answer while a permission temporarily hides it. Shared
+  composer checks separate running, queue and abort capability. Import checks
+  reject accidental initialization of the original OpenCode runtime.
+  The focused shared presentation suites pass 32 tests and 188 assertions.
 - Focused HTTP checks pass 35/35. New preference/project-context service and
   client checks pass, including same-pane project changes, draft retention and
   delayed reads after a confirmed write. Independent review verified those
@@ -74,9 +91,14 @@ Browser checks and APK compilation do not replace that acceptance.
 
 ## Remaining work
 
-The next UI iteration restores the original chat/composer and session
-interaction against the human's reference. No public reference image or
-synthetic transcript will be used as functional proof.
+The current UI iteration validates the restored chat/composer and session
+interaction against the human's reference. Browser checks have exercised
+actual model/agent selection, title popup, new-session creation and long-message
+collapse. A catalog-enabled Luna selection was rejected by the provider group;
+that failure remains in its owned fixture. The configured default model then
+completed the bounded tool/Markdown check. Chrome's extension lacks file-URL
+access, so its actual attachment upload remains blocked. No private reference image or
+synthetic transcript is used as functional proof.
 
 Remote structured drivers, Codex/Claude adapters, ordinary project registration,
 provider/MCP/plugin configuration, schedules/agent memory, notifications/voice,
@@ -85,10 +107,14 @@ Claude's selected local launcher is currently unavailable and was not repaired
 by changing providers or credentials. Full native/physical-phone validation,
 release signing and store distribution remain unverified or unperformed.
 
-Dot received earlier MCP delivery callbacks, but the latest inbox check has no
-substantive reply or dispatch agreement. User-authorized public source sharing
-and the corrected UI direction will be supplied after a verified source push.
-Delivery, source availability and agreement remain separate facts.
+Dot accepted the read-only cloud Android UI comparison and returned substantive
+source findings against the published integration. They cover composer state,
+selected-conversation navigation, message expansion, tool presentation, request
+docks and native interaction. The current integration addresses navigation,
+message-level expansion, independent running/queue/abort controls and dock
+priority. Native interaction and the remaining tool-specific views still need
+work. The reviewer's actual model is unconfirmed; no Android runtime acceptance
+was claimed by that review.
 
 The historical terminal baseline was committed at `9991c6f8d`; its validations
 remain in validation.json. It is not the current full-replication result. The

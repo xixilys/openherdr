@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useChatSurfaceMode } from './useChatSurfaceMode';
 
 import MessageBody, { type MessageExtraAction } from './message/MessageBody';
+import { UserMessageBubble } from './message/parts/UserMessagePresentation';
 import { GuestIcon } from '@/components/layout/GuestRailIcon';
 import { useGuestActions } from '@/hooks/useGuestSurfaces';
 import { buildGuestMessageItem, guestMessageActionsFor } from '@/lib/guests/actions';
@@ -628,8 +629,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         return null;
     }
 
-    const userMessageRadius = 'var(--radius-xl)';
-
     return (
         <>
             <div
@@ -651,54 +650,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 ignoreContextDisabled
                                 respectReducedMotion
                             >
-                                <div className={cn('relative flex flex-col items-end', !isMobile ? 'group/user-shell' : undefined)}>
-                                    {/* peek: the action row is suppressed, so reserve only its
-                                        gap to the next message, OUTSIDE the bubble background. */}
-                                    <div className={cn('max-w-[85%]', chatSurfaceMode === 'peek' ? 'pb-3' : undefined)}>
-                                        <div
-                                            style={{
-                                                backgroundColor: 'var(--chat-user-message-bg)',
-                                                borderRadius: userMessageRadius,
-                                                borderBottomRightRadius: 'var(--radius-sm)',
-                                            }}
-                                            className="px-5 py-3 shadow-none border border-primary/5"
-                                            data-user-message-bubble=""
-                                        >
-                                            <MessageBody
-                                                messageId={message.info.id}
-                                                parts={visibleParts}
-                                                isUser={isUser}
-                                                isMessageCompleted={isMessageCompleted}
-                                                messageFinish={messageFinish}
-                                                messageCreatedAt={messageCreatedAt ?? undefined}
-                                                 isMobile={isMobile}
-                                                 alwaysShowActions={alwaysShowMessageActions}
-                                                 hasTouchInput={hasTouchInput}
-                                                copiedCode={copiedCode}
-                                                onCopyCode={handleCopyCode}
-                                                expandedTools={expandedTools}
-                                                onToggleTool={handleToggleTool}
-                                                onShowPopup={handleShowPopup}
-                                                streamPhase={streamPhase}
-                                                allowAnimation={allowAnimation}
-                                                shouldShowHeader={false}
-                                                hasTextContent={hasTextContent}
-                                                onCopyMessage={handleCopyMessage}
-                                                onCopyLink={handleCopyLink}
-                                                copiedMessage={copiedMessage}
-                                                showReasoningTraces={showReasoningTraces}
-                                                agentMention={agentMention}
-                                                onRevert={handleRevert}
-                                                onFork={isUser ? handleFork : undefined}
-                                                contextPinned={isPinnedIntoContext}
-                                                contextPinPending={pinPending}
-                                                onToggleContextPin={canPinIntoContext && messageCreatedAt ? handleToggleContextPin : undefined}
-                                                errorMessage={assistantErrorText}
-                                                errorResponseBody={assistantErrorResponseBody}
-                                                extraActions={guestMessageActions}
-                                            />
-                                        </div>
-                                    </div>
+                                <UserMessageBubble className={!isMobile ? 'group/user-shell' : undefined} peek={chatSurfaceMode === 'peek'} footer={
                                     <MessageBody
                                         messageId={message.info.id}
                                         parts={visibleParts}
@@ -733,7 +685,41 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                         userMessagePart="actions"
                                         extraActions={guestMessageActions}
                                     />
-                                </div>
+                                }>
+                                    <MessageBody
+                                        messageId={message.info.id}
+                                        parts={visibleParts}
+                                        isUser={isUser}
+                                        isMessageCompleted={isMessageCompleted}
+                                        messageFinish={messageFinish}
+                                        messageCreatedAt={messageCreatedAt ?? undefined}
+                                        isMobile={isMobile}
+                                        alwaysShowActions={alwaysShowMessageActions}
+                                        hasTouchInput={hasTouchInput}
+                                        copiedCode={copiedCode}
+                                        onCopyCode={handleCopyCode}
+                                        expandedTools={expandedTools}
+                                        onToggleTool={handleToggleTool}
+                                        onShowPopup={handleShowPopup}
+                                        streamPhase={streamPhase}
+                                        allowAnimation={allowAnimation}
+                                        shouldShowHeader={false}
+                                        hasTextContent={hasTextContent}
+                                        onCopyMessage={handleCopyMessage}
+                                        onCopyLink={handleCopyLink}
+                                        copiedMessage={copiedMessage}
+                                        showReasoningTraces={showReasoningTraces}
+                                        agentMention={agentMention}
+                                        onRevert={handleRevert}
+                                        onFork={isUser ? handleFork : undefined}
+                                        contextPinned={isPinnedIntoContext}
+                                        contextPinPending={pinPending}
+                                        onToggleContextPin={canPinIntoContext && messageCreatedAt ? handleToggleContextPin : undefined}
+                                        errorMessage={assistantErrorText}
+                                        errorResponseBody={assistantErrorResponseBody}
+                                        extraActions={guestMessageActions}
+                                    />
+                                </UserMessageBubble>
                             </FadeInOnReveal>
                         )
                     ) : (

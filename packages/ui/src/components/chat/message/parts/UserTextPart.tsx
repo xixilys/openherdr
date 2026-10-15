@@ -22,6 +22,7 @@ import { prepareUserMarkdownContent, SKILL_TOKEN_PATTERN } from './userTextPartC
 import { extractTerminalContexts } from '@/lib/messages/terminalContext';
 import { readContextPart } from '@/lib/messages/contextParts';
 import UserContextPart from './UserContextPart';
+import { UserTextView } from './UserMessagePresentation';
 
 type PartWithText = Part & { text?: string; content?: string; value?: string };
 
@@ -71,7 +72,6 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
     const terminalContextState = React.useMemo(() => extractTerminalContexts(serializedText), [serializedText]);
     const textContent = terminalContextState.visibleText;
 
-    const [isTruncated, setIsTruncated] = React.useState(false);
     const userMessageRenderingMode = useUIStore((state) => state.userMessageRenderingMode);
     const collapsibleUserMessages = useUIStore((state) => state.collapsibleUserMessages);
     const skills = useSkillsStore((state) => state.skills);
@@ -80,7 +80,6 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
     const { t } = useI18n();
     const normalizedRenderingMode = normalizeUserMessageRenderingMode(userMessageRenderingMode);
     const isCollapsed = collapsibleUserMessages && !messageExpanded;
-    const textRef = React.useRef<HTMLDivElement>(null);
     const skillByName = React.useMemo(() => new Map(skills.map((skill) => [skill.name, skill])), [skills]);
     const themeSystem = useOptionalThemeSystem();
     const themeVariant = themeSystem?.currentTheme.metadata.variant === 'light' ? 'light' : 'dark';
@@ -99,85 +98,7 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
         openContextFile(effectiveDirectory || getDirectoryForFilePath('', skill.path) || '/', skill.path);
     }, [effectiveDirectory, openContextFile, skillByName]);
 
-    const hasActiveSelectionInElement = React.useCallback((element: HTMLElement): boolean => {
-        if (typeof window === 'undefined') {
-            return false;
-        }
-
-        const selection = window.getSelection();
-        if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
-            return false;
-        }
-
-        const range = selection.getRangeAt(0);
-        return element.contains(range.startContainer) || element.contains(range.endContainer);
-    }, []);
-
-    // Measured before paint, and reported to the message (which renders the
-    // show-full-message link) before paint too: measured after it, a sent
-    // message painted without the link and grew by its height a frame later,
-    // and the list placed the grown row 28px too high before settling it.
-    React.useLayoutEffect(() => {
-        const el = textRef.current;
-        if (!el) return;
-        if (!collapsibleUserMessages || messageExpanded) return;
-
-        const checkTruncation = () => {
-            setIsTruncated(el.scrollHeight > el.clientHeight);
-        };
-
-        checkTruncation();
-        // A just-sent message mounts while its turn is still settling, so the
-        // synchronous read can land before the clamp has its final geometry.
-        // One deferred re-read covers that without waiting for an observer.
-        const initialFrame = window.requestAnimationFrame(checkTruncation);
-
-        // `el` is the clamped box: once line-clamp pins it to two lines its own
-        // size stops changing, so observing it alone freezes the first
-        // measurement. Markdown settles after mount (highlighting, late layout),
-        // and a message measured while still short would never regain the
-        // expand affordance. The children keep their natural height under the
-        // clamp, so they are what reports content growth.
-        const resizeObserver = new ResizeObserver(checkTruncation);
-        resizeObserver.observe(el);
-
-        const observeChildren = () => {
-            for (const child of Array.from(el.children)) {
-                resizeObserver.observe(child);
-            }
-        };
-        observeChildren();
-
-        // The renderer swaps subtrees as it settles; re-observe the new children.
-        const mutationObserver = new MutationObserver(() => {
-            observeChildren();
-            checkTruncation();
-        });
-        mutationObserver.observe(el, { childList: true, subtree: true });
-
-        return () => {
-            window.cancelAnimationFrame(initialFrame);
-            mutationObserver.disconnect();
-            resizeObserver.disconnect();
-        };
-    }, [collapsibleUserMessages, textContent, messageExpanded]);
-
-    React.useEffect(() => {
-        if (!collapsibleUserMessages) {
-            setIsTruncated(false);
-        }
-    }, [collapsibleUserMessages]);
-
-    React.useLayoutEffect(() => {
-        onTruncationChange(partIndex, isTruncated);
-    }, [isTruncated, onTruncationChange, partIndex]);
-
-    React.useEffect(() => () => onTruncationChange(partIndex, false), [onTruncationChange, partIndex]);
-
-    const handleExpand = React.useCallback(() => {
-        setIsTruncated(true);
-        onExpandMessage();
-    }, [onExpandMessage]);
+    const reportTruncation = React.useCallback((truncated: boolean) => onTruncationChange(partIndex, truncated), [onTruncationChange, partIndex]);
 
     const handleClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         const target = event.target as HTMLElement | null;
@@ -188,25 +109,8 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
             event.preventDefault();
             event.stopPropagation();
             openSkill(skillName);
-            return;
         }
-
-        const element = textRef.current;
-        if (!element) {
-            return;
-        }
-
-        if (hasActiveSelectionInElement(element)) {
-            return;
-        }
-
-        // Measure at click time instead of trusting the observed flag: whether
-        // the text is clipped right now is what decides if expanding does
-        // anything, and the flag can still be catching up on a fresh message.
-        if (collapsibleUserMessages && !messageExpanded && element.scrollHeight > element.clientHeight) {
-            handleExpand();
-        }
-    }, [collapsibleUserMessages, messageExpanded, handleExpand, hasActiveSelectionInElement, openSkill]);
+    }, [openSkill]);
 
     const processedMarkdownContent = React.useMemo(() => {
         return prepareUserMarkdownContent({
@@ -308,16 +212,7 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
 
     return (
         <div className="relative" key={part.id || `${messageId}-user-text`}>
-            <div
-                className={cn(
-                    "break-words font-sans typography-markdown-body",
-                    normalizedRenderingMode === 'plain' && 'whitespace-pre-wrap [unicode-bidi:plaintext] text-start',
-                    isCollapsed && "line-clamp-2",
-                    collapsibleUserMessages && isTruncated && !messageExpanded && "cursor-pointer"
-                )}
-                ref={textRef}
-                onClick={handleClick}
-            >
+            <UserTextView text={textContent} expanded={messageExpanded} onToggle={onExpandMessage} collapsible={collapsibleUserMessages} showToggle={false} renderingMode={normalizedRenderingMode} onTruncationChange={reportTruncation} onTextClick={handleClick}>
                 {normalizedRenderingMode === 'markdown' ? (
                     <SimpleMarkdownRenderer
                         content={processedMarkdownContent}
@@ -345,7 +240,7 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
                 ) : (
                     plainTextContent
                 )}
-            </div>
+            </UserTextView>
             {terminalContextState.contexts.length > 0 ? (
                 <div className="mt-2 space-y-1.5">
                     {terminalContextState.contexts.map((context, index) => (

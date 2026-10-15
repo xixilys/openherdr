@@ -4,7 +4,9 @@ import { useMobileAppActions } from '@/apps/mobileAppContext';
 import { RuntimeAPIContext } from '@/contexts/runtimeAPIContext';
 import { cn } from '@/lib/utils';
 import { SimpleMarkdownRenderer } from '../../MarkdownRenderer';
-import { BlockLine } from './BlockLine';
+import { ToolSummaryView, ToolSummaryDetails } from './ToolSummaryView';
+import { normalizeDisplayPath, getRelativePath, getToolDescription, getToolDescriptionPath } from './toolDescription';
+import { TOOL_ROW_TITLE_CLASS, TOOL_ROW_DESCRIPTION_CLASS, TOOL_ERROR_ICON_STYLE, TOOL_NORMAL_ICON_STYLE, TOOL_ERROR_TITLE_STYLE, TOOL_NORMAL_TITLE_STYLE } from './toolSummaryStyles';
 import { FormMarkdown } from '../../FormMarkdown';
 import { MessageFilesDisplay } from '../../FileAttachment';
 import { getToolMetadata } from '@/lib/toolHelpers';
@@ -54,7 +56,6 @@ import {
     useGuestToolPresentation,
     type GuestToolRule,
 } from '@/lib/guests/tool-presentation';
-import { useDurationTickerNow } from '@/hooks/useDurationTicker';
 import {
     prepareTaskToolOutput,
     readTaskSessionIdFromOutput,
@@ -95,7 +96,6 @@ import {
     subagentDescription,
     isWriteTool,
     normalizeToolName,
-    toolDescription, type ToolDescription,
     toolInputPath,
     toolFileDiffs,
 } from '@/lib/opencode/tools';
@@ -112,10 +112,6 @@ import { useToolContentCompletion } from './useToolContentCompletion';
 
 type ToolJsonViewMode = 'summary' | 'formatted' | 'raw';
 
-const TOOL_ROW_TEXT_CLASS = '!text-[length:var(--text-meta)] !leading-5 sm:!leading-6 tracking-normal';
-const TOOL_ROW_TITLE_CLASS = cn('typography-meta font-medium', TOOL_ROW_TEXT_CLASS);
-const TOOL_ROW_DESCRIPTION_CLASS = cn('typography-meta', TOOL_ROW_TEXT_CLASS);
-
 type ToolStateWithMetadata = ToolStateUnion & { metadata?: Metadata; input?: ToolInput; output?: string; error?: string; time?: { start: number; end?: number }; attachments?: Array<FilePart> };
 
 interface ToolPartProps {
@@ -127,20 +123,6 @@ interface ToolPartProps {
     onShowPopup?: (content: ToolPopupContent) => void;
     animateTailText?: boolean;
 }
-
-const formatDuration = (start: number, end?: number, now: number = Date.now()) => {
-    const duration = Math.max(0, (end ?? now) - start);
-    const seconds = duration / 1000;
-
-    const displaySeconds = seconds < 0.05 && end !== undefined ? 0.1 : seconds;
-    return `${displaySeconds.toFixed(1)}s`;
-};
-
-const LiveDuration: React.FC<{ start: number; end?: number; active: boolean }> = ({ start, end, active }) => {
-    const now = useDurationTickerNow(active, 250);
-
-    return <>{formatDuration(start, end, now)}</>;
-};
 
 const deferredToolBodyMounts: Array<{ active: boolean; fn: () => void }> = [];
 let deferredToolBodyFrame: number | undefined;
@@ -290,38 +272,6 @@ const buildWritePreviewPatch = (filePath: string | undefined, content: string): 
     ].join('\n');
 };
 
-const normalizeDisplayPath = (value: string): string => {
-    const trimmed = value.trim().replace(/\\/g, '/').replace(/\/{2,}/g, '/');
-    if (!trimmed || trimmed === '/') {
-        return trimmed;
-    }
-    return trimmed.replace(/\/+$/, '');
-};
-
-const getRelativePath = (absolutePath: string, currentDirectory: string): string => {
-    const normalizedAbsolutePath = normalizeDisplayPath(absolutePath);
-    const normalizedCurrentDirectory = normalizeDisplayPath(currentDirectory);
-
-    if (!normalizedAbsolutePath) {
-        return '';
-    }
-
-    if (!normalizedCurrentDirectory) {
-        return normalizedAbsolutePath;
-    }
-
-    if (normalizedAbsolutePath === normalizedCurrentDirectory) {
-        return '.';
-    }
-
-    const prefix = `${normalizedCurrentDirectory}/`;
-    if (normalizedAbsolutePath.startsWith(prefix)) {
-        return normalizedAbsolutePath.slice(prefix.length);
-    }
-
-    return normalizedAbsolutePath;
-};
-
 type ToolDiagnostic = {
     message: string;
     line: number;
@@ -429,48 +379,6 @@ const parseQuestionOutput = (output: string): Array<{ question: string; answer: 
     }
 
     return pairs.length > 0 ? pairs : null;
-};
-
-const getToolDescriptionPath = (part: ToolPartType, state: ToolStateUnion, currentDirectory: string): string | null => {
-    const stateWithData = state as ToolStateWithMetadata;
-    const described = toolDescription(part.tool, stateWithData.input, stateWithData.metadata);
-    if (described?.kind !== 'path') {
-        return null;
-    }
-    return getRelativePath(described.value, currentDirectory);
-};
-
-type DescriptionTranslate = (
-    key: 'chat.toolPart.questionsAsked' | 'chat.toolPart.filesCount' | 'chat.toolPart.moreToolCalls',
-    params: { count: number },
-) => string;
-
-/** Localized text for a tool description; paths are made relative to the project. */
-const describeTool = (described: ToolDescription | null, currentDirectory: string, t: DescriptionTranslate): string => {
-    if (!described) return '';
-    switch (described.kind) {
-        case 'path':
-            return getRelativePath(described.value, currentDirectory);
-        case 'text':
-            return described.value;
-        case 'questions':
-            return t('chat.toolPart.questionsAsked', { count: described.count });
-        case 'files':
-            return t('chat.toolPart.filesCount', { count: described.count });
-        case 'tools': {
-            const named = described.calls
-                .map(({ name, count }) => (count > 1 ? `${name} \u00d7${count}` : name))
-                .join(', ');
-            return described.overflow > 0
-                ? `${named}, ${t('chat.toolPart.moreToolCalls', { count: described.overflow })}`
-                : named;
-        }
-    }
-};
-
-const getToolDescription = (part: ToolPartType, state: ToolStateUnion, currentDirectory: string, t: DescriptionTranslate): string => {
-    const stateWithData = state as ToolStateWithMetadata;
-    return describeTool(toolDescription(part.tool, stateWithData.input, stateWithData.metadata), currentDirectory, t);
 };
 
 interface ToolScrollableSectionProps {
@@ -942,11 +850,6 @@ const TOOL_COLLAPSED_CUSTOM_STYLE: React.CSSProperties = {
 };
 
 const CODE_TAG_PROPS = { style: { background: 'transparent', backgroundColor: 'transparent' } };
-
-const TOOL_ERROR_ICON_STYLE: React.CSSProperties = { color: 'var(--status-error)' };
-const TOOL_NORMAL_ICON_STYLE: React.CSSProperties = { color: 'var(--tools-icon)' };
-const TOOL_ERROR_TITLE_STYLE: React.CSSProperties = { color: 'var(--status-error)' };
-const TOOL_NORMAL_TITLE_STYLE: React.CSSProperties = { color: 'var(--tools-title)' };
 
 const renderPathLikeGitChanges = (path: string, grow = true) => {
     const lastSlash = path.lastIndexOf('/');
@@ -1808,17 +1711,6 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
         }
     };
 
-    const handleMainKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-        // Nested buttons (quick-open, copy) handle their own Enter/Space; the row
-        // must not swallow the key and toggle instead.
-        if (event.target !== event.currentTarget) return;
-        if (event.key !== 'Enter' && event.key !== ' ') {
-            return;
-        }
-        event.preventDefault();
-        handleMainClick(event);
-    };
-
     // Quick-open target for the file-link icon in the tool header. Resolves the
     // primary file path (and, for diff tools, the first changed line + diff) so
     // the user can open the file in the side panel (web/desktop) or editor
@@ -1865,8 +1757,6 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
         openQuickTarget();
     };
 
-    const iconStyle = isError ? TOOL_ERROR_ICON_STYLE : TOOL_NORMAL_ICON_STYLE;
-    const titleStyle = isError ? TOOL_ERROR_TITLE_STYLE : TOOL_NORMAL_TITLE_STYLE;
     const shouldRenderExpandedContent = useDeferredExpandedContent(isExpanded);
     const contentCompletion = useToolContentCompletion(
         part,
@@ -1879,241 +1769,167 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
         return null;
     }
 
-    return (
-        <div>
-            {}
-            <div
-                className={cn(
-                    'group/tool flex gap-1.5 pe-2 ps-px py-1.5 rounded-xl',
-                    isMultiFileApplyPatch ? 'flex-wrap items-start cursor-pointer' : 'items-center cursor-pointer',
-                )}
-                onClick={isMultiFileApplyPatch ? () => onToggle(part.id) : handleMainClick}
-                onKeyDown={isMultiFileApplyPatch ? (event) => {
-                    if (event.target !== event.currentTarget) return;
-                    if (event.key !== 'Enter' && event.key !== ' ') return;
-                    event.preventDefault();
-                    onToggle(part.id);
-                } : handleMainKeyDown}
-                role="button"
-                tabIndex={0}
-            >
-                <div className={cn('flex gap-1.5', isMultiFileApplyPatch ? 'w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5' : 'items-center flex-shrink-0')}>
-                    {isMultiFileApplyPatch ? (
-                        <>
-                            <div className="flex h-5 flex-shrink-0 items-center gap-1.5">
-                                <span className="relative h-3.5 w-3.5 flex-shrink-0">
-                                    <span className={cn(
-                                        'absolute inset-0 flex items-center justify-center transition-opacity',
-                                        isExpanded ? 'opacity-0' : 'group-hover/tool:opacity-0',
-                                    )} style={iconStyle}>
-                                        {getToolIcon(normalizedPartTool || part.tool, presentation)}
-                                    </span>
-                                    <Icon
-                                        name={isExpanded ? 'arrow-down-s' : 'arrow-right-s'}
-                                        className={cn(
-                                            'absolute inset-0 h-3.5 w-3.5 transition-opacity',
-                                            isExpanded ? 'opacity-100' : 'opacity-0 group-hover/tool:opacity-100',
-                                        )}
-                                    />
-                                </span>
-                                <MinDurationShineText
-                                    active={Boolean(isActive && !isError)}
-                                    minDurationMs={300}
-                                    className={cn(TOOL_ROW_TITLE_CLASS, 'flex-shrink-0')}
-                                    style={titleStyle}
-                                >
-                                    {displayName}
-                                </MinDurationShineText>
-                            </div>
-                            <ApplyPatchFileButtons
-                                currentDirectory={currentDirectory}
-                                metadata={metadata}
-                                animate={animateTailText}
-                                showFileIcons={showToolFileIcons}
-                                textClassName={TOOL_ROW_DESCRIPTION_CLASS}
-                                openDiffLabel={t('chat.toolPart.openFileDiff')}
-                                onFileClick={runtime?.editor ? openApplyPatchFile : undefined}
-                            />
-                        </>
-                    ) : (
-                        <>
-                            <div
-                                // h-5 matches StaticToolRow's icon column, so expandable
-                                // and static rows come out the same height (the 14px
-                                // icon alone left these rows ~2px shorter).
-                                className="relative h-5 w-3.5 flex-shrink-0 cursor-pointer"
-                                onClick={(event) => { event.stopPropagation(); onToggle(part.id); }}
-                            >
-                                <div
-                                    className={cn(
-                                        'absolute inset-0 flex items-center justify-center transition-opacity',
-                                        isExpanded && 'opacity-0',
-                                        !isExpanded && 'group-hover/tool:opacity-0'
-                                    )}
-                                    style={iconStyle}
-                                >
-                                    {getToolIcon(normalizedPartTool || part.tool, presentation)}
-                                </div>
-                                <div
-                                    className={cn(
-                                        'absolute inset-0 transition-opacity flex items-center justify-center',
-                                        isExpanded && 'opacity-100',
-                                        !isExpanded && 'opacity-0 group-hover/tool:opacity-100'
-                                    )}
-                                >
-                                    {isExpanded ? <Icon name="arrow-down-s" className="h-3.5 w-3.5" /> : <Icon name="arrow-right-s" className="h-3.5 w-3.5" />}
-                                </div>
-                            </div>
-                            <div className={cn('flex items-center min-w-0 flex-1', quickOpenTarget || taskSessionId ? 'gap-1' : 'gap-2')}>
-                                <MinDurationShineText
-                                    active={Boolean(isActive && !isError)}
-                                    minDurationMs={300}
-                                    className={cn(TOOL_ROW_TITLE_CLASS, 'flex-shrink-0')}
-                                    style={titleStyle}
-                                    title={displayName}
-                                >
-                                    {displayName}
-                                </MinDurationShineText>
-                                {quickOpenTarget ? (
-                                    <button
-                                        type="button"
-                                        onClick={handleQuickOpen}
-                                        className={cn(
-                                            'flex-shrink-0 inline-flex h-4 w-4 items-center justify-center rounded transition-opacity hover:bg-interactive-hover',
-                                            'opacity-60 hover:opacity-100 focus-visible:opacity-100',
-                                        )}
-                                        style={{ color: 'var(--tools-icon)' }}
-                                        title={t('chat.toolPart.openFile')}
-                                        aria-label={t('chat.toolPart.openFile')}
-                                    >
-                                        <Icon name="external-link" className="h-3 w-3" />
-                                    </button>
-                                ) : null}
-                                {taskSessionId ? (
-                                    <OpenSubtaskButton sessionId={taskSessionId} agent={subagentAgent(input)} isMobile={isMobile} />
-                                ) : null}
-                            </div>
-                            {showsDuration && typeof effectiveTimeStart === 'number' && !header?.durationUnknown ? (
-                                <span className={cn('flex-shrink-0 tabular-nums text-muted-foreground/80', TOOL_ROW_DESCRIPTION_CLASS)}>
-                                    <LiveDuration
-                                        start={effectiveTimeStart}
-                                        end={typeof effectiveTimeEnd === 'number' ? effectiveTimeEnd : undefined}
-                                        active={Boolean(isActive && typeof effectiveTimeEnd !== 'number')}
-                                    />
-                                </span>
-                            ) : null}
-                            {header?.label ? (
-                                <span className={cn('flex-shrink-0 text-muted-foreground/80', TOOL_ROW_DESCRIPTION_CLASS)}>
-                                    {header.label === 'stopped'
-                                        ? t('chat.toolPart.background.stoppedLabel')
-                                        : t('chat.toolPart.background.label')}
-                                </span>
-                            ) : null}
-                        </>
-                    )}
+    const expandedDetails = (
+        <>
+            {contentCompletion.status === 'whole' ? (
+                <ToolExpandedContent
+                    part={part}
+                    state={state}
+                    currentDirectory={currentDirectory}
+                    isExpanded={isExpanded}
+                    onShowPopup={onShowPopup}
+                    presentation={presentation}
+                />
+            ) : contentCompletion.status === 'loading' ? (
+                contentCompletion.showProgress ? (
+                    <div className="typography-meta py-1 text-muted-foreground">
+                        {t('chat.toolPart.content.loading')}
+                    </div>
+                ) : null
+            ) : (
+                <div className="typography-meta flex items-center gap-2 py-1 text-muted-foreground">
+                    <span>{t('chat.toolPart.content.loadFailed')}</span>
+                    <Button variant="ghost" size="xs" onClick={contentCompletion.retry}>
+                        {t('chat.toolPart.content.retry')}
+                    </Button>
                 </div>
-
-                {!isMultiFileApplyPatch && (
-                    <div className={cn('flex items-center gap-1 flex-1 min-w-0', TOOL_ROW_DESCRIPTION_CLASS)} style={{ color: 'var(--tools-description)' }}>
-                        <div className="flex items-center gap-1 flex-1 min-w-0">
-                            {justificationText && (
-                                <span
-                                    className={cn('min-w-0 truncate', TOOL_ROW_DESCRIPTION_CLASS)}
-                                    style={{ color: 'var(--tools-description)' }}
-                                    title={justificationText}
-                                >
-                                    {justificationText}
-                                </span>
-                            )}
-                            {!justificationText && description && (
-                                descriptionPath && description === descriptionPath ? (
-                                    renderAnimatedPathWithIcon(descriptionPath, animateTailText, false, showToolFileIcons)
-                                ) : (
-                                    <Text
-                                        variant={animateTailText ? 'generate-effect' : 'static'}
-                                        className={cn('min-w-0 truncate', TOOL_ROW_DESCRIPTION_CLASS)}
-                                        style={{ color: 'var(--tools-description)' }}
-                                        title={description}
-                                    >
-                                        {description}
-                                    </Text>
-                                )
-                            )}
-                            {diffStats && (
-                                <span className="flex-shrink-0 inline-flex items-center gap-0 typography-meta" style={{ fontSize: '0.8rem', lineHeight: '1' }}>
-                                    <span style={{ color: 'var(--status-success)' }}>+{diffStats.added}</span>
-                                    <span style={{ color: 'var(--tools-description)' }}>/</span>
-                                    <span style={{ color: 'var(--status-error)' }}>-{diffStats.removed}</span>
-                                </span>
-                            )}
-                            {writeLineCount && (
-                                <span className="flex-shrink-0 inline-flex items-center gap-0 typography-meta" style={{ fontSize: '0.8rem', lineHeight: '1' }}>
-                                    <span style={{ color: 'var(--status-success)' }}>+{writeLineCount}</span>
-                                </span>
-                            )}
-                        </div>
-                        {header?.stop ? (
-                            // A labelled red action, the same one the composer's
-                            // background commands strip offers. The negative
-                            // margin keeps the header row at its text height.
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="xs"
-                                onClick={(event) => { event.stopPropagation(); header.stop?.onStop(); }}
-                                className="-my-0.5 flex-shrink-0 text-[var(--status-error)] hover:text-[var(--status-error)]"
-                                aria-label={header.stop.ariaLabel}
-                            >
-                                <Icon name="stop" className="size-3" />
-                                {t('chat.toolPart.background.stopLabel')}
-                            </Button>
-                        ) : null}
-                    </div>
-                )}
-            </div>
-
-            <div
-                ref={expandedContentRef}
-                aria-hidden={!isExpanded}
-                style={{
-                    height: isExpanded ? 'auto' : '0px',
-                    overflow: isExpanded ? 'visible' : 'hidden',
-                    overflowAnchor: 'none',
-                }}
-            >
-                {shouldRenderExpandedContent ? (
-                    <div
-                        className="relative ms-2 ps-3"
-                    >
-                        <BlockLine onToggle={() => onToggle(part.id)} topOffset={1} />
-                        {contentCompletion.status === 'whole' ? (
-                            <ToolExpandedContent
-                                part={part}
-                                state={state}
-                                currentDirectory={currentDirectory}
-                                isExpanded={isExpanded}
-                                onShowPopup={onShowPopup}
-                                presentation={presentation}
-                            />
-                        ) : contentCompletion.status === 'loading' ? (
-                            contentCompletion.showProgress ? (
-                                <div className="typography-meta py-1 text-muted-foreground">
-                                    {t('chat.toolPart.content.loading')}
-                                </div>
-                            ) : null
-                        ) : (
-                            <div className="typography-meta flex items-center gap-2 py-1 text-muted-foreground">
-                                <span>{t('chat.toolPart.content.loadFailed')}</span>
-                                <Button variant="ghost" size="xs" onClick={contentCompletion.retry}>
-                                    {t('chat.toolPart.content.retry')}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                ) : null}
-            </div>
-        </div>
+            )}
+        </>
     );
+    if (isMultiFileApplyPatch) {
+        const iconStyle = isError ? TOOL_ERROR_ICON_STYLE : TOOL_NORMAL_ICON_STYLE;
+        const titleStyle = isError ? TOOL_ERROR_TITLE_STYLE : TOOL_NORMAL_TITLE_STYLE;
+        return <div>
+            <div className="group/tool flex gap-1.5 pe-2 ps-px py-1.5 rounded-xl flex-wrap items-start cursor-pointer" role="button" tabIndex={0} onClick={() => onToggle(part.id)} onKeyDown={(event) => {
+                if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+                event.preventDefault(); onToggle(part.id);
+            }}>
+                <div className="flex gap-1.5 w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <div className="flex h-5 flex-shrink-0 items-center gap-1.5">
+                        <span className="relative h-3.5 w-3.5 flex-shrink-0">
+                            <span className={cn(
+                                'absolute inset-0 flex items-center justify-center transition-opacity',
+                                isExpanded ? 'opacity-0' : 'group-hover/tool:opacity-0',
+                            )} style={iconStyle}>
+                                {getToolIcon(normalizedPartTool || part.tool, presentation)}
+                            </span>
+                            <Icon
+                                name={isExpanded ? 'arrow-down-s' : 'arrow-right-s'}
+                                className={cn(
+                                    'absolute inset-0 h-3.5 w-3.5 transition-opacity',
+                                    isExpanded ? 'opacity-100' : 'opacity-0 group-hover/tool:opacity-100',
+                                )}
+                            />
+                        </span>
+                        <MinDurationShineText
+                            active={Boolean(isActive && !isError)}
+                            minDurationMs={300}
+                            className={cn(TOOL_ROW_TITLE_CLASS, 'flex-shrink-0')}
+                            style={titleStyle}
+                        >
+                            {displayName}
+                        </MinDurationShineText>
+                    </div>
+                    <ApplyPatchFileButtons
+                        currentDirectory={currentDirectory}
+                        metadata={metadata}
+                        animate={animateTailText}
+                        showFileIcons={showToolFileIcons}
+                        textClassName={TOOL_ROW_DESCRIPTION_CLASS}
+                        openDiffLabel={t('chat.toolPart.openFileDiff')}
+                        onFileClick={runtime?.editor ? openApplyPatchFile : undefined}
+                    />
+                </div>
+            </div>
+            <ToolSummaryDetails expanded={isExpanded} onToggle={() => onToggle(part.id)} contentRef={expandedContentRef} renderContent={shouldRenderExpandedContent}>{expandedDetails}</ToolSummaryDetails>
+        </div>;
+    }
+    return <ToolSummaryView
+        title={displayName}
+        icon={getToolIcon(normalizedPartTool || part.tool, presentation)}
+        status={isError ? 'error' : isActive ? 'running' : 'completed'}
+        startedAt={showsDuration && !header?.durationUnknown ? effectiveTimeStart : undefined}
+        endedAt={effectiveTimeEnd}
+        expanded={isExpanded}
+        onToggle={() => onToggle(part.id)}
+        onActivate={handleMainClick}
+        expandedContentRef={expandedContentRef}
+        renderExpandedContent={shouldRenderExpandedContent}
+        titleActions={quickOpenTarget || taskSessionId ? <>
+            {quickOpenTarget ? (
+                <button
+                    type="button"
+                    onClick={handleQuickOpen}
+                    className={cn(
+                        'flex-shrink-0 inline-flex h-4 w-4 items-center justify-center rounded transition-opacity hover:bg-interactive-hover',
+                        'opacity-60 hover:opacity-100 focus-visible:opacity-100',
+                    )}
+                    style={{ color: 'var(--tools-icon)' }}
+                    title={t('chat.toolPart.openFile')}
+                    aria-label={t('chat.toolPart.openFile')}
+                >
+                    <Icon name="external-link" className="h-3 w-3" />
+                </button>
+            ) : null}
+            {taskSessionId ? (
+                <OpenSubtaskButton sessionId={taskSessionId} agent={subagentAgent(input)} isMobile={isMobile} />
+            ) : null}
+        </> : undefined}
+        statusLabel={header?.label ? t(header.label === 'stopped' ? 'chat.toolPart.background.stoppedLabel' : 'chat.toolPart.background.label') : undefined}
+        summaryContent={<>
+            {justificationText && (
+                <span
+                    className={cn('min-w-0 truncate', TOOL_ROW_DESCRIPTION_CLASS)}
+                    style={{ color: 'var(--tools-description)' }}
+                    title={justificationText}
+                >
+                    {justificationText}
+                </span>
+            )}
+            {!justificationText && description && (
+                descriptionPath && description === descriptionPath ? (
+                    renderAnimatedPathWithIcon(descriptionPath, animateTailText, false, showToolFileIcons)
+                ) : (
+                    <Text
+                        variant={animateTailText ? 'generate-effect' : 'static'}
+                        className={cn('min-w-0 truncate', TOOL_ROW_DESCRIPTION_CLASS)}
+                        style={{ color: 'var(--tools-description)' }}
+                        title={description}
+                    >
+                        {description}
+                    </Text>
+                )
+            )}
+            {diffStats && (
+                <span className="flex-shrink-0 inline-flex items-center gap-0 typography-meta" style={{ fontSize: '0.8rem', lineHeight: '1' }}>
+                    <span style={{ color: 'var(--status-success)' }}>+{diffStats.added}</span>
+                    <span style={{ color: 'var(--tools-description)' }}>/</span>
+                    <span style={{ color: 'var(--status-error)' }}>-{diffStats.removed}</span>
+                </span>
+            )}
+            {writeLineCount && (
+                <span className="flex-shrink-0 inline-flex items-center gap-0 typography-meta" style={{ fontSize: '0.8rem', lineHeight: '1' }}>
+                    <span style={{ color: 'var(--status-success)' }}>+{writeLineCount}</span>
+                </span>
+            )}
+        </>}
+        summaryActions={header?.stop ? (
+            // A labelled red action, the same one the composer's
+            // background commands strip offers. The negative
+            // margin keeps the header row at its text height.
+            <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={(event) => { event.stopPropagation(); header.stop?.onStop(); }}
+                className="-my-0.5 flex-shrink-0 text-[var(--status-error)] hover:text-[var(--status-error)]"
+                aria-label={header.stop.ariaLabel}
+            >
+                <Icon name="stop" className="size-3" />
+                {t('chat.toolPart.background.stopLabel')}
+            </Button>
+        ) : null}
+    >{expandedDetails}</ToolSummaryView>;
 };
 
 class ToolPartErrorBoundary extends React.Component<{

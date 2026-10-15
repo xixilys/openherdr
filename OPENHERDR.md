@@ -89,14 +89,24 @@ Pairing issuance uses a private mode-0600 Unix admin socket owned by this server
 
 ## Current collaboration
 
-Main Codex chat `01a13b81-92a9-7f52-95c6-ac4bb6ee6cc8`; MCP peer `codex-openherdr-20261014`. Dot peer `dot-dac-dse` was sent message `965751cb-b710-4711-9c7a-ebf037033f10` requesting UI review and agreement to dispatch independent cloud UI/QA. Delivery callback was received; substantive reply and dispatch agreement are pending. Do not call receipt an agreement. No private collaboration remote exists yet.
+Main Codex chat `01a13b81-92a9-7f52-95c6-ac4bb6ee6cc8`; MCP peer
+`codex-openherdr-20261014`. Dot peer `dot-dac-dse` explicitly accepted the
+read-only cloud Android UI comparison and returned its substantive source review
+in messages `ebcabf84-8e6d-46cf-9b8b-c2d34577e6eb` and
+`2cdc1c8b-0a23-49cc-af21-d7c21ee77132`. It compared the published integration
+with the original baseline. The actual reviewer model remains unconfirmed.
+This was source review, with no Android runtime acceptance or overlapping writes.
 
-The working implementation is committed locally on `openherdr/main`. Source
-snapshot `8a9aac797` was exported from the approved Mac Direct project and sent
-in message `c83a9603-dd2f-42bc-a2df-6268b5d9032b`; its callback was received.
-Dot has not confirmed reading or dispatch. The owning runtime uses port 4318,
-including plugin restart; 4310 belongs to QQ. `docs/openherdr/STATUS.md` records
-the current temporary Cloudflare URL and remaining feature/native limits.
+The integration revision `c1b07b395` is committed locally on `openherdr/main`
+and verified on public `xixilys/openherdr` main. The original `origin` still
+points at OpenChamber; the public source remote is `openherdr`. Dot received
+the repository/revision and the UI correction in message
+`3ae575c8-b47c-4450-8a30-26ae598642c1`. Dot's returned findings informed the
+shared presentation, request dock and composer-state corrections. Continue the
+current original-presentation integration before
+expanding backend feature families. The owning default runtime uses port 4318;
+4310 belongs to QQ. `docs/openherdr/STATUS.md` records runtime validation and
+remaining feature/native limits.
 
 ## Validation and safe experiments
 

@@ -77,3 +77,44 @@ for (const locale of ['en', 'ar'] as const) {
     }
   });
 }
+
+test('the header title opens its controller popup independently from the target drawer', async () => {
+  const restoreDom = installDom();
+  const { createRoot } = await import('react-dom/client');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const calls: string[] = [];
+  const titleRef = React.createRef<HTMLButtonElement>();
+  const props: HerdrMobileShellProps = {
+    target: { machine: 'local', workspaceId: 'w1', tabId: 'w1:t1', paneId: 'w1:p1', available: true },
+    workspaces: [], sessions: [], header: { title: 'Actual conversation', titleButtonRef: titleRef, titleExpanded: true, onTitleClick: () => calls.push('title') },
+    headerPopover: <div data-title-popup="true">Conversation history</div>,
+    sessionsOpen: false, workspaceOpen: false,
+    onSessionsOpenChange: noop, onWorkspaceOpenChange: noop,
+    onOpenSessions: () => calls.push('targets'), onOpenWorkspace: () => calls.push('workspace'),
+    onSelectWorkspace: noop, onSelectSession: noop, workspaceTab: 'files', onWorkspaceTabChange: noop, workspacePanels: [],
+    actions: { openChanges: noop, openFiles: noop, openSettings: noop, openSourceBoard: noop },
+    fullscreen: null, overlay: null, children: <p>Chat</p>,
+  };
+  const render = () => act(async () => root.render(<I18nProvider><HerdrMobileShell {...props} /></I18nProvider>));
+  try {
+    await render();
+    const buttons = host.querySelectorAll<HTMLButtonElement>('header button');
+    expect(titleRef.current).toBe(buttons[1]);
+    expect(titleRef.current?.getAttribute('aria-expanded')).toBe('true');
+    await act(async () => { buttons[0].click(); buttons[1].click(); buttons[2].click(); });
+    expect(calls).toEqual(['targets', 'title', 'workspace']);
+    expect(host.querySelector('header')?.nextElementSibling?.getAttribute('data-title-popup')).toBe('true');
+    props.header = { title: 'Legacy target' };
+    props.headerPopover = undefined;
+    await render();
+    await act(async () => host.querySelectorAll<HTMLButtonElement>('header button')[1].click());
+    expect(calls).toEqual(['targets', 'title', 'workspace', 'targets']);
+    expect(host.querySelector('[data-title-popup]')).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    restoreDom();
+  }
+});

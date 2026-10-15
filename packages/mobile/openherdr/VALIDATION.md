@@ -2,22 +2,37 @@
 
 ## Android-first integration
 
-The current web build and Android debug APK include the integrated host,
-conversation, application preferences and project-context modules. The build
-command rebuilds web source before copying assets and synchronizing Capacitor.
-The current build completed successfully with Java 21, SDK 36 and Gradle 8.14.3.
-The owned `OpenHerdr_API36` emulator at `emulator-5580` installed and launched
-versionCode 2 / versionName 0.1.0.
+The 2026-10-15 frozen UI integration was rebuilt with the existing root
+`bun run mobile:herdr:android` command on `xixilys-macmini`. The command rebuilt
+`dist-herdr`, copied it, synchronized Capacitor and compiled the Android debug
+APK using Java 21.0.9, SDK 36 and Gradle 8.14.3. Vite completed in 21.13 seconds;
+Gradle reported `BUILD SUCCESSFUL` with 213 tasks, 27 executed and 186 up-to-date.
+The log is `.tmp/android-ui-build-final.log`.
 
-An actual connection-screen capture confirmed the new native server field is
-blank and the native-vault notice appears. The first capture was taken during
-startup and showed an empty loading frame; it is not accepted as the final UI.
-An Android 15+ app-local StatusBar adapter paints the native backdrop using the
-current web theme and restores system-bar contrast after resume/config changes.
-Source review found the adapter registers after generated plugins. After the
-latest APK was installed, an actual dark-theme startup capture showed dark
-status/navigation backdrops and visible white system icons. Light theme,
-rotation, resume and keyboard interaction still require native checks.
+The APK is `android/app/build/outputs/apk/debug/app-debug.apk`, 16,431,850 bytes.
+Its bundled `assets/public/index.html` equals the rebuilt `dist-herdr/herdr.html`,
+and it contains the current `herdr-Docmua9V.js` bundle. This build includes the
+restored shared chat/composer presentation, session popup and keyboard geometry
+integration together with the existing host, conversation, preferences and
+project-context modules. The package remains `dev.openherdr.mobile`,
+versionCode 2 / versionName 0.1.0, minimum SDK 24 and target SDK 36.
+
+The task-owned `OpenHerdr_API36` AVD was restarted from `.tmp/android-avd`
+after the earlier emulator process had exited. The detached emulator uses port
+5580, 2GB RAM and 2 cores. No user AVD or physical device was used. Boot completed,
+`adb install -r` returned `Success`, and `am start -W` reported `Status: ok` with
+`dev.openherdr.mobile/.MainActivity` resumed. The application process was PID 2282;
+the detached emulator was PID 21369 at validation time. Install and launch logs
+are `.tmp/android-ui-install-final.log` and `.tmp/android-ui-launch-final.log`.
+
+The final read-only capture `.tmp/android-ui-connect-final.png` shows the actual
+connection form with blank server and pairing fields and the native-vault notice.
+Dark status and navigation backdrops have visible white system icons. An earlier
+capture during startup showed a blank loading frame and was replaced after the
+form rendered. The Android 15+ app-local StatusBar adapter registers after the
+generated plugins. Light theme, rotation, resume and keyboard interaction still
+require native checks. No native connected chat screen was exercised, so this
+capture does not establish the restored chat/composer fidelity on Android.
 
 Capacitor bridge logging is disabled, including debug packages, because its
 default verbose calls include secure-storage method data.
@@ -31,8 +46,9 @@ connected. The local/public HTTPS checks in STATUS.md prove their HTTP paths,
 not Android interaction.
 
 The human's supplied OpenChamber screenshot is a private local visual reference.
-Current standalone chat/composer fidelity remains incomplete and is the next
-implementation priority. iOS below records the older terminal baseline.
+The current shared chat/composer integration is packaged in this APK. Its
+connected native display and interactions remain unverified. iOS below records
+the older terminal baseline.
 
 ## Previously validated terminal baseline
 

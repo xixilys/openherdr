@@ -10,6 +10,11 @@ session records. The existing OpenCode containers use the same extracted views.
   retains OpenCode session lookup, metadata, Space access and the recent-session
   switcher. The view accepts title content, disclosure state/callback/ref,
   sessions/workspace callbacks, and metadata/actions nodes.
+- `../MobileSessionSwitcherView.tsx` owns the original title popup, phone/tablet
+  positioning, entry/exit animation, row layout and outside/Escape/Back closure.
+  It reads no OpenCode stores and performs no I/O. `MobileSessionSwitcher.tsx`
+  retains the original recent-session ordering, refresh on open, project/session
+  selection and leaf subscriptions for live activity, unread state and duration.
 - `../MobileWorkspaceDrawerView.tsx` owns the existing tabs, visited-panel
   retention, left/right edge swipe, Escape handling, slide and panel variant.
   `MobileWorkspaceDrawer.tsx` supplies the original five data-owning panels.
@@ -39,7 +44,13 @@ closes the sessions drawer; a workspace selection leaves its session list open.
 
 `HerdrMobileShellProps` also supplies:
 
-- `header: {title,metadata?,actions?}` and `children` for the main content.
+- `header: {title,metadata?,actions?,onTitleClick?,titleButtonRef?,titleExpanded?}`
+  and `children` for the main content. The title callback controls conversation
+  navigation independently of the left sessions button. Omitting the callback
+  retains the previous target-drawer action. Optional `headerPopover` renders
+  a controller-owned popup beside the header in the same chat column. A fixed
+  `MobileSessionSwitcherView` may also render inside the main content with that
+  shared title anchor, without a portal.
 - `sessionsOpen/onSessionsOpenChange` and `workspaceOpen/onWorkspaceOpenChange`.
 - `onOpenSessions/onOpenWorkspace`, invoked by the original header controls.
   These controller actions open the requested drawer and close the other one.
@@ -57,6 +68,17 @@ The owning native root continues to use `useNativeAndroidBackButton` and checks
 `closeTopmostBackLayer()` before minimizing. Nested dialogs and bottom sheets
 retain their existing close handling. The shell does not add an App listener.
 
+`MobileSessionSwitcherView` accepts `{open,onClose,anchorRef,rows,selectedId?,
+onSelect,onCreate?,createDisabled?,footer?}`. Rows are
+`{id,title,subtitle?,activity?:'idle'|'running'|'unknown',trailing?}`. The caller
+owns order, pagination, permission to create and the source of live activity.
+An explicit unknown state remains visible as unknown. The optional trailing
+node carries the original OpenCode activity/time presentation. `onSelect(id)`
+and enabled `onCreate()` each close the popup after invoking the callback.
+The optional footer holds pagination or session actions outside row buttons.
+The OpenCode wrapper supplies neither creation nor footer, preserving its
+existing contents. Its rows stay subscribed through the 140 ms closing phase.
+
 ## Integration and validation
 
 The shell is ready for the dedicated Herdr entrypoint to mount with real
@@ -65,6 +87,11 @@ APIs, or claim complete feature parity. Its current composition is the phone
 layout; the shared workspace view retains its inline panel variant for a later
 tablet controller.
 
+Focused component tests check pure import without legacy I/O, original phone
+row geometry, tablet anchor clamping in English and Arabic, selection,
+creation disablement, footer placement, outside/Escape/Back, exit retention,
+the original OpenCode wrapper's recent limit and project/session selection,
+and independent Herdr title/list callbacks with the real anchor ref.
 Focused server rendering checked header slots/disclosure and preserved an
 unavailable target without selecting supplied sibling rows. Syntax and scoped
 lint checked the extracted sources. Android rendering, edge gestures, native

@@ -77,6 +77,34 @@ preference. The shared keyboard policy applies desktop Enter preferences while
 mobile Enter keeps inserting a newline. These values do not update OpenCode's
 global UI store.
 
+The Android/hosted-mobile chat reuses the original `UserMessageBubble`,
+`UserTextView`, `ToolSummaryView`, `MobilePillComposerView` and
+`MobileSessionSwitcherView` and `ScrollToBottomView`. The original OpenCode wrappers consume these same
+views. `ConversationPanel` retains Herdr session selection, mutations and draft
+ownership. Its optional `navigation` contract publishes only the current title
+and receives the header anchor and popup state. `HerdrApp` scopes title updates
+by server, machine and pane. The title opens conversation history; the list
+button opens Herdr workspaces and panes. Rename/fork/delete and pagination stay
+in the conversation menu on mobile. Model/agent selection opens the original
+mobile overlay presentation and operates on the selected owned conversation.
+
+Live presentation requires both a fresh bound snapshot and a connected event
+stream. A failed read, stream failure, hidden page or paused panel withdraws
+activity, assistant streaming and reasoning animation while retaining transcript
+data. Reconnection restores them after reading again. Stream errors are separate
+from action/attachment errors and clear after a successful stream refresh.
+Historical records supply no current activity. The floating composer measures
+its own height to reserve transcript space. List resize and the native keyboard
+settled event preserve following at the end or the reader's existing position.
+The original return-to-latest action resumes following explicitly. Its pure view
+keeps the original status controller out of the Herdr module graph. User text
+parts report truncation to their message owner, which renders one expansion
+control per message. The original floating frame displays permissions before
+forms above the composer. Form editors remain mounted while hidden behind a
+permission, preserving unfinished answers. Panel clearance is published only
+to the small overlay and transcript-tail readers. The form body currently uses
+the shared all-fields card; the original stepped form interaction remains pending.
+
 The terminal workspace tab renders official read-only observation frames through the
 shared Ghostty renderer. A failed observation switches to a bounded text snapshot
 with its source revision. Observation never takes the exclusive terminal
@@ -107,11 +135,11 @@ response.
 
 | Runtime | Behavior |
 | --- | --- |
-| Browser/PWA | Dedicated responsive app, explicit server pairing and bearer HTTP |
-| Hosted mobile | Original drawer presentation with explicit Herdr targets |
-| Capacitor | Android-first app with native storage, Back, lifecycle and pairing intake |
-| Electron | Upstream app retained; this client runs in a separate browser |
-| VS Code | Upstream extension retained; this client is not mounted in its webview |
+| Browser/PWA | Dedicated responsive app, explicit pairing/bearer HTTP; compact chat composer and a desktop history toolbar |
+| Hosted mobile | Shared original chat, composer, title popup and drawers with explicit Herdr owners |
+| Capacitor | Same Android-first chat with native storage, Back, lifecycle and pairing intake; native interaction needs separate acceptance |
+| Electron | Original OpenCode wrappers reuse the extracted views; the Herdr client runs in a separate browser |
+| VS Code | Original OpenCode wrappers reuse the extracted views; Herdr is not mounted in the extension webview |
 
 `herdr.i18n.ts` contains scoped translations for all shared locales and derives
 its current locale from `useI18n`. Shared actions reuse existing dictionary keys.
@@ -128,6 +156,11 @@ preserving edits made while a save is in flight.
 The coordinator owns the combined build, type checks and real desktop/mobile
 browser verification. Static and unit checks do not establish physical-phone,
 Cloudflare, SSH or actual OS secure-storage behavior.
+`packages/ui/src/apps/herdr/HerdrConversation.vitest.tsx` runs through the web
+workspace's existing Vitest configuration for Vite worker assets. It exercises
+the real conversation component against framed source fixtures, including
+stream failure/recovery and viewport changes. These DOM checks do not measure
+native keyboard or gesture behavior.
 
 ## Settings and project context
 

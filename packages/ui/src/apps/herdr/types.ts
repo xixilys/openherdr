@@ -35,7 +35,16 @@ export type HerdrMobileShellProps = {
   onSelectSession: (id: string) => void;
   onOpenWorkspace: () => void;
   onOpenSessions: () => void;
-  header: { title: React.ReactNode; metadata?: React.ReactNode; actions?: React.ReactNode };
+  header: {
+    title: React.ReactNode;
+    metadata?: React.ReactNode;
+    actions?: React.ReactNode;
+    onTitleClick?: () => void;
+    titleButtonRef?: React.Ref<HTMLButtonElement>;
+    titleExpanded?: boolean;
+  };
+  /** Optional title popup, rendered in the header's chat-column containing block. */
+  headerPopover?: React.ReactNode;
   sessionsOpen: boolean;
   onSessionsOpenChange: (open: boolean) => void;
   workspaceOpen: boolean;

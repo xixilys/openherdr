@@ -61,11 +61,13 @@ export function HerdrMobileShell(props: HerdrMobileShellProps) {
             title={props.header.title}
             metadata={props.header.metadata}
             actions={props.header.actions}
-            titleExpanded={props.sessionsOpen}
-            onTitleClick={props.onOpenSessions}
+            titleExpanded={props.header.titleExpanded ?? props.sessionsOpen}
+            onTitleClick={props.header.onTitleClick ?? props.onOpenSessions}
+            titleButtonRef={props.header.titleButtonRef}
             onOpenSessions={props.onOpenSessions}
             onOpenWorkspace={props.onOpenWorkspace}
           />
+          {props.headerPopover}
           <main ref={chatMainRef} className="relative min-h-0 flex-1 overflow-hidden" data-page-scroll-lock="true">
             {props.children}
           </main>

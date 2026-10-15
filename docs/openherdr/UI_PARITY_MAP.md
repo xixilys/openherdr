@@ -2,11 +2,20 @@
 
 ## Decision supported by this inventory
 
-The target is the original OpenChamber mobile application experience on Android, with Herdr as the machine/session control layer. The current `HerdrApp` is a working remote terminal client, but its separate sidebar, text composer, read-only files and raw Git panels do not deliver that target.
+The target is the original OpenChamber mobile application experience on Android,
+with Herdr as the machine/session control layer. This inventory began with the
+remote terminal client and records the original component dependencies at that
+point. Current implementation and validation are tracked in STATUS.md.
 
 Keep the separate OpenHerdr entrypoint and authenticated transport. Replace its content composition with the original mobile shell and original feature components as their data owners are adapted. Reusing `RuntimeAPIProvider` alone is insufficient: OpenChamber has a second, direct OpenCode session/sync dependency throughout its chat and navigation. That dependency must be made explicit rather than satisfied with fabricated OpenCode records.
 
-This document is a read-only source inventory and proposed implementation plan. No production changes, builds or runtime tests were performed for this inventory. It supplements the broader architecture plan; the protocol worker owns the exact installed Herdr method catalog.
+The subsequent integration shares `HerdrMobileShell`, user bubbles/text,
+tool summaries/descriptions, the pill composer, session switcher and
+return-to-latest presentation with the original wrappers. It has real Files/Git,
+project context, preferences and an owned OpenCode conversation driver. This
+inventory's route limitations describe its initial state, and do not replace
+the current contracts in the owning module documentation. Full UI and feature
+parity remains unfinished.
 
 ## Entrypoints and ownership
 

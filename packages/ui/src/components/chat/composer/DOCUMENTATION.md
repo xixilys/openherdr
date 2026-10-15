@@ -159,6 +159,33 @@ mounted so the recap hint hides instead of landing over the transcript.
 Unmounting clears the offset and the marker; resizing or collapsing the frame
 updates it.
 
+## Mobile pill presentation
+
+`ui/MobilePillComposer.tsx` owns the original app's session eligibility and
+config-backed dictation capability. It passes a preview input, attachment
+controls and the existing model/agent row into `MobilePillComposerView`.
+The preview keeps the original synchronous expand callback and morph markers.
+
+`ui/MobilePillComposerView.tsx` owns the pill frame, action buttons and optional
+`MobilePillComposerFooterView`. It reads only i18n and shared UI primitives.
+The editor input accepts controlled text, its textarea ref and the owner's
+keyboard, focus, blur and paste handlers. Its `data-herdr-composer` marker lets
+the dedicated root retain its native image-paste focus checks. Draft scope,
+IME/send policy, attachment preparation and delivery receipts remain with the
+owner. The frame does not submit on Enter itself.
+
+Top rows and attachments render inside the frame; an activity slot renders
+above it. Footer labels, the provider icon and agent color come from actual selected
+model and agent records. A custom `bottomRow` preserves the original app's controls.
+Dictation appears only with an explicit callback. Owners supply `isRunning`
+independently of stop availability through `canAbort`. Queue requires a running
+turn, `canQueue` and an `onQueue` callback; idle send requires `canSend` and never
+appears during a running turn. The original wrapper receives `canAbort` from
+`ChatInput`'s authoritative non-idle session phase and preserves its existing
+content/session eligibility for sending and queueing. The frame loads no session,
+provider or config data. Floating position, transcript clearance and keyboard
+expansion remain with the owning composer slot.
+
 ## Floating composer
 
 In a normal session view the composer slot is an absolute layer over the

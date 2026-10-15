@@ -30,6 +30,46 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
+## Current backend against existing Herdr windows
+
+The published `19690e85f` backend and its matching `herdr-9BIfPY0f.js` client now
+run through a separate owned CF instance connected to the authoritative default
+Herdr socket. This connects the latest Files contract to the actual Local and
+saved-machine windows. The previous binary test instance used a named test
+session and did not establish that integration.
+
+An independent public HTTP check matched all 2 Local workspaces, 3 tabs and
+3 panes, including terminal identities, against direct default-socket reads
+before and after the request. It read one existing pane's visible output without
+recording its text. Old-style Files list parsing and a version-pinned saved-WSL
+WAV far-tail read also passed. Health returns 200, unauthenticated access 401
+and a foreign Origin 403. Its own temporary client was revoked, followed by
+401 and 403 for its old file capability. The 16-request evidence is private in
+`.tmp/primary-current-http-check.json` and its adjacent log.
+
+The 412x915 browser paired explicitly, displayed the real Local window tree,
+selected Kansas's existing worker-monitor tab, read the JP API window tree and
+opened the saved WSL fixture. Terminal monitoring retained a read-only input.
+The WSL WebM decoded at 640x360 with 6.008-second duration through the new
+service. Reload retained the credential and restored the same WSL workspace,
+tab, pane and read-only monitor, with the matching 9B client entry.
+The PDF retest still did not display a page; its unresolved limitation remains.
+Only private screenshots under `.tmp/current-primary-browser/` contain existing
+user window output. They are not published source assets.
+
+The current bridge lifecycle has no connector handoff or backend hot upgrade.
+A normal restart stops its owned Quick Tunnel and changes that temporary
+origin. The new instance therefore has a new origin and separate credentials,
+preferences and conversation records. It does not migrate an existing saved
+connection or upgrade the old address. The original default bridge/connector,
+origin, issued phone pairing and fixed first APK were left alone. A phone
+cutover has not occurred. The new instance's static output directory is live
+and must not be overwritten by a later development build.
+
+The human-supplied phone screenshot shows the OpenHerdr connection page. It
+does not identify the exact installed build or prove a completed pairing or
+window read. Native Android interaction and complete parity remain unfinished.
+
 ## Binary Files transport and previews
 
 Files now describes the selected file before attempting a capped text read.

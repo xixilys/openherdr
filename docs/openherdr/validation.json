@@ -186,5 +186,50 @@
     "native_execution": "not_run",
     "default_backend": "previous_version_preserved",
     "complete_feature_ui_parity": "unfinished"
+  },
+  "current_primary_backend": {
+    "checked_at_utc": "2026-10-15T16:54:13.550674+00:00",
+    "source_revision": "19690e85fb0b75d1252fc5075efeb29ec3021742",
+    "client_entry": "herdr-9BIfPY0f.js",
+    "target": "authoritative_default_herdr_socket",
+    "deployment": "separate_owned_cf_instance",
+    "independent_http_requests": 16,
+    "local_identity_agreement": {
+      "workspaces": 2,
+      "tabs": 3,
+      "panes": 3,
+      "terminal_ids": true,
+      "direct_reads_before_and_after": true
+    },
+    "old_style_files_list": "passed",
+    "saved_wsl_wav_far_tail": "exact_4096_bytes",
+    "public_health": 200,
+    "unauthenticated_private": 401,
+    "foreign_origin": 403,
+    "temporary_http_client_revoked": true,
+    "revoked_bearer": 401,
+    "revoked_file_capability": 403,
+    "browser": {
+      "viewport": [
+        412,
+        915
+      ],
+      "explicit_pairing": true,
+      "existing_local_tree": true,
+      "existing_kansas_worker_monitor": true,
+      "existing_jp_api_tree": true,
+      "saved_wsl_fixture": true,
+      "read_only_monitor": true,
+      "webm_dimensions": [
+        640,
+        360
+      ],
+      "webm_duration": 6.008
+    },
+    "phone_cutover": "not_performed",
+    "native_execution": "not_verified",
+    "pdf_preview": "unsuccessful",
+    "existing_cf_bridge_and_first_apk": "preserved",
+    "full_feature_ui_parity": "unfinished"
   }
 }

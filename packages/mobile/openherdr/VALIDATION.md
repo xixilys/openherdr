@@ -1,5 +1,26 @@
 # Native build validation
 
+## Matching current backend
+
+The unchanged `herdr-9BIfPY0f.js` APK now has a matching separately owned CF
+backend against the actual default Herdr socket. Independent public HTTP checks
+match its Local workspace/tab/pane/terminal identities to direct socket reads,
+retain the old-style Files list contract and return exact saved-WSL WAV range
+bytes. The phone-sized browser paired, navigated existing Local/Kansas/JP API/WSL
+windows and decoded WSL video through that endpoint. These checks establish
+the staged matching-backend path, not native execution of this APK.
+
+The old default bridge/connector, original CF address and fixed first-phone
+prerelease remain live and unchanged. The new instance has a separate origin,
+credential store and application state. It does not silently move the phone's
+saved connection. Its private receipt is `.tmp/primary-current-runtime.json`;
+HTTP evidence is `.tmp/primary-current-http-check.json`.
+
+The supplied phone screenshot shows the connection page; it provides no exact
+build identity or completed-pairing evidence. PDF application preview remains
+unsuccessful in the new browser route too. Camera, KeyStore, native Back/IME,
+background cleanup and force-stop/relaunch still need actual native acceptance.
+
 ## Latest binary Files build
 
 The debug APK is 42,312,910 bytes and packages `herdr-9BIfPY0f.js`.

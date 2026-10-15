@@ -251,6 +251,41 @@ behavior runs on a separate owned test service. The default bridge and its old
 resources stay untouched. STATUS.md and native validation own final artifacts
 and remaining work.
 
+The deployment check connects that published backend and final isolated
+Web build to the actual default Herdr socket, with a separate state directory
+and an owned Quick Tunnel. The existing default bridge, origin and paired clients
+stay live. Issued phone pairing is not modified; its normal expiry still applies.
+Current CLI lifecycle does not transfer a
+Quick Tunnel to another backend process; this check creates a second origin and
+requires its own explicit pairing. It must not be described as an upgrade of
+the old address. Validate actual Local and saved-machine window reads through
+the new origin, old-client HTTP contracts, authentication and the matching
+Files contract without sending input to existing panes. This deployment adds
+no new application API, setting, command, provider or credential migration.
+Independent public HTTP checks now confirm exact default-socket window identity,
+read-only output, the older Files list shape and a real saved-WSL range read.
+The phone-sized browser reads existing Local, Kansas, JP API and WSL windows,
+decodes the owned WSL video and reloads into the same selected window. Keep its
+live static directory separate from future builds. The phone has not been moved
+to this new origin. Native connection acceptance remains pending because the
+available Computer Use surfaces cannot operate the owned emulator, and no
+physical-phone result has arrived. Resume that check when usable device access
+or concrete phone feedback is available. PDF remains a documented unresolved
+branch.
+
+The next bounded UI unit restores the original Settings navigation, search and
+Appearance/Chat pages around the existing real Herdr preferences. Its complete
+flow is existing window, Settings, an implemented control, explicit Save and
+authoritative readback, then return to the same window. Share the original
+presentation while keeping original Provider/OpenCode stores in their existing
+wrapper. Search must list only supported controls and reach their real anchors.
+Preserve draft/conflict handling, manual save, surface-specific Enter behavior
+and mobile inner Back before closing Settings. Add no preference family,
+provider page, default change or native workaround. Validate that round trip
+through a separate owned build/runtime, preserving this live static directory,
+the original default connection and the first phone-test APK. Full Settings
+parity and native acceptance remain unfinished.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and

@@ -13,6 +13,26 @@ and exercise the Android flows. An unsupported-feature table does not complete
 the requested work. Retain factual distinctions between implementation, emulator
 execution and physical-phone execution.
 
+The latest human clarification prioritizes reading existing Herdr windows across
+Local, WSL, JP API and Kansas. Each configured machine points to its existing
+Herdr service. The primary app flow follows machine, workspace, tab and pane,
+including ordinary watch/dashboard panes, and displays their actual status and
+output. It requires no association with a new Codex process or native conversation
+ID. Codex conversations may appear as an additional source later. New conversation
+creation and extra composer features are secondary. Preserve existing workers
+and their ownership. The Codex integration
+installation and normal hook trust are authorized, but remain unperformed while
+the existing-task monitoring path is checked. The broader Android parity goal
+remains in scope.
+
+The human explicitly requires preserving Cloudflare binding for access away from
+the local network. Cloudflare HTTPS, one-use pairing and saved authenticated
+connections remain the primary connection flow. Window monitoring uses that
+same transport for local and saved-machine Herdr services. Validate the actual
+public HTTPS path. The current Quick Tunnel address changes after a tunnel
+restart; persistent named-tunnel support from the original application remains
+part of broader parity work.
+
 Upstream OpenChamber is MIT licensed, baseline `c5b690df9`. Keep the license and original application. OpenHerdr is an independent entrypoint inside `packages/web`; sharing UI primitives does not require OpenCode to run. Existing OpenCode-specific functions remain part of the upstream application and must not be advertised as supported for arbitrary Herdr agents without an implementation.
 
 Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS.md and the user's global instructions apply. The user explicitly authorizes Git iteration and autonomous implementation. The user now explicitly authorizes a public source repository. Store/app releases, changes to shared services or credentials, and stopping unrelated agents remain outside this task.
@@ -168,6 +188,28 @@ no fullscreen control in its footer, so do not add one by guessing. Keep this
 work tied to the full Android experience; do not extend the tool-detail branch
 into an open-ended series of small display tests.
 
+The bounded native Codex fixture on 2026-10-15 started one new agent in a separate
+named Herdr session. The human explicitly approved Codex's repository trust
+prompt. One short marker request completed, but neither `agent.get` nor
+`session.snapshot` published `agent_session`. The owned session was then stopped.
+The installed Codex integration reports not installed. Its bundled v8 hook
+reports the real `SessionStart.session_id` to Herdr and requires a non-empty
+`transcript_path`; compatibility with this Codex version remains untested.
+The official script and installation effects have been prepared for review,
+and the existing user configuration has a private backup. The human separately
+authorized installation and normal hook trust. They remain deferred while the
+existing-task monitoring path is checked. Keep the transcript reader
+unimplemented until a real identity is available.
+
 ## Validation and safe experiments
+
+The current monitor increment makes existing Herdr windows the default and
+keeps CF pairing as its primary remote path. Real public HTTPS checks and a
+412x915 browser read Local, WSL, JP API and Kansas, including ordinary Kansas
+dashboards. The browser restored its saved binding on reload. A successful-frame
+status/resize loop found in this flow was repaired and rechecked. The current
+APK packages `herdr-BLLJAMLv.js`, with exact web HTML/entry readback, but has no
+native interactive acceptance. Current evidence and limits are in STATUS.md
+and `packages/mobile/openherdr/VALIDATION.md`.
 
 Use a new named Herdr session `openherdr-test`, explicit returned IDs and an owned fixture directory. Never send input to existing user panes. Check actual phone-sized browser rendering and real HTTP input/output through the installed Herdr API. Verify unauthenticated rejection, invalid origin, one-use pairing, revoke, target switching and unknown mutation receipts. Test a real remote connection path when available. Native compile, simulator validation and physical-phone validation are distinct claims.

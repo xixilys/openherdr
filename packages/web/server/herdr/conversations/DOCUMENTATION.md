@@ -32,16 +32,33 @@ Skills contain their native `id`, `name` and optional `description`. Skill paths
 content and unrelated upstream fields are excluded. Failed or malformed lists
 remain errors; a successful empty array means the source listed no entries.
 
-The `command` action accepts optional `files` and `delivery`, with the same
-10-file and 12 MiB aggregate data-URI limits as a prompt. The service confirms
-that the command name still exists in the session's directory before dispatch,
+The `command` action accepts optional `files`, `delivery` and `skills:[{id}]`,
+with the same 10-file and 12 MiB aggregate data-URI limits as a prompt. The service
+confirms that the command name still exists in the session's directory before dispatch,
 then maps `command` to native `name` and `arguments` to `text`. Missing arguments
 remain an empty string. Command names accept native string characters, including
 namespaces, slashes and Unicode, with a 4096-character bound. Membership in the
 current source list authorizes dispatch. The native command result is void, so
 the action result is `null`.
 
-Prompts may include up to 10 unique native skill references as `skills:[{id}]`.
+Commands and prompts accept at most 10 unique skill IDs. For a command, the
+service resolves these IDs against the current session's skill registry and
+builds the same instruction as the shared `buildSkillMentionInstruction` from
+the corresponding real names. The client cannot supply skill names, instruction
+text or synthetic context. Command and skill registry checks finish before the
+first mutation. The service then calls `session.synthetic` with the instruction,
+the requested delivery and `resume:false`. After admission it checks native
+writers and the target again before calling `session.command` with the original
+arguments, files and delivery. Commands without skills skip the skill lookup
+and synthetic operation.
+
+Dispatch tracking starts before the first mutation. An admitted instruction
+can remain in session history when the command cannot be sent. Every failure
+after synthetic dispatch retains an unknown outcome, including a later command
+refusal. Neither operation is rolled back or retried. The HTTP owner retains
+the unknown receipt for inspection alongside the actual session.
+
+Prompts send their validated native skill references directly to the source.
 The service confirms each ID in the same source and directory before dispatch.
 The full prompt text, attachments and delivery reach `session.prompt` unchanged,
 and the response retains the source's inbox admission. Slash skills use this

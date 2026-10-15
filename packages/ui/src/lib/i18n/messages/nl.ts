@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "Recente terminaluitvoer",
+  "herdr.monitor.title": "Monitor",
+  "herdr.monitor.readOnly": "Alleen-lezenweergave",
+  "herdr.monitor.control": "Terminalbediening",
+  "herdr.monitor.screen": "Scherm",
+  "herdr.monitor.visibleText": "Zichtbare tekst",
+  "herdr.monitor.screenFallback": "De schermstream is niet beschikbaar. De zichtbare tekst van het deelvenster wordt getoond.",
+  "herdr.monitor.stale": "De laatste geslaagde uitlezing van {time} wordt getoond.",
+  "herdr.monitor.waiting": "Wachten op een geslaagde uitlezing.",
+  "herdr.monitor.paused": "Monitoring gepauzeerd.",
+  "herdr.monitor.empty": "Op deze machine zijn geen deelvensters beschikbaar.",
+  "herdr.monitor.lastRead": "Laatst uitgelezen om {time}",
   "opencodeCompatibility.bundled": "OpenCode is inbegrepen bij OpenChamber. Werk OpenChamber bij om OpenCode v2 te krijgen.",
   "opencodeCompatibility.title": "OpenCode v2 vereist",
   "opencodeCompatibility.outdatedTitle": "OpenCode bijwerken",
@@ -2396,6 +2408,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'opdracht',
   'chat.commandAutocomplete.badge.system': 'systeem',
   'chat.commandAutocomplete.empty': 'Geen opdrachten gevonden',
+  'chat.skillAutocomplete.empty': 'Geen vaardigheden gevonden',
+  'chat.skillAutocomplete.tooManySkills': 'Je kunt maximaal {max} vaardigheden in één bericht gebruiken. Verwijder enkele verwijzingen en probeer het opnieuw.',
   'chat.agentMentionAutocomplete.badge.system': 'systeem',
   'chat.agentMentionAutocomplete.empty': 'Geen agents gevonden',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'Typ om meer agents te zoeken',

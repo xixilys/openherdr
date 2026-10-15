@@ -240,3 +240,80 @@ for (const text of [' /verify argument', '/verify\targument', '/verify\nargument
   expect(actions[0]?.request).toMatchObject({ action: 'prompt', input: { text, files: [], delivery: 'queue' } });
   expect(registryRequests.map(item => item.request.kind)).toEqual(text.startsWith('/') ? ['commands', 'skills'] : []);
 });
+
+
+test('inline skills use exact names and real IDs with text, attachments and queue preserved', async () => {
+  skills = [{ id: '/native/code-audit', name: 'My_Audit' }];
+  const text = 'Review $My_Audit then $My_Audit and $my_audit plus $unknown';
+  await setDraft(text, [file]); await clickSend(); await until(() => actions.length === 1);
+  expect(registryRequests.map(item => item.request.kind)).toEqual(['skills']);
+  expect(actions[0]?.request).toMatchObject({ action: 'prompt', input: { text, files: [{ uri: file.uri, name: file.name }], skills: [{ id: '/native/code-audit' }], delivery: 'queue' } });
+  await until(() => conversationDrafts.get(draftKey()).text === '');
+});
+
+test('command plus inline skills keeps command precedence and the original arguments', async () => {
+  commands = [{ name: 'verify' }];
+  skills = [{ id: '/native/same-name', name: 'verify' }, { id: '/native/audit', name: 'audit' }];
+  const text = '/verify  args $audit\nsecond $audit';
+  await setDraft(text, [file]); await clickSend(); await until(() => actions.length === 1);
+  expect(registryRequests.map(item => item.request.kind)).toEqual(['commands', 'skills']);
+  expect(actions[0]?.request).toMatchObject({ action: 'command', input: { command: 'verify', arguments: ' args $audit\nsecond $audit', files: [{ uri: file.uri, name: file.name }], skills: [{ id: '/native/audit' }], delivery: 'queue' } });
+  await until(() => conversationDrafts.get(draftKey()).text === '');
+});
+
+test('slash and inline skills merge in first occurrence order and deduplicate native IDs', async () => {
+  skills = [{ id: '/native/first', name: 'start' }, { id: '/native/next', name: 'follow' }, { id: '/native/next', name: 'alias' }];
+  const text = '/start $follow $start $alias';
+  await setDraft(text); await clickSend(); await until(() => actions.length === 1);
+  expect(registryRequests.map(item => item.request.kind)).toEqual(['commands', 'skills']);
+  expect(actions[0]?.request).toMatchObject({ action: 'prompt', input: { text, skills: [{ id: '/native/first' }, { id: '/native/next' }], delivery: 'queue' } });
+});
+
+test('an unknown inline name remains text after one successful registry read', async () => {
+  await setDraft('Keep $ghost literally'); await clickSend(); await until(() => actions.length === 1);
+  expect(registryRequests.map(item => item.request.kind)).toEqual(['skills']);
+  expect(actions[0]?.request.input).toEqual({ text: 'Keep $ghost literally', files: [], delivery: 'queue' });
+});
+
+for (const kind of ['prompt', 'command'] as const) test(`inline skills lookup failure preserves the ${kind} text and attachments without dispatch`, async () => {
+  commands = [{ name: 'verify' }];
+  respondRegistry = async request => request.kind === 'commands'
+    ? Response.json({ protocol: 'opencode-v2', target: request.target, sessionId: request.sessionId, kind: 'commands', commands })
+    : Response.json({ error: { code: 'skills_unavailable', message: 'Native skill read failed' } }, { status: 503 });
+  const text = kind === 'command' ? '/verify $audit' : 'Review $audit';
+  await setDraft(text, [file]); await clickSend(); await until(() => !!host.querySelector('[role="alert"]'));
+  expect(actions).toHaveLength(0); expect(registryRequests.map(item => item.request.kind)).toEqual(kind === 'command' ? ['commands', 'skills'] : ['skills']);
+  expect(conversationDrafts.get(draftKey())).toMatchObject({ text, files: [file] });
+});
+
+for (const kind of ['prompt', 'command'] as const) test(`more than 10 native skills rejects the ${kind} without truncating or clearing its draft`, async () => {
+  skills = Array.from({ length: 11 }, (_, index) => ({ id: `/native/${index}`, name: `skill${index}` }));
+  commands = [{ name: 'verify' }];
+  const text = `${kind === 'command' ? '/verify ' : ''}${skills.map(skill => `$${skill.name}`).join(' ')}`;
+  await setDraft(text, [file]); await clickSend(); await until(() => !!host.querySelector('[role="alert"]'));
+  expect(actions).toHaveLength(0); expect(conversationDrafts.get(draftKey())).toMatchObject({ text, files: [file] });
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('up to 10 skills');
+});
+
+for (const change of ['typing', 'pane'] as const) test(`a ${change} change while resolving inline skills cancels dispatch`, async () => {
+  const response = deferred<Response>(); const oldTarget = target(); const oldSession = sessionId();
+  respondRegistry = async () => response.promise;
+  await setDraft('Review $audit', [file]); await clickSend(); await until(() => registryRequests.length === 1);
+  if (change === 'typing') await act(async () => editor().dispatch({ changes: { from: 0, to: editor().state.doc.length, insert: 'New draft' } }));
+  else { await render('w1:p2'); await until(() => !!host.querySelector('.cm-content')); await setDraft('New draft'); }
+  expect(registryRequests[0]?.signal?.aborted).toBe(true);
+  await act(async () => response.resolve(Response.json({ protocol: 'opencode-v2', target: oldTarget, sessionId: oldSession, kind: 'skills', skills: [{ id: '/native/audit', name: 'audit' }] })));
+  await wait(); expect(actions).toHaveLength(0); expect(conversationDrafts.get(draftKey()).text).toBe('New draft');
+});
+
+test('submission refreshes skills selected in the picker and never sends a stale native ID', async () => {
+  skills = [{ id: '/native/old-id', name: 'audit' }];
+  await act(async () => editor().dispatch({ changes: { from: 0, to: editor().state.doc.length, insert: '$au' }, selection: { anchor: 3 } }));
+  await until(() => !!host.querySelector('[data-skill-autocomplete] .cursor-pointer'));
+  await act(async () => host.querySelector<HTMLElement>('[data-skill-autocomplete] .cursor-pointer')?.click());
+  expect(editor().state.doc.toString()).toBe('$audit ');
+  skills = [{ id: '/native/new-id', name: 'audit' }];
+  await clickSend(); await until(() => actions.length === 1);
+  expect(registryRequests.map(item => item.request.kind)).toEqual(['skills', 'skills']);
+  expect(actions[0]?.request).toMatchObject({ action: 'prompt', input: { text: '$audit ', skills: [{ id: '/native/new-id' }] } });
+});

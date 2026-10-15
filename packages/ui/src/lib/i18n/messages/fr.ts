@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "Sortie récente du terminal",
+  "herdr.monitor.title": "Suivi",
+  "herdr.monitor.readOnly": "Vue en lecture seule",
+  "herdr.monitor.control": "Commandes du terminal",
+  "herdr.monitor.screen": "Écran",
+  "herdr.monitor.visibleText": "Texte visible",
+  "herdr.monitor.screenFallback": "Le flux de l'écran est indisponible. Le texte visible du volet est affiché.",
+  "herdr.monitor.stale": "Affichage de la dernière lecture réussie à {time}.",
+  "herdr.monitor.waiting": "En attente d'une lecture réussie.",
+  "herdr.monitor.paused": "Suivi en pause.",
+  "herdr.monitor.empty": "Aucun volet n'est disponible sur cette machine.",
+  "herdr.monitor.lastRead": "Dernière lecture à {time}",
   "opencodeCompatibility.bundled": "OpenCode est inclus dans OpenChamber. Mettez OpenChamber à jour pour obtenir OpenCode v2.",
   "opencodeCompatibility.title": "OpenCode v2 requis",
   "opencodeCompatibility.outdatedTitle": "Mettre à jour OpenCode",
@@ -2103,6 +2115,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'commande',
   'chat.commandAutocomplete.badge.system': 'système',
   'chat.commandAutocomplete.empty': 'Aucune commande trouvée',
+  'chat.skillAutocomplete.empty': 'Aucune compétence trouvée',
+  'chat.skillAutocomplete.tooManySkills': 'Vous pouvez utiliser au maximum {max} compétences par message. Supprimez quelques références et réessayez.',
   'chat.agentMentionAutocomplete.badge.system': 'système',
   'chat.agentMentionAutocomplete.empty': 'Aucun agent trouvé',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'Tapez pour rechercher plus d\'agents',

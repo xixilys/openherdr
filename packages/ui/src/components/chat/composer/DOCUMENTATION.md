@@ -234,8 +234,26 @@ from the original leading-slash trigger, refreshes once per opening and closes
 before model/attachment picker handoff. IME bypasses selection and submission;
 arrows, Ctrl+N/P, Tab and Enter select through the existing handle. Escape and
 Back dismiss candidates before blurring the editor. Selection inserts `/name `
-and keeps focus in the real editor. Skills are resolved at submission, without
-adding them or unavailable local/extension commands to this slash list.
+and keeps focus in the real editor. Unavailable local/extension commands do not
+enter the native slash list.
+
+`../SkillAutocomplete.tsx` retains the original directory-scoped OpenCode store
+and load-on-open behavior. `../SkillAutocompleteView.tsx` owns the original skill
+rows, name ranking, project-first ordering, tooltip, keyboard selection and
+mobile height clamp. It accepts skills and mobile mode explicitly and imports
+no runtime stores. Scope and source badges render only when supplied. The
+original wrapper keeps its source fallback and stable rows across parent renders,
+so streaming or unrelated updates do not reset keyboard selection.
+`SkillAutocompletePopupView` retains the original zero-height glass motion anchor.
+
+Herdr uses the same `$` word-boundary trigger and native skill registry, loaded
+once per opening with local query filtering. Loading, failed and successful empty
+reads remain distinct. Selecting a skill replaces only `$query` before the
+current caret with `$name `, retaining the suffix, line breaks and editor focus.
+Back closes this list before the keyboard. IME bypasses its selection keys;
+arrows, Ctrl+N/P, Tab and Enter use the original handle. Picker handoff, hiding
+and changed source owners cancel pending candidate reads. Native entries without
+scope/source metadata receive no inferred badges or project-first priority.
 
 ## Floating composer
 

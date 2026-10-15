@@ -8,13 +8,16 @@ import { useHerdrText } from './herdr.i18n';
 import type { Connection } from './transport';
 
 const terminalFrame = z.object({ type: z.literal('terminal.frame'), bytes: z.string().max(2 * 1024 * 1024), full: z.boolean(), width: z.number().int().min(1).max(1000), height: z.number().int().min(1).max(500), seq: z.number().int().nonnegative() });
+export type LiveTerminalStatus = { kind: 'connecting' | 'live' | 'unavailable'; lastReadAt: number | null };
 
-export function LiveTerminal({ connection, machine, paneId, theme, fallback }: { connection: Connection; machine: string; paneId: string; theme: Theme; fallback: ReactNode }) {
+export function LiveTerminal({ connection, machine, paneId, theme, fallback, onStatus }: { connection: Connection; machine: string; paneId: string; theme: Theme; fallback: ReactNode; onStatus?: (status: LiveTerminalStatus) => void }) {
   const mount = useRef<HTMLDivElement>(null);
   const surface = useRef<GhosttyTerminalSurface | null>(null);
   const latestTheme = useRef(theme);
   latestTheme.current = theme;
-  const [unavailable, setUnavailable] = useState(false);
+  const [unavailable, setUnavailable] = useState(true);
+  const statusListener = useRef(onStatus);
+  statusListener.current = onStatus;
   const h = useHerdrText();
   const labels = useRef({ input: h('snapshot'), scrollbar: h('follow') });
 
@@ -30,19 +33,36 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
     let generation = 0;
     let failures = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    setUnavailable(false);
+    let clearFirstFrameWait: (() => void) | undefined;
+    let lastReadAt: number | null = null;
+    setUnavailable(true);
+    statusListener.current?.({ kind: 'connecting', lastReadAt });
     const read = async () => {
       clearTimeout(retryTimer);
+      clearFirstFrameWait?.();
+      const own = ++generation;
       stream?.abort();
       if (!live || !isHerdrForeground() || navigator.onLine === false || !terminal) return;
-      const own = ++generation;
       const controller = new AbortController(); stream = controller;
+      let hasFrame = false;
+      let timedOut = false;
       const width = Math.max(20, Math.min(300, Math.floor(container.clientWidth / 8)));
       const height = Math.max(5, Math.min(150, Math.floor(container.clientHeight / 18)));
       let permanentFailure = false;
       let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+      const firstFrameTimer = setTimeout(() => {
+        if (!live || generation !== own || controller.signal.aborted) return;
+        timedOut = true;
+        setUnavailable(true);
+        statusListener.current?.({ kind: 'unavailable', lastReadAt });
+        controller.abort();
+        void reader?.cancel().catch(() => undefined);
+      }, 20000);
+      const clearFirstFrameTimer = () => clearTimeout(firstFrameTimer);
+      clearFirstFrameWait = clearFirstFrameTimer;
       try {
         const response = await fetch(new URL('/api/herdr/terminal', connection.server), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${connection.token}` }, body: JSON.stringify({ machine, pane_id: paneId, cols: width, rows: height }), signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'error' });
+        if (controller.signal.aborted) return;
         permanentFailure = response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status);
         if (!response.ok || !response.body) throw new Error('Observation unavailable');
         reader = response.body.getReader();
@@ -65,14 +85,27 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
             const text = new TextDecoder().decode(bytes);
             if (frame.data.full) terminal.resetAndWrite(text, { cols: frame.data.width, rows: frame.data.height });
             else terminal.write(text);
+            lastReadAt = Date.now();
+            if (!hasFrame) {
+              clearFirstFrameTimer();
+              statusListener.current?.({ kind: 'live', lastReadAt });
+            }
+            hasFrame = true;
             failures = 0; terminal.setVisible(true); setUnavailable(false);
           }
         }
-        if (live && generation === own && !controller.signal.aborted) setUnavailable(true);
+        if (live && generation === own && !controller.signal.aborted) {
+          setUnavailable(true);
+          statusListener.current?.({ kind: 'unavailable', lastReadAt });
+        }
       } catch {
-        if (live && generation === own && !controller.signal.aborted) setUnavailable(true);
+        if (live && generation === own && !controller.signal.aborted) {
+          setUnavailable(true);
+          statusListener.current?.({ kind: 'unavailable', lastReadAt });
+        }
       } finally {
-        const retry = live && generation === own && !controller.signal.aborted;
+        clearFirstFrameTimer();
+        const retry = live && generation === own && (!controller.signal.aborted || timedOut);
         controller.abort();
         void reader?.cancel().catch(() => undefined);
         if (retry) {
@@ -84,7 +117,10 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
     };
     const visibility = () => {
       generation += 1; clearTimeout(retryTimer);
+      clearFirstFrameWait?.();
       stream?.abort();
+      setUnavailable(true);
+      statusListener.current?.({ kind: 'unavailable', lastReadAt });
       terminal?.setVisible(isHerdrForeground());
       if (isHerdrForeground() && navigator.onLine !== false) void read();
     };
@@ -93,11 +129,13 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
         theme: toGhosttyTheme(convertThemeToXterm(latestTheme.current)),
         font: { size: 12 }, labels: labels.current,
         // Observation never acquires Herdr's exclusive terminal controller.
-        // Text and keys are sent deliberately through the composer below it.
+        // Input belongs to the explicit terminal controls outside this observer.
         onData: () => {}, beforeKey: () => false,
         onResize: () => {},
         onLinkActivate: () => {},
       });
+      terminal.input.readOnly = true;
+      terminal.input.inputMode = 'none';
       if (!live) { terminal.dispose(); return; }
       surface.current = terminal;
       observer = new ResizeObserver(() => {
@@ -108,13 +146,21 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
       document.addEventListener('visibilitychange', visibility);
       for (const event of ['online', 'offline', 'openherdr:resume', 'openherdr:pause']) window.addEventListener(event, visibility);
       void read();
-    }).catch(() => { if (live) setUnavailable(true); });
+    }).catch(() => {
+      if (live) {
+        container.replaceChildren();
+        setUnavailable(true);
+        statusListener.current?.({ kind: 'unavailable', lastReadAt });
+      }
+    });
     return () => {
       live = false; generation += 1;
+      clearFirstFrameWait?.();
       clearTimeout(resizeTimer); clearTimeout(retryTimer); observer?.disconnect(); stream?.abort();
       document.removeEventListener('visibilitychange', visibility);
       for (const event of ['online', 'offline', 'openherdr:resume', 'openherdr:pause']) window.removeEventListener(event, visibility);
       terminal?.dispose(); surface.current = null;
+      statusListener.current?.({ kind: 'unavailable', lastReadAt });
     };
     // Theme changes update the existing emulator above without restarting its stream.
   }, [connection.server, connection.token, machine, paneId]);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { flushSync } from 'react-dom';
 import { CommandAutocompletePopupView, type CommandAutocompleteHandle, type CommandInfo } from '@openchamber/ui/components/chat/CommandAutocompleteView';
+import { SkillAutocompletePopupView, type SkillAutocompleteHandle, type SkillInfo } from '@openchamber/ui/components/chat/SkillAutocompleteView';
 import { getDropdownNavigationKey } from '@openchamber/ui/components/ui/dropdown-navigation';
 import { resolveAutocompleteTrigger } from '@openchamber/ui/components/chat/composer/language/triggers';
 import { ComposerEditor, type ComposerEditorHandle } from '@openchamber/ui/components/chat/composer/editor/ComposerEditor';
@@ -32,15 +33,17 @@ type ConversationComposerProps = Omit<MobilePillComposerViewProps, 'input' | 'at
   pickerOpen: boolean;
   ariaLabel: string;
   loadCommands?: (signal: AbortSignal) => Promise<CommandInfo[]>;
+  loadSkills?: (signal: AbortSignal) => Promise<SkillInfo[]>;
   children?: React.ReactNode;
   preferences?: { enterToSend: boolean; enterToSendConfigured: boolean };
 };
 const noRepositoryPicker = () => {};
+type SkillListState = { status: 'idle' | 'loading' } | { status: 'ready'; skills: SkillInfo[] } | { status: 'error'; message: string };
 type CommandListState = { status: 'idle' | 'loading' } | { status: 'ready'; commands: CommandInfo[] } | { status: 'error'; message: string };
 
 /** Draft and delivery authority stay in ConversationPanel; this owns the original input shell. */
 export function ConversationComposer({ text, onTextChange, attachmentFiles, onAttach, onEditorFocus, onEditorBlur,
-  writable, hidden, isMobile, pickerOpen, ariaLabel, loadCommands, preferences, model, agent, children, ...view }: ConversationComposerProps) {
+  writable, hidden, isMobile, pickerOpen, ariaLabel, loadCommands, loadSkills, preferences, model, agent, children, ...view }: ConversationComposerProps) {
   const { t } = useI18n();
   const form = React.useRef<HTMLFormElement>(null);
   const editor = React.useRef<ComposerEditorHandle>(null);
@@ -49,10 +52,12 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
   access.current = { writable, hidden };
   const [viewStore] = React.useState(createComposerEditorViewStore);
   const [filePickerOpen, setFilePickerOpen] = React.useState(false);
-  const [commandQuery, setCommandQuery] = React.useState<string | null>(null);
+  const [autocomplete, setAutocomplete] = React.useState<{ kind: 'command' | 'skill'; query: string } | null>(null);
   const [commandList, setCommandList] = React.useState<CommandListState>({ status: 'idle' });
+  const [skillList, setSkillList] = React.useState<SkillListState>({ status: 'idle' });
   const commands = React.useRef<CommandAutocompleteHandle>(null);
-  const closeCommands = React.useCallback(() => setCommandQuery(null), []);
+  const skills = React.useRef<SkillAutocompleteHandle>(null);
+  const closeAutocomplete = React.useCallback(() => setAutocomplete(null), []);
   React.useEffect(() => {
     const input = files.current;
     const cancel = () => setFilePickerOpen(false);
@@ -69,12 +74,12 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
   // current owner's access when the gesture arrives, including after hiding.
   const pickLocalFiles = React.useCallback(() => {
     if (!files.current || !access.current.writable || access.current.hidden) return;
-    closeCommands();
+    closeAutocomplete();
     flushSync(() => setFilePickerOpen(true));
     cancelOverlayCloseRestore();
     editor.current?.blur();
     files.current?.click();
-  }, [cancelOverlayCloseRestore, closeCommands]);
+  }, [cancelOverlayCloseRestore, closeAutocomplete]);
   React.useEffect(() => {
     if (filePickerOpen) shell.cancelOverlayCloseRestore();
   }, [filePickerOpen, shell]);
@@ -83,12 +88,12 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
   React.useEffect(() => () => { viewStore.view?.destroy(); viewStore.view = null; }, [viewStore]);
   React.useEffect(() => {
     if (!hidden) return;
-    closeCommands();
+    closeAutocomplete();
     cancelOverlayCloseRestore();
     editor.current?.blur();
     blurShellEditor();
     setFilePickerOpen(false);
-  }, [hidden, cancelOverlayCloseRestore, blurShellEditor, closeCommands]);
+  }, [hidden, cancelOverlayCloseRestore, blurShellEditor, closeAutocomplete]);
   const blur = React.useCallback(() => { editor.current?.blur(); }, []);
   // Android can hide its IME while the contenteditable retains focus. Release
   // that focus before the original shell handles its keyboard-hide intent.
@@ -104,7 +109,9 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
     if (!isMobile || hidden || !shell.expanded || hardwareKeyboard || tablet.enabled || filePickerOpen || pickerOpen) return;
     return registerBackLayer(blur);
   }, [blur, filePickerOpen, hardwareKeyboard, hidden, isMobile, pickerOpen, shell.expanded, tablet.enabled]);
-  const commandOpen = commandQuery !== null && !!loadCommands && writable && !hidden && !pickerOpen && !filePickerOpen && (!isMobile || shell.expanded);
+  const canOpenAutocomplete = writable && !hidden && !pickerOpen && !filePickerOpen && (!isMobile || shell.expanded);
+  const commandOpen = autocomplete?.kind === 'command' && !!loadCommands && canOpenAutocomplete;
+  const skillOpen = autocomplete?.kind === 'skill' && !!loadSkills && canOpenAutocomplete;
   React.useEffect(() => {
     if (!commandOpen || !loadCommands) return;
     const controller = new AbortController();
@@ -120,23 +127,52 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
     return () => controller.abort();
   }, [commandOpen, loadCommands, t]);
   React.useEffect(() => {
-    if (commandOpen) return registerBackLayer(closeCommands);
-  }, [closeCommands, commandOpen]);
+    if (!skillOpen || !loadSkills) return;
+    const controller = new AbortController();
+    setSkillList({ status: 'loading' });
+    void (async () => {
+      try {
+        const items = await loadSkills(controller.signal);
+        if (!controller.signal.aborted) setSkillList({ status: 'ready', skills: items });
+      } catch (error) {
+        if (!controller.signal.aborted) setSkillList({ status: 'error', message: error instanceof Error ? error.message : t('common.unavailable') });
+      }
+    })();
+    return () => controller.abort();
+  }, [loadSkills, skillOpen, t]);
+  React.useEffect(() => {
+    if (commandOpen || skillOpen) return registerBackLayer(closeAutocomplete);
+  }, [closeAutocomplete, commandOpen, skillOpen]);
   const selectedCommands = commandList.status === 'ready' ? commandList.commands : null;
+  const selectedSkills = skillList.status === 'ready' ? skillList.skills : null;
   const languageContext = React.useMemo(() => ({ inputMode: 'normal' as const, knownAgentNames: new Set<string>(), confirmedMentions: new Set<string>(),
-    knownSlashNames: new Set((selectedCommands ?? []).map((command) => command.name.toLowerCase())), knownSnippetTriggers: new Set<string>(),
-    attachmentFilenames: attachmentFiles.map((file) => file.name) }), [attachmentFiles, selectedCommands]);
+    knownSlashNames: new Set((selectedCommands ?? []).map((command) => command.name.toLowerCase())),
+    knownSkillNames: new Set((selectedSkills ?? []).map((skill) => skill.name.toLowerCase())), knownSnippetTriggers: new Set<string>(),
+    attachmentFilenames: attachmentFiles.map((file) => file.name) }), [attachmentFiles, selectedCommands, selectedSkills]);
   const selectCommand = (command: CommandInfo) => {
     if (!access.current.writable || access.current.hidden) return;
     const input = editor.current;
     if (!input) return;
     input.replaceRange(0, input.getValue().length, `/${command.name} `);
-    closeCommands();
+    closeAutocomplete();
     input.focus({ preventScroll: true });
     input.setSelection(input.getValue().length);
   };
+  const selectSkill = (name: string) => {
+    if (!access.current.writable || access.current.hidden) return;
+    const input = editor.current;
+    if (!input) return;
+    const value = input.getValue();
+    const cursor = input.getSelection().start;
+    if (resolveAutocompleteTrigger(value, cursor, { inputMode: 'normal', mentionsEnabled: false })?.kind !== 'skill') return;
+    const start = value.lastIndexOf('$', cursor - 1);
+    input.replaceRange(start, cursor, `$${name} `);
+    closeAutocomplete();
+    input.focus({ preventScroll: true });
+    input.setSelection(start + name.length + 2);
+  };
   const choose = (callback: () => void) => () => {
-    closeCommands();
+    closeAutocomplete();
     // Publish the holder before blur, matching ChatInput's mobile picker handoff.
     flushSync(callback);
     editor.current?.blur();
@@ -162,24 +198,30 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
     onSubmit={(event) => { event.preventDefault(); submit(); }}
     onKeyDown={(event) => {
       if (event.key !== 'Escape' || isIMECompositionEvent(event) || isInsideOpenPopup(event.target) || !isMobile) return;
-      event.preventDefault(); event.stopPropagation(); if (commandOpen) closeCommands(); else blur();
+      event.preventDefault(); event.stopPropagation(); if (commandOpen || skillOpen) closeAutocomplete(); else blur();
     }}>
     <div className="relative">
-    <CommandAutocompletePopupView open={commandOpen} ref={commands} commands={selectedCommands ?? []} searchQuery={commandQuery ?? ''} isMobile={isMobile}
-        onCommandSelect={selectCommand} onClose={closeCommands}
+    <CommandAutocompletePopupView open={commandOpen} ref={commands} commands={selectedCommands ?? []} searchQuery={autocomplete?.kind === 'command' ? autocomplete.query : ''} isMobile={isMobile}
+        onCommandSelect={selectCommand} onClose={closeAutocomplete}
         status={commandList.status === 'idle' || commandList.status === 'loading' ? <p role="status" className="px-3 py-2 typography-ui-label text-muted-foreground">{t('common.loading')}</p> : commandList.status === 'error' ? <p role="alert" className="px-3 py-2 typography-ui-label text-[var(--status-error-text)]">{commandList.message}</p> : undefined} />
+    <SkillAutocompletePopupView open={skillOpen} ref={skills} skills={selectedSkills ?? []} searchQuery={autocomplete?.kind === 'skill' ? autocomplete.query : ''} isMobile={isMobile}
+        onSkillSelect={selectSkill} onClose={closeAutocomplete}
+        status={skillList.status === 'idle' || skillList.status === 'loading' ? <p role="status" className="px-3 py-2 typography-ui-label text-muted-foreground">{t('common.loading')}</p> : skillList.status === 'error' ? <p role="alert" className="px-3 py-2 typography-ui-label text-[var(--status-error-text)]">{skillList.message}</p> : undefined} />
     {isMobile && (hidden || !shell.expanded) ? <MobilePillComposerView {...controls} input={{ value: text,
       placeholder: t('chat.chatInput.placeholder.chatCompact'), onExpand: shell.expand }} /> : <MobileExpandedComposerView {...controls}
       editor={<div data-herdr-composer="true"><ComposerEditor ref={editor} viewStore={viewStore} value={text} languageContext={languageContext}
         aria-label={ariaLabel} placeholder={t('chat.chatInput.placeholder.chatCompact')} editable={writable && !hidden}
         onChange={(change) => {
-          if (change.fromValueProp) { closeCommands(); return; }
+          if (change.fromValueProp) { closeAutocomplete(); return; }
           onTextChange(change.value);
           const trigger = resolveAutocompleteTrigger(change.value, change.selection.end, { inputMode: 'normal', mentionsEnabled: false });
-          if (trigger?.kind === 'command') {
-            if (commandQuery === null) setCommandList({ status: 'loading' });
-            setCommandQuery(trigger.query);
-          } else closeCommands();
+          if (trigger?.kind === 'command' || trigger?.kind === 'skill') {
+            if (autocomplete?.kind !== trigger.kind) {
+              if (trigger.kind === 'command') setCommandList({ status: 'loading' });
+              else setSkillList({ status: 'loading' });
+            }
+            setAutocomplete({ kind: trigger.kind, query: trigger.query });
+          } else closeAutocomplete();
         }}
         onFocus={() => { shell.onEditorFocus(); onEditorFocus(); }}
         onBlur={() => { shell.onEditorBlur(); onEditorBlur(); }}
@@ -187,8 +229,9 @@ export function ConversationComposer({ text, onTextChange, attachmentFiles, onAt
         onKeyDown={(event) => {
           if (isIMECompositionEvent(event)) return false;
           const key = getDropdownNavigationKey(event) ?? event.key;
-          if (commandOpen && commands.current && ['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(key)) {
-            event.preventDefault(); event.stopPropagation(); commands.current.handleKeyDown(key); return true;
+          const candidates = commandOpen ? commands.current : skillOpen ? skills.current : null;
+          if (candidates && ['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(key)) {
+            event.preventDefault(); event.stopPropagation(); candidates.handleKeyDown(key); return true;
           }
           if (event.key !== 'Enter' || !shouldSubmitEnter({ isMobile, isDesktopExpanded: false,
             enterToSend: preferences?.enterToSend ?? true, enterToSendConfigured: preferences?.enterToSendConfigured ?? false,

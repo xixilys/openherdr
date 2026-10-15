@@ -2,12 +2,22 @@
 
 ## Current goal and UI correction
 
-Android is the primary deliverable. The human requests the complete OpenChamber
-feature and UI experience with Herdr. The latest supplied Android screenshot
+Android is the primary deliverable. The latest human clarification prioritizes
+viewing windows already open in each saved machine's Herdr service, including
+their reported state and recent output. Navigation follows workspace, tab and
+pane, including ordinary monitoring panes, and needs no Codex process binding.
+Existing-window discovery and monitoring now
+take priority over new conversations and further composer features. The complete
+OpenChamber feature and UI experience remains in scope. The earlier Android screenshot
 shows that the current standalone chat/composer still differs substantially.
-Original presentation and interaction fidelity now takes priority over adding
-more backend feature families. The reference image contains private chat text
+Preserve original presentation and interaction fidelity while adapting the
+existing-task monitoring flow. The reference image contains private chat text
 and is kept outside published source. See OPENHERDR.md and UI_PARITY_MAP.md.
+
+Cloudflare binding remains a required primary flow for access outside the local
+network. The monitor continues through the paired HTTPS transport. Public-path
+validation is required alongside local and saved-SSH reads. Quick Tunnel restart
+changes its origin; persistent named-tunnel parity is still unfinished.
 
 The current implementation is a functional integration increment. It does not
 establish complete UI or feature parity. The original OpenChamber entrypoint
@@ -17,8 +27,51 @@ iteration follows that baseline; complete native interaction remains pending.
 The shared tool/attachment/form source increment is `965f2f346`, verified on
 public main. The file-navigation increment is published at `0d2415a30`. It serves
 `herdr-BDGqP9Kp.js` in its historical APK. The expanded-composer increment used
-`herdr-CF2mEnjj.js`. The current slash increment serves and packages
+`herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
+
+## Current window-monitoring increment
+
+The app now opens the existing-window monitor. Its machine, workspace, tab and
+pane tree includes ordinary dashboards as well as agent terminals. Chat is an
+explicit secondary entry. Returning from chat pauses its reads and retains its
+draft. Window management and terminal input remain in Terminal controls.
+
+Actual Cloudflare HTTPS checks read Local, WSL, JP API and Kansas through the
+default bridge and their saved profiles. Kansas ordinary dashboards supplied
+both a full frame and an incremental frame. A temporary HTTP client was revoked
+and then rejected; these reads added no mutation receipts. The private receipt
+is `.tmp/window-monitor/http-receipt.json`.
+
+The actual 412x915 browser paired through that CF address, displayed all four
+machines and read existing Codex, Claude and dashboard windows. Reloading the
+same origin restored the saved binding without another pairing. The observer's
+actual textarea is read-only with `inputmode="none"`. Screen and visible-text
+selection were exercised. User-window captures remain private under
+`.tmp/window-monitor/` and are excluded from public source.
+
+The successful-frame path exposed a layout/reconnect loop missed by the DOM
+fallback tests. Repeated connecting notifications are removed. A per-subscription
+20-second first-frame deadline now enters fallback and existing backoff; an
+accepted frame cancels it, so a static screen has no idle deadline. The final CF
+browser retained a stable screen area after recovery. The deadline branch has
+source review but no injected network-stall acceptance.
+
+The final focused regression is 13/13 in
+`.tmp/herdr-monitor-first-frame-tests.log`; independent source review found no
+blocking P1/P2. `check:changed` passed on the final source in
+`.tmp/check-window-monitor-final.log`. The original web build and Herdr Android
+build passed. The current APK is 17,140,452 bytes and packages
+`herdr-BLLJAMLv.js`; its HTML and entry asset match the web build exactly.
+`.tmp/window-monitor-apk.json` records that comparison. The final isolated
+offline Gradle build took 10 seconds, with 213 tasks, 27 executed and 186
+up-to-date. This APK has not been installed or interactively accepted on Android.
+
+The underlying Herdr services and existing agents continue in their original
+processes. Terminal-occupant isolation takes effect when a new authoritative
+snapshot reports `terminal_id`; the frame/read protocol does not carry that ID.
+Native Back, IME, rotation, secure-vault write/relaunch and physical-phone use
+remain unverified. This increment does not complete original-feature parity.
 
 ## Integrated source
 
@@ -75,6 +128,15 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
   cold history recovery, permission and form operations. User panes and
   provider configuration were preserved. A matching cwd alone never established
   native session ownership.
+- A separate named Herdr fixture started one Codex 0.162.1 agent with read-only
+  permissions and GPT-6-Luna medium. The human approved the repository trust
+  prompt. Exactly one marker request completed and the terminal showed its real
+  reply, but `agent.get` and `session.snapshot` still contained no `agent_session`.
+  The owned session was stopped and its private records retained. The installed
+  Codex integration reports not installed; this has not established the cause of
+  the missing reference. No native history was associated or read, and no hook,
+  Provider or credential configuration was changed. Codex history and Android
+  rendering remain unimplemented.
 - An isolated public HTTPS bridge passed bearer rejection, real Herdr pane
   resolution, file write/read, duplicate refusal, conversation create/history/
   rename/read and terminal input/output. The terminal marker appeared exactly

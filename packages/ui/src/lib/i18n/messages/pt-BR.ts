@@ -20,6 +20,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.monitor.recentText": "Saída recente do terminal",
+  "herdr.monitor.title": "Monitoramento",
+  "herdr.monitor.readOnly": "Visualização somente leitura",
+  "herdr.monitor.control": "Controles do terminal",
+  "herdr.monitor.screen": "Tela",
+  "herdr.monitor.visibleText": "Texto visível",
+  "herdr.monitor.screenFallback": "A transmissão da tela está indisponível. O texto visível do painel está sendo exibido.",
+  "herdr.monitor.stale": "Exibindo a última leitura bem-sucedida das {time}.",
+  "herdr.monitor.waiting": "Aguardando uma leitura bem-sucedida.",
+  "herdr.monitor.paused": "Monitoramento pausado.",
+  "herdr.monitor.empty": "Não há painéis disponíveis nesta máquina.",
+  "herdr.monitor.lastRead": "Última leitura às {time}",
   "opencodeCompatibility.bundled": "O OpenCode está incluído no OpenChamber. Atualize o OpenChamber para obter o OpenCode v2.",
   "opencodeCompatibility.title": "OpenCode v2 necessário",
   "opencodeCompatibility.outdatedTitle": "Atualize o OpenCode",
@@ -2362,6 +2374,8 @@ export const dict: Record<I18nKey, string> = {
   "chat.commandAutocomplete.badge.command": "comando",
   "chat.commandAutocomplete.badge.system": "sistema",
   "chat.commandAutocomplete.empty": "Nenhum comando encontrado",
+  "chat.skillAutocomplete.empty": "Nenhuma habilidade encontrada",
+  "chat.skillAutocomplete.tooManySkills": "Você pode usar até {max} habilidades em uma mensagem. Remova algumas referências a habilidades e tente novamente.",
   "chat.agentMentionAutocomplete.badge.system": "sistema",
   "chat.agentMentionAutocomplete.empty": "Nenhum agente encontrado",
   "chat.fileMentionAutocomplete.searchMoreAgents": "Digite para buscar mais agentes",

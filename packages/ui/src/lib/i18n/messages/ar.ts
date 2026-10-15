@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "مخرجات الطرفية الأخيرة",
+  "herdr.monitor.title": "المراقبة",
+  "herdr.monitor.readOnly": "عرض للقراءة فقط",
+  "herdr.monitor.control": "عناصر التحكم بالطرفية",
+  "herdr.monitor.screen": "الشاشة",
+  "herdr.monitor.visibleText": "النص الظاهر",
+  "herdr.monitor.screenFallback": "بث الشاشة غير متاح. يُعرض النص الظاهر في الجزء.",
+  "herdr.monitor.stale": "يُعرض آخر محتوى تمت قراءته بنجاح في {time}.",
+  "herdr.monitor.waiting": "بانتظار قراءة ناجحة.",
+  "herdr.monitor.paused": "المراقبة متوقفة مؤقتًا.",
+  "herdr.monitor.empty": "لا توجد أجزاء متاحة على هذا الجهاز.",
+  "herdr.monitor.lastRead": "آخر قراءة في {time}",
   'opencodeCompatibility.bundled': 'يأتي OpenCode مضمّنًا مع OpenChamber. حدّث OpenChamber للحصول على OpenCode v2.',
   'opencodeCompatibility.title': 'يلزم OpenCode v2',
   'opencodeCompatibility.outdatedTitle': 'تحديث OpenCode',
@@ -2351,6 +2363,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'أمر',
   'chat.commandAutocomplete.badge.system': 'النظام',
   'chat.commandAutocomplete.empty': 'لم يتم العثور على أوامر',
+  'chat.skillAutocomplete.empty': 'لم يتم العثور على مهارات',
+  'chat.skillAutocomplete.tooManySkills': 'يمكنك استخدام ما يصل إلى {max} مهارات في الرسالة الواحدة. احذف بعض إشارات المهارات وحاول مرة أخرى.',
   'chat.agentMentionAutocomplete.badge.system': 'النظام',
   'chat.agentMentionAutocomplete.empty': 'لم يتم العثور على وكلاء',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'اكتب للبحث عن مزيد من الوكلاء',

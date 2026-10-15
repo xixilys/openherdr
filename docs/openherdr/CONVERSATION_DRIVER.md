@@ -131,8 +131,9 @@ The read uses the selected session's registered or private coordinator and its
 verified directory, then checks the target again before returning. A failed or
 malformed lookup throws. It never becomes a successful empty registry.
 
-Load this registry only when opening the slash picker or classifying a slash
-submission. OpenCode's directory-scoped command read can initialize that
+Load this registry only when opening the slash or skills picker, classifying a
+slash submission, or validating selected skill mentions before sending.
+OpenCode's directory-scoped command read can initialize that
 directory's MCP servers, so it is excluded from the initial model/agent catalog.
 
 `create` returns `{protocol,target,session,access:'owned',capabilities}`.
@@ -156,7 +157,7 @@ assistant messages establish completion. Void operations return `result:null`.
 | `fork` | `{messageId?}`; an optional ID selects the upstream `before` boundary |
 | `revert_stage` | `{messageId}` |
 | `revert_clear`, `revert_commit`, `compact` | `{}` |
-| `command` | `{command,arguments?,files?:[{uri,name}],delivery?:'steer'|'queue'}` |
+| `command` | `{command,arguments?,files?:[{uri,name}],delivery?:'steer'|'queue',skills?:[{id}]}` |
 | `skill` | `{skill}` |
 
 Permissions and forms must still be pending in the same session. OpenCode
@@ -171,11 +172,29 @@ failure retains the draft and sends nothing. The independent `skill` action
 does not replace a skill attached to a prompt.
 
 Command names accept native strings up to 4096 characters and must still exist
-in the current registry before dispatch. A prompt accepts at most 10 unique
-skill IDs and checks them against the same directory's current registry. Both
-paths preserve attachments and delivery. After these awaited lookups, the
-service rechecks whether another Herdr pane owns the session, then verifies the
-selected target immediately before dispatch. Unknown outcomes are never retried.
+in the current registry before dispatch. Prompts and commands accept at most
+10 unique skill IDs and check them against the same directory's current
+registry. Both paths preserve attachments and delivery. After these awaited
+lookups, the service rechecks whether another Herdr pane owns the session, then
+verifies the selected target immediately before dispatch.
+
+A command with skills follows the shared OpenChamber command sender. The
+service uses the validated IDs' real skill names to build the same instruction
+as `buildSkillMentionInstruction`, then sends it through
+`session.synthetic({sessionID,text,delivery,resume:false})`. It rechecks native
+writers and the target after that admission before sending the original
+arguments, files and delivery through `session.command`. The client supplies
+only native skill IDs; arbitrary skill names and synthetic context are refused.
+Commands without skills issue no skill lookup or synthetic write. Prompts keep
+their direct native skill attachments and real inbox result.
+
+All command and skill list validation completes before the first mutation.
+Dispatch tracking starts before synthetic context is sent. That instruction
+can remain in session history if a later check or command fails, so every error
+after synthetic dispatch retains an unknown mutation receipt, including a later
+confirmed command refusal. No synthetic context is deleted or replayed, and no
+command is retried automatically. Inspect the receipt and actual session before
+choosing another operation.
 
 Attachments use the official prompt `files` data URI protocol. Accepted MIME
 types are `text/plain`, PNG, JPEG, GIF, WebP and PDF. Names cannot contain path
@@ -275,7 +294,9 @@ remain separate work. These limits do not establish complete Android parity.
 
 The focused `service.test.js` cases cover actual SDK request serialization,
 native read-only enforcement, stale identity before/after dispatch, no retries
-after unknown prompt delivery, credential stripping, pending form/permission
+after unknown prompt delivery, skill-command synthetic ordering and partial
+failures, native takeover during registry reads or synthetic admission,
+credential stripping, pending form/permission
 ownership, private cold recovery, partial lists, persisted deletion, saved
 history and explicit rebind, event isolation/deduplication, strict attachments
 and endpoint refusal. `runtime.test.js` covers signal termination, bounded

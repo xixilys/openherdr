@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { EditorView } from '@codemirror/view';
 import { Window } from 'happy-dom';
 import type { CommandInfo } from '@/components/chat/CommandAutocompleteView';
+import type { SkillInfo } from '@/components/chat/SkillAutocompleteView';
 import type { Root } from 'react-dom/client';
 
 let dom: Window;
@@ -17,6 +18,7 @@ let running: boolean;
 let canQueue: boolean;
 let pickerOpen: boolean;
 let commandLoader: ((signal: AbortSignal) => Promise<CommandInfo[]>) | undefined;
+let skillLoader: ((signal: AbortSignal) => Promise<SkillInfo[]>) | undefined;
 let sends: number;
 let queues: number;
 let attachments: { name: string }[];
@@ -52,7 +54,7 @@ beforeEach(async () => {
   const { createRoot } = await import('react-dom/client');
   const { I18nProvider } = await import('@/lib/i18n');
   const { ConversationComposer } = await import('../../../../web/src/herdr/ConversationComposer');
-  commandLoader = undefined; frameObserver = undefined;
+  commandLoader = undefined; skillLoader = undefined; frameObserver = undefined;
   scope = 'server/local/pane/identity/session-a'; hidden = false; writable = true; running = false; canQueue = true; pickerOpen = false; sends = 0; queues = 0; attachments = [];
   drafts.clear(); drafts.set(scope, 'Unsent draft');
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
@@ -60,7 +62,7 @@ beforeEach(async () => {
     text={drafts.get(scope) ?? ''} onTextChange={(text) => { drafts.set(scope, text); paint(); }}
     attachmentFiles={attachments} onAttach={(files) => { attachments = files.map(file => ({ name: file.name })); }}
     onEditorFocus={() => {}} onEditorBlur={() => {}} writable={writable} hidden={hidden} isMobile pickerOpen={pickerOpen}
-    loadCommands={commandLoader} ariaLabel="Prompt" isRunning={running} canSend={writable} canQueue={writable && canQueue} canAbort={false}
+    loadCommands={commandLoader} loadSkills={skillLoader} ariaLabel="Prompt" isRunning={running} canSend={writable} canQueue={writable && canQueue} canAbort={false}
     onSend={() => { sends++; }} onQueue={() => { queues++; }} onAbort={() => {}}
     model={{ label: 'Actual model', onChoose: () => { pickerOpen = true; paint(); }, disabled: !writable }}
     agent={{ label: 'Actual agent', onChoose: () => {}, disabled: !writable }}
@@ -190,7 +192,7 @@ test('returning to an unlocked pill opens its own file picker once without expan
 });
 
 const nativeCommand = (name: string): CommandInfo => ({ id: `native:${name}`, name, source: 'opencode', description: `Native ${name}` });
-const writeText = (text: string) => act(async () => { const editor = view(); editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text } }); });
+const writeText = (text: string) => act(async () => { const editor = view(); editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text }, selection: { anchor: text.length } }); });
 const commandPopup = () => host.querySelector('[data-command-autocomplete]');
 const candidateRows = () => [...(commandPopup()?.querySelectorAll<HTMLElement>('.cursor-pointer') ?? [])];
 const composerKey = (key: string, modifiers: KeyboardEventInit = {}) => act(async () => { content()?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...modifiers })); });
@@ -289,4 +291,101 @@ test('the first layout of each command opening shows loading before passive regi
   expect(frames[0]).not.toContain('/old-name');
   await act(async () => pending.resolve([]));
   await wait(25);
+});
+
+const skillPopup = () => host.querySelector('[data-skill-autocomplete]');
+const skillRows = () => [...(skillPopup()?.querySelectorAll<HTMLElement>('.cursor-pointer') ?? [])];
+const nativeSkill = (name: string): SkillInfo => ({ id: `native-folder:${name}`, name, description: `Native ${name}` });
+
+test('skill queries filter one native read per opening and retain keyboard/IME selection behavior', async () => {
+  let loads = 0;
+  skillLoader = async () => { loads++; return [nativeSkill('zeta'), nativeSkill('alpha')]; };
+  await render(); await expand(); expect(loads).toBe(0);
+  await writeText('$'); await wait(40); expect(loads).toBe(1);
+  expect(skillRows().map(row => row.querySelector('.font-semibold')?.textContent)).toEqual(['alpha', 'zeta']);
+  expect(skillRows().every(row => row.querySelectorAll('span').length === 1)).toBe(true);
+  expect(skillPopup()?.classList.contains('max-w-[450px]')).toBe(true);
+  await writeText('$al'); await wait(25); expect(loads).toBe(1);
+  expect(skillRows().map(row => row.querySelector('.font-semibold')?.textContent)).toEqual(['alpha']);
+  await writeText('$'); await wait(25);
+  await composerKey('n', { ctrlKey: true }); expect(skillRows()[1]?.classList.contains('bg-interactive-selection')).toBe(true);
+  await composerKey('p', { ctrlKey: true }); expect(skillRows()[0]?.classList.contains('bg-interactive-selection')).toBe(true);
+  await composerKey('ArrowUp'); await composerKey('Tab'); await wait(25);
+  expect(view().state.doc.toString()).toBe('$zeta '); expect(document.activeElement).toBe(content());
+  expect(skillPopup()).toBeNull(); expect(sends).toBe(0); expect(queues).toBe(0);
+  await writeText('$'); await wait(40); expect(loads).toBe(2);
+  await composerKey('Enter', { isComposing: true }); expect(sends).toBe(0); expect(queues).toBe(0);
+  expect(view().state.doc.toString()).not.toBe('$alpha ');
+  await writeText('$'); await wait(40);
+  await composerKey('ArrowDown'); await composerKey('Enter'); await wait(25);
+  expect(view().state.doc.toString()).toBe('$zeta '); expect(sends).toBe(0);
+});
+
+test('skill selection replaces only the token before the caret and preserves multiline tail text', async () => {
+  skillLoader = async () => [nativeSkill('My_Audit')];
+  await render(); await expand();
+  const before = 'First line\nReview $My tail text\nLast line';
+  const cursor = before.indexOf(' tail');
+  await act(async () => view().dispatch({ changes: { from: 0, to: view().state.doc.length, insert: before }, selection: { anchor: cursor } }));
+  await wait(40);
+  await act(async () => skillRows()[0]?.click());
+  const after = 'First line\nReview $My_Audit  tail text\nLast line';
+  expect(view().state.doc.toString()).toBe(after); expect(drafts.get(scope)).toBe(after);
+  expect(view().state.selection.main.anchor).toBe(before.indexOf('$') + 'My_Audit'.length + 2);
+  expect(document.activeElement).toBe(content()); expect(skillPopup()).toBeNull(); expect(sends).toBe(0);
+});
+
+test('slash candidates retain priority and skill candidates close before Back or model handoff', async () => {
+  const { closeTopmostBackLayer } = await import('@/lib/mobileBackLayers');
+  let loads = 0;
+  commandLoader = async () => [nativeCommand('verify')];
+  skillLoader = async () => { loads++; return [nativeSkill('audit')]; };
+  await render(); await expand(); await writeText('/ver'); await wait(40);
+  expect(commandPopup()).not.toBeNull(); expect(skillPopup()).toBeNull(); expect(loads).toBe(0);
+  await writeText('/verify $au'); await wait(40);
+  expect(commandPopup()).toBeNull(); expect(skillPopup()).not.toBeNull(); expect(loads).toBe(1);
+  await act(async () => { expect(closeTopmostBackLayer()).toBe(true); }); await wait(25);
+  expect(skillPopup()).toBeNull(); expect(document.activeElement).toBe(content());
+  await writeText('/verify $audit'); await wait(40); expect(loads).toBe(2);
+  await act(async () => host.querySelector<HTMLButtonElement>('[title="Actual model"]')?.click()); await wait(25);
+  expect(pickerOpen).toBe(true); expect(skillPopup()).toBeNull();
+  pickerOpen = false; await render(); await wait();
+  expect(view().state.doc.toString()).toBe('/verify $audit'); expect(document.activeElement).toBe(content()); expect(loads).toBe(2);
+});
+
+test('failed skill reads remain errors and a new opening starts with loading in its first frame', async () => {
+  let loads = 0;
+  skillLoader = async () => { loads++; if (loads === 1) throw new Error('Native skills unavailable'); return []; };
+  await render(); await expand();
+  const frames: string[] = [];
+  frameObserver = () => { const popup = skillPopup(); if (popup) frames.push(popup.textContent ?? ''); };
+  await writeText('$'); await wait(40);
+  expect(frames[0]).toContain('Loading...'); expect(frames[0]).not.toContain('No skills found');
+  expect(skillPopup()?.querySelector('[role="alert"]')?.textContent).toBe('Native skills unavailable');
+  expect(skillPopup()?.textContent).not.toContain('No skills found');
+  await composerKey('Enter', { ctrlKey: true }); expect(sends).toBe(0);
+  await composerKey('Escape'); await wait(25);
+  frames.length = 0;
+  await writeText('$other'); await wait(40);
+  expect(frames[0]).toContain('Loading...'); expect(frames[0]).not.toContain('Native skills unavailable');
+  expect(skillPopup()?.textContent).toContain('No skills found'); expect(loads).toBe(2);
+  expect(drafts.get(scope)).toBe('$other');
+});
+
+test('hidden and replaced skill owners abort pending reads without publishing their candidates', async () => {
+  let reply: (items: SkillInfo[]) => void = () => {};
+  const signals: AbortSignal[] = [];
+  skillLoader = signal => { signals.push(signal); return new Promise(resolve => { reply = resolve; }); };
+  await render(); await expand(); await writeText('$'); await wait(25);
+  const first = reply;
+  hidden = true; await render(); expect(signals[0]?.aborted).toBe(true);
+  await act(async () => first([nativeSkill('hidden-only')])); await wait();
+  expect(skillPopup()).toBeNull();
+  hidden = false; await render(); await expand(); await writeText('$new'); await wait(25);
+  const second = reply;
+  scope = 'new-native-skills-owner'; drafts.set(scope, 'New owner'); await render();
+  expect(signals[1]?.aborted).toBe(true);
+  await act(async () => second([nativeSkill('old-owner-only')])); await wait(25);
+  expect(skillPopup()).toBeNull(); await expand(); expect(view().state.doc.toString()).toBe('New owner');
+  expect(sends).toBe(0); expect(queues).toBe(0);
 });

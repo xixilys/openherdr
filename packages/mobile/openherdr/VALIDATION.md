@@ -1,6 +1,35 @@
 # Native build validation
 
-## Latest native-command artifact
+## Latest window-monitoring artifact
+
+The current debug APK is 17,140,452 bytes and packages `herdr-BLLJAMLv.js`.
+Its bundled HTML and entry asset match the final web build byte for byte.
+`.tmp/window-monitor-apk.json` records that comparison. The package identity,
+versionCode and native source are unchanged. This APK has not been installed or
+interactively tested on Android.
+
+The final build rebuilt Herdr web source, prepared native assets and synchronized
+Capacitor. Gradle reused the task-owned isolated home/project cache and copied
+read-only dependency cache with `--offline --no-daemon --no-watch-fs`.
+`.tmp/android-window-monitor-final-build.log` reports success in 10 seconds,
+with 213 tasks, 27 executed and 186 up-to-date. No shared cache or mount changed.
+
+The actual 412x915 CF browser paired, opened the default existing-window monitor
+and displayed Local, WSL, JP API and Kansas. It read existing agent windows and
+ordinary Kansas dashboards, switched between Screen and Visible text, and
+restored the saved binding on reload. The real observer textarea is read-only
+with `inputmode="none"`. Captures contain private user output and stay under
+`.tmp/window-monitor/`, outside public source.
+
+Successful frames exposed a status/footer resize loop. The final client removes
+repeated connecting notifications and keeps the observed screen area stable.
+The new 20-second first-frame deadline has source review; a network stall was
+not injected. Static screens have no idle deadline. The final focused regression
+passed 13/13 and the combined repository gate passed. These browser/source
+checks do not establish Android IME, Back, rotation, native secure-vault
+write/relaunch, sharing or physical-phone use.
+
+## Previous native-command artifact
 
 The current debug APK is 17,136,001 bytes and packages `herdr-CIO7wjLL.js`.
 Its `assets/public/index.html` and entry asset exactly match the current web

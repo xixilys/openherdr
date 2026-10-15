@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "Letzte Terminalausgabe",
+  "herdr.monitor.title": "Überwachung",
+  "herdr.monitor.readOnly": "Schreibgeschützte Ansicht",
+  "herdr.monitor.control": "Terminalsteuerung",
+  "herdr.monitor.screen": "Bildschirm",
+  "herdr.monitor.visibleText": "Sichtbarer Text",
+  "herdr.monitor.screenFallback": "Der Bildschirmstream ist nicht verfügbar. Der sichtbare Text des Bereichs wird angezeigt.",
+  "herdr.monitor.stale": "Der letzte erfolgreiche Abruf von {time} wird angezeigt.",
+  "herdr.monitor.waiting": "Warte auf einen erfolgreichen Abruf.",
+  "herdr.monitor.paused": "Überwachung pausiert.",
+  "herdr.monitor.empty": "Auf diesem Rechner sind keine Bereiche verfügbar.",
+  "herdr.monitor.lastRead": "Zuletzt abgerufen um {time}",
   "opencodeCompatibility.bundled": "OpenCode ist in OpenChamber enthalten. Aktualisieren Sie OpenChamber, um OpenCode v2 zu erhalten.",
   "opencodeCompatibility.title": "OpenCode v2 erforderlich",
   "opencodeCompatibility.outdatedTitle": "OpenCode aktualisieren",
@@ -2144,6 +2156,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'Befehl',
   'chat.commandAutocomplete.badge.system': 'System',
   'chat.commandAutocomplete.empty': 'Keine Befehle gefunden',
+  'chat.skillAutocomplete.empty': 'Keine Skills gefunden',
+  'chat.skillAutocomplete.tooManySkills': 'Du kannst bis zu {max} Skills in einer Nachricht verwenden. Entferne einige Skill-Verweise und versuche es erneut.',
   'chat.agentMentionAutocomplete.badge.system': 'System',
   'chat.agentMentionAutocomplete.empty': 'Keine Agenten gefunden',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'Tippe, um mehr Agenten zu suchen',

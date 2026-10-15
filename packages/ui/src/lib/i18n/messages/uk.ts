@@ -20,6 +20,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.monitor.recentText": "Нещодавній вивід термінала",
+  "herdr.monitor.title": "Моніторинг",
+  "herdr.monitor.readOnly": "Перегляд лише для читання",
+  "herdr.monitor.control": "Керування терміналом",
+  "herdr.monitor.screen": "Екран",
+  "herdr.monitor.visibleText": "Видимий текст",
+  "herdr.monitor.screenFallback": "Потік екрана недоступний. Показано видимий текст панелі.",
+  "herdr.monitor.stale": "Показано останній успішний знімок від {time}.",
+  "herdr.monitor.waiting": "Очікування успішного зчитування.",
+  "herdr.monitor.paused": "Моніторинг призупинено.",
+  "herdr.monitor.empty": "На цьому комп’ютері немає доступних панелей.",
+  "herdr.monitor.lastRead": "Останнє зчитування о {time}",
   "opencodeCompatibility.bundled": "OpenCode входить до складу OpenChamber. Оновіть OpenChamber, щоб отримати OpenCode v2.",
   "opencodeCompatibility.title": "Потрібен OpenCode v2",
   "opencodeCompatibility.outdatedTitle": "Оновіть OpenCode",
@@ -2362,6 +2374,8 @@ export const dict: Record<I18nKey, string> = {
   "chat.commandAutocomplete.badge.command": "команда",
   "chat.commandAutocomplete.badge.system": "система",
   "chat.commandAutocomplete.empty": "Команди не знайдено",
+  "chat.skillAutocomplete.empty": "Навичок не знайдено",
+  "chat.skillAutocomplete.tooManySkills": "В одному повідомленні можна використати до {max} навичок. Видаліть частину посилань на навички та спробуйте ще раз.",
   "chat.agentMentionAutocomplete.badge.system": "система",
   "chat.agentMentionAutocomplete.empty": "Агентів не знайдено",
   "chat.fileMentionAutocomplete.searchMoreAgents": "Введіть, щоб знайти більше агентів",

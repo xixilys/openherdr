@@ -12,6 +12,75 @@ they are used without an explicit presentation source. Importing this client or
 rendering its conversation therefore does not bootstrap OpenCode location,
 session-folder or settings requests against the mobile shell origin.
 
+## Existing Herdr windows
+
+The connected app opens Monitor. It uses the saved paired origin and bearer
+transport, including the existing Cloudflare HTTPS route for access away from
+home. One-use pairing, saved server selection and the native credential vault
+remain the connection flow. Monitor does not require an OpenCode runtime or a
+Codex conversation identity.
+
+The original mobile header and window drawer navigate machine, workspace, tab
+and pane. Each selected machine reads its own existing Herdr service. Workspaces,
+tabs and panes retain the source order, including ordinary dashboard/watch panes
+without a recognized agent. Selecting a machine or a window returns to Monitor.
+The mobile title shows the selected tab and its machine/workspace, and opens the
+window tree. It does not open a conversation switcher in Monitor. Machine
+selection remains available when a machine has no panes or a snapshot fails.
+
+Monitor mounts no pane composer, key bar, agent launcher or window management
+buttons. Creation, rename, close and split controls are in the explicit Terminal
+controls workspace page, along with its existing tracked mutations. Files,
+Changes and other workspace pages keep their explicit entries. These are
+separate actions from selecting an existing window to read it.
+
+`PaneMonitor` owns the selected occupant's read-only output. Its identity is the
+paired server, machine, pane and `terminal_id`. A different owner immediately
+withdraws the old output, including a matching pane ID on another machine or a
+replacement terminal in the same pane. New snapshots of the same terminal keep
+its output and read lifecycle. Snapshot revisions are not occupant identities.
+
+Screen uses the official read-only Ghostty observer. Connecting or unavailable
+screens display a `pane.read` fallback with `source: 'visible'`; the text is the
+current visible pane, not scrollback. Successful empty output remains empty.
+Only this pane is read. Text polling stops while screen frames are healthy, and
+both paths stop while the view, document or native app is hidden or offline.
+They resume against the selected owner. `LiveTerminal` sets its hidden textarea
+to read-only with `inputMode='none'`, preserving selection/copy without offering
+terminal input or acquiring exclusive control. Terminal controls retain their
+separate recent-output fallback, labeled Recent terminal output.
+
+Observation reports connecting only when its owner first mounts. Resize and
+reconnect keep the previous live/unavailable state until a new frame or failure,
+so status/footer layout changes do not repeatedly restart the stream. Each new
+subscription waits at most 20 seconds for its first accepted frame, then enters
+fallback and existing backoff. The timer stops after that frame; a static pane
+has no idle timeout. Owner replacement, hiding and unmount cancel the old wait.
+
+A failed snapshot keeps the same machine's known tree and labels its last
+successful read time. An initial failure has no authoritative empty result.
+Failed visible reads preserve the same occupant's previous text with the error
+and that text's own successful read time. Screen failure and text failure remain
+separate; a healthy visible fallback does not inherit an old screen timestamp.
+An empty machine offers refresh and machine/window selection, without prompting
+the user to create a new task.
+
+Conversations is an explicit secondary entry. On the first Monitor visit,
+`ConversationPanel` is not mounted and no conversation endpoint is requested.
+After a deliberate chat visit, its hidden disabled instance keeps the selected
+conversation, unsent draft and reading position on a return to Monitor. The
+existing disabled lifecycle aborts and pauses its reads, catalog, history and
+stream; it does not start a new runtime in the background. Target changes keep
+the original source-scoped conversation and draft behavior.
+
+`HerdrMonitor.vitest.tsx` exercises the actual app navigation and request path,
+including default zero conversation/mutation calls, ordinary panes, repeated IDs
+across machines, stale and failed snapshots, foreground cancellation and an
+explicit chat round trip. `PaneMonitor.vitest.tsx` covers visible fallback,
+retained failure data, occupant isolation, pause/recovery and successful empty
+output. These are DOM/request checks. Real Cloudflare rendering and Android IME,
+system Back and native lifecycle acceptance require their own runtime checks.
+
 ## Transport and credentials
 
 `transport.ts` owns server normalization, pairing, bearer requests and parsed
@@ -295,7 +364,7 @@ file cancellation, tablet expansion and shared Back-layer order. These DOM
 checks do not establish Android IME, real system Back, keyboard geometry,
 native picker behavior or fullscreen/autocomplete parity.
 
-## Native slash commands
+## Native commands and inline skills
 
 `ConversationComposer` passes only real native commands to the original
 `CommandAutocompleteView`. Typing the original leading-slash trigger opens it;
@@ -307,14 +376,33 @@ server, machine, pane identity and conversation. Opening a model or attachment
 picker closes candidates and uses the existing keyboard handoff.
 
 `ConversationPanel` reads `/api/herdr/conversations/registry` only for this
-selected conversation. Ordinary prompts make no registry request. A slash
-submit first matches the native command name with the original literal-space,
+selected conversation. Prompts without a slash or inline `$name` token make no
+registry request. A slash submit first matches the native command name with the original literal-space,
 case-sensitive parser. A command match sends one `command` action with the
 original arguments, files and queue delivery. Successful no-match then loads
 skills by name; a match sends one prompt with the complete original text, files,
 delivery and real skill ID. Successful no-match in both lists sends the original
-plain prompt. A failed necessary lookup shows the error, retains the draft and
-files and dispatches nothing. There is no `skill` action or automatic mutation
+plain prompt.
+
+The `$` picker uses the original `SkillAutocompleteView`, trigger, ranking and
+editor insertion. It reads native skills once per opening and filters that list
+locally. Native IDs, names and descriptions are authoritative; the source provides
+no scope/source metadata, so these badges are absent. Selection inserts `$name `
+at the caret and preserves all other text. A restored draft opens no picker.
+The original OpenCode wrapper retains its own directory store and full metadata.
+
+Submission resolves inline `$name` tokens with the shared prefix grammar and
+exact registered casing. A fresh native skills read maps names to real IDs,
+including names whose skill folder has a different ID. Slash skill and inline
+references merge in first-occurrence order, with the leading slash skill first;
+duplicate native IDs are attached only once. At most 10 unique IDs are allowed.
+Exceeding that limit shows an error and preserves the complete draft. Successful
+unknown inline names remain ordinary text. Command routing keeps precedence
+when a native command and skill share a name. Both command and prompt actions
+carry the resolved IDs with unchanged text or arguments, files and queue delivery;
+the server supplies command skill instructions before dispatching the command.
+A failed necessary lookup shows the error, retains the draft and files and
+dispatches nothing. There is no `skill` action or automatic mutation
 retry.
 
 Classification captures draft identity, revision, source identity and transport.
@@ -332,6 +420,7 @@ Herdr browser, hosted mobile and Capacitor composer use the native-only list;
 Herdr remains outside the VS Code webview. DOM tests cover selection and Back
 ordering, while real Android keyboard and system Back still require acceptance.
 `ConversationSlash.vitest.tsx` checks actual controller requests and drafts,
-including lazy counts, command/skill/plain routing, files/delivery, failures,
+including lazy counts, command/skill/plain routing, inline exact-case names and
+IDs, slash/inline merging, the unique-ID limit, files/delivery, failures,
 source and draft changes, fresh registry classification, null action replies
 and unknown-delivery single dispatch.

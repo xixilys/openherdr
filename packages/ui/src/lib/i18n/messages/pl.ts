@@ -20,6 +20,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.monitor.recentText": "Ostatnie dane z terminala",
+  "herdr.monitor.title": "Monitorowanie",
+  "herdr.monitor.readOnly": "Widok tylko do odczytu",
+  "herdr.monitor.control": "Sterowanie terminalem",
+  "herdr.monitor.screen": "Ekran",
+  "herdr.monitor.visibleText": "Widoczny tekst",
+  "herdr.monitor.screenFallback": "Strumień ekranu jest niedostępny. Wyświetlany jest widoczny tekst panelu.",
+  "herdr.monitor.stale": "Wyświetlany jest ostatni udany odczyt z {time}.",
+  "herdr.monitor.waiting": "Oczekiwanie na udany odczyt.",
+  "herdr.monitor.paused": "Monitorowanie wstrzymane.",
+  "herdr.monitor.empty": "Na tym komputerze nie ma dostępnych paneli.",
+  "herdr.monitor.lastRead": "Ostatni odczyt o {time}",
   "opencodeCompatibility.bundled": "OpenCode jest dołączony do OpenChamber. Zaktualizuj OpenChamber, aby uzyskać OpenCode v2.",
   "opencodeCompatibility.title": "Wymagany OpenCode v2",
   "opencodeCompatibility.outdatedTitle": "Zaktualizuj OpenCode",
@@ -1008,6 +1020,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.badge.command': 'polecenie',
   'chat.commandAutocomplete.badge.system': 'system',
   'chat.commandAutocomplete.empty': 'Nie znaleziono poleceń',
+  'chat.skillAutocomplete.empty': 'Nie znaleziono umiejętności',
+  'chat.skillAutocomplete.tooManySkills': 'W jednej wiadomości możesz użyć maksymalnie {max} umiejętności. Usuń część odwołań do umiejętności i spróbuj ponownie.',
   'chat.agentMentionAutocomplete.badge.system': 'system',
   'chat.agentMentionAutocomplete.empty': 'Nie znaleziono agentów',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'Wpisz aby szukać więcej agentów',

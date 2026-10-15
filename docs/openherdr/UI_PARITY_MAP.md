@@ -7,6 +7,12 @@ with Herdr as the machine/session control layer. This inventory began with the
 remote terminal client and records the original component dependencies at that
 point. Current implementation and validation are tracked in STATUS.md.
 
+The current human priority is browsing windows already open in each machine's
+Herdr service. The main route is machine, workspace, tab and pane, including
+ordinary dashboards. It uses authoritative Herdr status and read-only output.
+Codex conversation identity is optional for that route. Structured conversations
+and the remaining original features stay in scope as separate entries.
+
 Keep the separate OpenHerdr entrypoint and authenticated transport. Replace its content composition with the original mobile shell and original feature components as their data owners are adapted. Reusing `RuntimeAPIProvider` alone is insufficient: OpenChamber has a second, direct OpenCode session/sync dependency throughout its chat and navigation. That dependency must be made explicit rather than satisfied with fabricated OpenCode records.
 
 The subsequent integration shares `HerdrMobileShell`, user bubbles/text,
@@ -255,15 +261,19 @@ Full parity should be accepted by original feature and actual user flow, not by 
 
 ## Current artifact and remaining acceptance
 
-The slash debug APK is 17,136,001 bytes and contains `herdr-CIO7wjLL.js`; its
+The current monitor debug APK is 17,140,452 bytes and contains `herdr-BLLJAMLv.js`; its
 bundled HTML and entry asset exactly match the built web files.
-`.tmp/slash-apk.json` records the artifact. Web build, native asset preparation
+`.tmp/window-monitor-apk.json` records the artifact. Web build, native asset preparation
 and Capacitor sync passed. The Gradle invocation reused the task-owned isolated
 home/project cache and copied read-only dependencies, with filesystem watching
-and the daemon disabled. The offline build in `.tmp/android-slash-final-build.log`
+and the daemon disabled. The offline build in `.tmp/android-window-monitor-final-build.log`
 reports success in 10 seconds, with 213 tasks, 27 executed and 186 up-to-date.
 
 This latest APK has not been installed or tested interactively on Android.
+The current CF browser restored its saved binding and displayed all four
+machines, agent panes and ordinary Kansas dashboards. A real successful-frame
+layout/reconnect loop was corrected and rechecked in that browser. Native Back,
+IME and lifecycle acceptance remain separate.
 The preceding file-navigation artifact used `herdr-BDGqP9Kp.js`; the older
 `herdr-BEKetIzv.js` build supplies the native Connect and cold-start observations
 in `packages/mobile/openherdr/VALIDATION.md`. The expanded-composer APK used

@@ -243,6 +243,7 @@ export async function createConversationService({ bridge, stateDir, runtime: pro
     act: wrap(conversationActionRequest, async ({ target, sessionId, action, input }, signal, dispatch) => {
       requireIdentity(target); const scope = await authoritative(target); const source = await getSession(scope, sessionId, signal, true);
       const client = source.client; const options = { signal }; const sessionID = sessionId;
+      let commandSkillInstruction;
       // These lookups are session/directory scoped and cannot grant access to an
       // unrelated permission, form, agent, model or message.
       if (action === 'model') {
@@ -266,9 +267,18 @@ export async function createConversationService({ bridge, stateDir, runtime: pro
         const commands = commandsSchema.parse(await client.command.list({ location: { directory: scope.root } }, options)).data;
         if (!commands.some((command) => command.name === input.command)) throw new ApiError(409, 'conversation_command_unavailable', 'This command is no longer available in the selected conversation');
       }
-      if (action === 'prompt' && input.skills?.length) {
+      if ((action === 'prompt' || action === 'command') && input.skills?.length) {
         const available = skillsSchema.parse(await client.skill.list({ location: { directory: scope.root } }, options)).data;
-        if (input.skills.some((skill) => !available.some((entry) => entry.id === skill.id))) throw new ApiError(409, 'conversation_skill_unavailable', 'A selected skill is no longer available in this conversation');
+        const names = input.skills.map(({ id }) => {
+          const skill = available.find((entry) => entry.id === id);
+          if (!skill) throw new ApiError(409, 'conversation_skill_unavailable', 'A selected skill is no longer available in this conversation');
+          return skill.name;
+        });
+        if (action === 'command') {
+          // Match the shared command sender's buildSkillMentionInstruction.
+          const formatted = names.map((name) => `$${name}`).join(', ');
+          commandSkillInstruction = `The user explicitly mentioned these skills in their message: ${formatted}. Use the corresponding skill tool when it is relevant to accomplishing the user's request.`;
+        }
       }
       if (action === 'command' || (action === 'prompt' && input.skills?.length)) await noNativeWriter(scope, sessionId);
       await verify(scope, signal);
@@ -297,7 +307,13 @@ export async function createConversationService({ bridge, stateDir, runtime: pro
         case 'revert_clear': await client.session.revert.clear({ sessionID }, options); break;
         case 'revert_commit': await client.session.revert.commit({ sessionID }, options); break;
         case 'compact': result = await client.session.compact({ sessionID }, options); break;
-        case 'command': await client.session.command({ sessionID, name: input.command, text: input.arguments ?? '', files: input.files, delivery: input.delivery }, options); break;
+        case 'command':
+          if (commandSkillInstruction) {
+            await client.session.synthetic({ sessionID, text: commandSkillInstruction, delivery: input.delivery, resume: false }, options);
+            await noNativeWriter(scope, sessionId);
+            await verify(scope, signal);
+          }
+          await client.session.command({ sessionID, name: input.command, text: input.arguments ?? '', files: input.files, delivery: input.delivery }, options); break;
         case 'skill': await client.session.skill({ sessionID, id: input.skill }, options); break;
       }
       await verify(scope, signal);

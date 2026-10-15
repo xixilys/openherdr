@@ -38,7 +38,7 @@ import { conversationDrafts, draftIdentity, reconcileConversationTail, prepareCo
 import { trackConversationMutation, type ConversationMutationRequest } from './conversation-actions';
 import { ConversationTool } from './ConversationTool';
 import { ConversationComposer } from './ConversationComposer';
-import { classifyConversationSlash } from './conversation-slash';
+import { classifyConversationInput, TooManyConversationSkillsError } from './conversation-slash';
 import { ConversationForm } from './ConversationForm';
 import { HerdrConversationAttachments, type HerdrConversationAttachmentsProps } from './conversation-attachments';
 import { workspaceFilePath, type WorkspaceFileRequest } from './workspace-navigation';
@@ -365,17 +365,18 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     const canDispatch = () => !controller.signal.aborted && ownerMatches() && writableRef.current
       && conversationDrafts.get(captured.key).revision === captured.revision;
     try {
-      if (captured.text.startsWith('/')) setClassifyingDraft({ key: captured.key, revision: captured.revision });
-      const plan = await classifyConversationSlash(captured.text, { commands: loadCommands, skills: loadSkills }, controller.signal);
+      if (captured.text.startsWith('/') || captured.text.includes('$')) setClassifyingDraft({ key: captured.key, revision: captured.revision });
+      const plan = await classifyConversationInput(captured.text, { commands: loadCommands, skills: loadSkills }, controller.signal);
       if (!canDispatch()) return;
       const capabilities = snapshotRef.current?.capabilities;
-      if (plan.kind === 'command' ? capabilities?.commands !== true : capabilities?.prompt !== true || (plan.skills && capabilities.skills !== true)) {
+      if ((plan.kind === 'command' ? capabilities?.commands !== true : capabilities?.prompt !== true) || (plan.skills && capabilities?.skills !== true)) {
         setError(fallbackError); return;
       }
-      const promptInput = { text: captured.text, files: captured.files, delivery: 'queue' };
+      const commonInput = { files: captured.files, delivery: 'queue' };
+      const input = plan.skills ? { ...commonInput, skills: plan.skills } : commonInput;
       const result = plan.kind === 'command'
-        ? await mutate('act', { target, sessionId: captured.sessionId, action: 'command', input: { command: plan.command, arguments: plan.arguments, files: captured.files, delivery: 'queue' } }, driverActionSchema, 'command')
-        : await mutate('act', { target, sessionId: captured.sessionId, action: 'prompt', input: plan.skills ? { ...promptInput, skills: plan.skills } : promptInput }, driverPromptSchema, 'prompt');
+        ? await mutate('act', { target, sessionId: captured.sessionId, action: 'command', input: { ...input, command: plan.command, arguments: plan.arguments } }, driverActionSchema, 'command')
+        : await mutate('act', { target, sessionId: captured.sessionId, action: 'prompt', input: { ...input, text: captured.text } }, driverPromptSchema, 'prompt');
       if (!result) return;
       // A replaced source can reuse a pane and session id. It cannot clear this draft.
       if (!ownerMatches()) return;
@@ -383,7 +384,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
       setNotice(plan.kind === 'command' ? null : h('enqueued'));
       following.current = true; setAtLatest(true); setLiveEpoch((n) => n + 1);
     } catch (reason) {
-      if (!controller.signal.aborted && ownerMatches()) setError(reason instanceof Error ? reason.message : fallbackError);
+      if (!controller.signal.aborted && ownerMatches()) setError(reason instanceof TooManyConversationSkillsError ? t('chat.skillAutocomplete.tooManySkills', { max: String(reason.max) }) : reason instanceof Error ? reason.message : fallbackError);
     } finally {
       if (submission.current === controller) { submission.current = null; if (alive.current) setClassifyingDraft(null); }
     }
@@ -507,7 +508,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
         <ScrollToBottomView visible={!atLatest} onClick={() => { following.current = true; setAtLatest(true); if (timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight; }} />
         <ConversationComposer key={conversationOwner}
           text={draft.text} writable={writable} hidden={disabled} isMobile={!!navigation || isMobileSurfaceRuntime()} pickerOpen={picker !== null}
-          loadCommands={loadCommands}
+          loadCommands={loadCommands} loadSkills={loadSkills}
           ariaLabel={h('draftPlaceholder')} preferences={preferences} attachmentFiles={draft.files}
           onTextChange={(text) => conversationDrafts.update(draftKey, (previous) => ({ ...previous, text }))}
           onAttach={(files) => { void attach(files); }}

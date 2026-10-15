@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "Son terminal çıktısı",
+  "herdr.monitor.title": "İzleme",
+  "herdr.monitor.readOnly": "Salt okunur görünüm",
+  "herdr.monitor.control": "Terminal denetimleri",
+  "herdr.monitor.screen": "Ekran",
+  "herdr.monitor.visibleText": "Görünür metin",
+  "herdr.monitor.screenFallback": "Ekran akışı kullanılamıyor. Bölmenin görünür metni gösteriliyor.",
+  "herdr.monitor.stale": "{time} zamanındaki son başarılı okuma gösteriliyor.",
+  "herdr.monitor.waiting": "Başarılı bir okuma bekleniyor.",
+  "herdr.monitor.paused": "İzleme duraklatıldı.",
+  "herdr.monitor.empty": "Bu makinede kullanılabilir bölme yok.",
+  "herdr.monitor.lastRead": "Son okuma {time}",
   "opencodeCompatibility.bundled": "OpenCode, OpenChamber ile birlikte gelir. OpenCode v2 için OpenChamber’ı güncelleyin.",
   "opencodeCompatibility.title": "OpenCode v2 gerekli",
   "opencodeCompatibility.outdatedTitle": "OpenCode’u güncelleyin",
@@ -2252,6 +2264,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'komut',
   'chat.commandAutocomplete.badge.system': 'sistem',
   'chat.commandAutocomplete.empty': 'Komut bulunamadı',
+  'chat.skillAutocomplete.empty': 'Beceri bulunamadı',
+  'chat.skillAutocomplete.tooManySkills': 'Bir mesajda en fazla {max} beceri kullanabilirsiniz. Bazı beceri başvurularını kaldırıp tekrar deneyin.',
   'chat.agentMentionAutocomplete.badge.system': 'sistem',
   'chat.agentMentionAutocomplete.empty': 'Agent bulunamadı',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'Daha fazla agent aramak için yaz',

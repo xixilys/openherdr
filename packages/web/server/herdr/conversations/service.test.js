@@ -11,8 +11,8 @@ async function fixture(t, options = {}) {
   const base = path.resolve('.tmp'); await fs.mkdir(base, { recursive: true });
   const root = await fs.mkdtemp(path.join(base, 'conversation-driver-test-'));
   let pane = { pane_id: 'w1:p1', terminal_id: 'term-owned', workspace_id: 'w1', tab_id: 'w1:t1', cwd: root, agent: 'shell' };
-  const requests = [], sessions = new Map(), runtimeRequests = [];
-  let sequence = 0, failRead = false, dropPrompt = false, afterPrompt, eventValues = [], otherPanes = [], afterRegistry, afterCommand, dropCommand = false;
+  const requests = [], sessions = new Map(), runtimeRequests = [], synthetics = [];
+  let sequence = 0, failRead = false, dropPrompt = false, afterPrompt, eventValues = [], otherPanes = [], afterRegistry, afterCommand, dropCommand = false, afterSynthetic, rejectCommand = false;
   let commands = [{ name: 'review', description: 'Review changes' }];
   let skills = [{ id: 'skill-folder', name: 'inspect', description: 'Inspect source', path: '/private/skill-folder', content: 'private-skill-content' }];
   let registryFailure = false;
@@ -28,7 +28,7 @@ async function fixture(t, options = {}) {
     if (pathname === '/api/model') return json({ location: { directory: root }, data: [model] });
     if (pathname === '/api/agent') return json({ location: { directory: root }, data: [agent] });
     if (pathname === '/api/command' || pathname === '/api/skill') {
-      afterRegistry?.();
+      afterRegistry?.(pathname);
       if (registryFailure) return json({ _tag: 'UnknownError', message: 'Registry unavailable' }, 500);
       return json({ location: { directory: root }, data: pathname === '/api/command' ? commands : skills });
     }
@@ -54,7 +54,15 @@ async function fixture(t, options = {}) {
       if (dropPrompt) throw new TypeError('Disconnected after dispatch');
       return json({ data: { id: 'msg_enqueued', sessionID: id, type: 'user', time: { created: 20 }, payload: { text: body.text, files: body.files }, delivery: 'queue' } });
     }
-    if (operation === 'command') { afterCommand?.(); if (dropCommand) throw new TypeError('Disconnected after command'); return new Response(null, { status: 204 }); }
+    if (operation === 'synthetic') {
+      const item = { id: `msg_synthetic_${synthetics.length + 1}`, sessionID: id, type: 'synthetic', time: { created: 21 }, payload: { text: body.text }, delivery: body.delivery ?? 'queue' };
+      synthetics.push(item); afterSynthetic?.(); return json({ data: item });
+    }
+    if (operation === 'command') {
+      afterCommand?.(); if (dropCommand) throw new TypeError('Disconnected after command');
+      if (rejectCommand) return json({ _tag: 'InvalidRequestError', message: 'Command refused' }, 400);
+      return new Response(null, { status: 204 });
+    }
     if (operation === 'permission' && init.method === 'GET') return json({ data: pendingPermissions });
     if (operation === 'form' && init.method === 'GET') return json({ data: pendingForms });
     if (operation === 'interrupt') return json({ status: 'interrupted' });
@@ -71,7 +79,7 @@ async function fixture(t, options = {}) {
   let service = await createConversationService({ bridge, stateDir, runtime });
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
   return {
-    root, requests, sessions, runtimeRequests, session, client,
+    root, requests, sessions, runtimeRequests, synthetics, session, client,
     get service() { return service; },
     async restart() { await service.close(); service = await createConversationService({ bridge, stateDir, runtime }); },
     async target() { return (await service.resolve({ target: { machine: 'local', paneId: 'w1:p1' } })).target; },
@@ -81,6 +89,7 @@ async function fixture(t, options = {}) {
     otherPanes(value) { otherPanes = value; },
     commands(value) { commands = value; }, skills(value) { skills = value; }, failRegistry(value = true) { registryFailure = value; },
     afterRegistry(fn) { afterRegistry = fn; }, afterCommand(fn) { afterCommand = fn; }, dropCommand() { dropCommand = true; },
+    afterSynthetic(fn) { afterSynthetic = fn; }, rejectCommand() { rejectCommand = true; },
   };
 }
 
@@ -294,8 +303,11 @@ test('commands preserve exact arguments, attachments and delivery with a real vo
   }
   await f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review' } });
   assert.deepEqual(f.requests.filter((r) => r.pathname.endsWith('/command')).at(-1).body, { name: 'review', text: '' });
+  await f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review', skills: [] } });
   const lookups = f.requests.filter((r) => r.pathname === '/api/command');
-  assert.equal(lookups.length, 3); assert.ok(lookups.every((r) => r.query.get('location[directory]') === f.root));
+  assert.equal(lookups.length, 4); assert.ok(lookups.every((r) => r.query.get('location[directory]') === f.root));
+  assert.equal(f.requests.filter((r) => r.pathname.endsWith(`/${session.id}/command`)).length, 4);
+  assert.equal(f.requests.some((r) => r.pathname === '/api/skill' || r.pathname.endsWith('/synthetic')), false);
 });
 
 test('native command names retain path, namespace and Unicode characters under live membership validation', async (t) => {
@@ -324,6 +336,93 @@ test('skill prompt preserves full slash text, real ID, files and delivery in the
   assert.equal(f.runtimeRequests.length, 1); assert.equal(f.runtimeRequests[0].kind, 'private');
   assert.equal(f.requests.find((r) => r.pathname === '/api/skill').query.get('location[directory]'), f.root);
   assert.equal(f.requests.some((r) => r.pathname.endsWith(`/${session.id}/skill`)), false);
+  assert.equal(f.synthetics.length, 0);
+});
+
+test('commands with skills admit the original instruction before their native command with exact SDK payloads', async (t) => {
+  const f = await fixture(t, { kind: 'private' }); const target = await f.target(); const { session } = await f.service.create({ target });
+  f.skills([{ id: 'internal/first-folder', name: 'inspect' }, { id: 'internal/second-folder', name: 'code-review' }]); f.runtimeRequests.length = 0;
+  const files = [{ name: 'input.txt', uri: 'data:text/plain;base64,SGVsbG8=' }];
+  const text = "The user explicitly mentioned these skills in their message: $code-review, $inspect. Use the corresponding skill tool when it is relevant to accomplishing the user's request.";
+  for (const delivery of ['queue', 'steer']) {
+    const result = await f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review', arguments: '  $inspect\n--keep "args"', files, delivery, skills: [{ id: 'internal/second-folder' }, { id: 'internal/first-folder' }] } });
+    assert.equal(result.action, 'command'); assert.equal(result.result, null);
+    const writes = f.requests.filter((r) => r.pathname.endsWith('/synthetic') || r.pathname.endsWith(`/${session.id}/command`)).slice(-2);
+    assert.deepEqual(writes.map((r) => r.pathname), [`/api/session/${session.id}/synthetic`, `/api/session/${session.id}/command`]);
+    assert.deepEqual(writes[0].body, { text, delivery, resume: false });
+    assert.deepEqual(writes[1].body, { name: 'review', text: '  $inspect\n--keep "args"', files, delivery });
+    assert.ok(writes.every((r) => r.signal instanceof AbortSignal));
+  }
+  assert.equal(f.synthetics.length, 2); assert.ok(f.synthetics.every((item) => item.payload.text === text));
+  assert.equal(f.runtimeRequests.length, 2); assert.ok(f.runtimeRequests.every((request) => request.kind === 'private'));
+  const registries = f.requests.filter((r) => ['/api/command', '/api/skill'].includes(r.pathname));
+  assert.equal(registries.length, 4); assert.ok(registries.every((r) => r.query.get('location[directory]') === f.root));
+  assert.equal(f.requests.some((r) => r.pathname.endsWith('/prompt') || r.pathname.endsWith(`/${session.id}/skill`)), false);
+});
+
+test('command skill validation failures finish all required lookups without writing context or a command', async (t) => {
+  const f = await fixture(t); const target = await f.target(); const { session } = await f.service.create({ target });
+  const request = { target, sessionId: session.id, action: 'command', input: { command: 'review', skills: [{ id: 'skill-folder' }] } };
+  f.commands([]);
+  await assert.rejects(f.service.act(request), (e) => e.code === 'conversation_command_unavailable' && e.confirmedNoEffect === true);
+  assert.equal(f.requests.some((r) => r.pathname === '/api/skill'), false);
+  f.commands([{ name: 'review' }]);
+  f.skills([]);
+  await assert.rejects(f.service.act(request), (e) => e.code === 'conversation_skill_unavailable' && e.confirmedNoEffect === true);
+  f.skills(null);
+  await assert.rejects(f.service.act(request), (e) => e.confirmedNoEffect === true);
+  f.afterRegistry((pathname) => { if (pathname === '/api/skill') f.failRegistry(); });
+  await assert.rejects(f.service.act(request), (e) => e.confirmedNoEffect === true);
+  assert.equal(f.requests.filter((r) => r.pathname === '/api/command').length, 4);
+  assert.equal(f.requests.filter((r) => r.pathname === '/api/skill').length, 3);
+  assert.equal(f.requests.some((r) => r.pathname.endsWith('/synthetic') || r.pathname.endsWith(`/${session.id}/command`)), false);
+  assert.equal(f.synthetics.length, 0);
+});
+
+test('native takeover or target replacement during command skill validation prevents the first mutation', async (t) => {
+  for (const change of ['native-writer', 'target']) await t.test(change, async (t) => {
+    const f = await fixture(t); const target = await f.target(); const { session } = await f.service.create({ target });
+    f.afterRegistry((pathname) => {
+      if (pathname !== '/api/skill') return;
+      if (change === 'target') f.pane({ terminal_id: 'replacement' });
+      else f.otherPanes([{ pane_id: 'w2:p2', workspace_id: 'w2', tab_id: 'w2:t2', cwd: f.root, agent: 'opencode', agent_session: { source: 'opencode', agent: 'opencode', kind: 'id', value: session.id } }]);
+    });
+    await assert.rejects(f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review', skills: [{ id: 'skill-folder' }] } }), (e) => e.code === (change === 'target' ? 'conversation_target_changed' : 'conversation_read_only') && e.confirmedNoEffect === true);
+    assert.equal(f.synthetics.length, 0);
+    assert.equal(f.requests.some((r) => r.pathname.endsWith('/synthetic') || r.pathname.endsWith(`/${session.id}/command`)), false);
+  });
+});
+
+test('native takeover or target replacement after synthetic admission leaves unknown context and prevents the command', async (t) => {
+  for (const change of ['native-writer', 'target']) await t.test(change, async (t) => {
+    const f = await fixture(t); const target = await f.target(); const { session } = await f.service.create({ target });
+    f.afterSynthetic(() => {
+      if (change === 'target') f.pane({ terminal_id: 'replacement' });
+      else f.otherPanes([{ pane_id: 'w2:p2', workspace_id: 'w2', tab_id: 'w2:t2', cwd: f.root, agent: 'opencode', agent_session: { source: 'opencode', agent: 'opencode', kind: 'id', value: session.id } }]);
+    });
+    await assert.rejects(f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review', skills: [{ id: 'skill-folder' }] } }), (e) => e.code === (change === 'target' ? 'conversation_target_changed' : 'conversation_read_only') && e.confirmedNoEffect === false);
+    assert.equal(f.synthetics.length, 1);
+    assert.equal(f.requests.filter((r) => r.pathname.endsWith('/synthetic')).length, 1);
+    assert.equal(f.requests.some((r) => r.pathname.endsWith(`/${session.id}/command`)), false);
+  });
+});
+
+test('a lost synthetic response never dispatches or retries the following command', async (t) => {
+  const f = await fixture(t); const target = await f.target(); const { session } = await f.service.create({ target });
+  f.afterSynthetic(() => { throw new TypeError('Disconnected after synthetic write'); });
+  await assert.rejects(f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review', skills: [{ id: 'skill-folder' }] } }), (e) => e.confirmedNoEffect === false);
+  assert.equal(f.synthetics.length, 1);
+  assert.equal(f.requests.filter((r) => r.pathname.endsWith('/synthetic')).length, 1);
+  assert.equal(f.requests.some((r) => r.pathname.endsWith(`/${session.id}/command`)), false);
+});
+
+test('a command refusal after synthetic admission stays unknown and neither mutation is retried', async (t) => {
+  const f = await fixture(t); const target = await f.target(); const { session } = await f.service.create({ target });
+  f.rejectCommand();
+  await assert.rejects(f.service.act({ target, sessionId: session.id, action: 'command', input: { command: 'review', skills: [{ id: 'skill-folder' }] } }), (e) => e.status === 400 && e.confirmedNoEffect === false);
+  assert.equal(f.synthetics.length, 1);
+  assert.equal(f.requests.filter((r) => r.pathname.endsWith('/synthetic')).length, 1);
+  assert.equal(f.requests.filter((r) => r.pathname.endsWith(`/${session.id}/command`)).length, 1);
 });
 
 test('missing, stale and failed command or skill lookups refuse dispatch without fallback', async (t) => {
@@ -388,6 +487,10 @@ test('registry and send schemas bound attachments and unique skill IDs consisten
     }
   }
   for (const skills of [[{ id: 'one' }, { id: 'one' }], Array.from({ length: 11 }, (_, i) => ({ id: `skill-${i}` })), [{ id: '' }], [{ id: 'a'.repeat(4097) }], [{ id: 'one', content: 'untrusted' }]]) {
-    assert.equal(conversationActionRequest.safeParse({ ...base, action: 'prompt', input: { text: '/inspect', skills } }).success, false);
+    for (const action of ['prompt', 'command']) {
+      const required = action === 'prompt' ? { text: '/inspect' } : { command: 'review' };
+      assert.equal(conversationActionRequest.safeParse({ ...base, action, input: { ...required, skills } }).success, false);
+    }
   }
+  for (const untrusted of [{ skills: [{ id: 'one', name: 'arbitrary' }] }, { context: [{ text: 'client instruction' }] }, { synthetic: 'client instruction' }]) assert.equal(conversationActionRequest.safeParse({ ...base, action: 'command', input: { command: 'review', ...untrusted } }).success, false);
 });

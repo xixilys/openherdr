@@ -20,6 +20,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.monitor.recentText": "最近終端機輸出",
+  "herdr.monitor.title": "監控",
+  "herdr.monitor.readOnly": "唯讀檢視",
+  "herdr.monitor.control": "終端機控制",
+  "herdr.monitor.screen": "畫面",
+  "herdr.monitor.visibleText": "畫面文字",
+  "herdr.monitor.screenFallback": "畫面連線無法使用，正在顯示此窗格的畫面文字。",
+  "herdr.monitor.stale": "正在顯示 {time} 最後成功讀取的內容。",
+  "herdr.monitor.waiting": "等待成功讀取。",
+  "herdr.monitor.paused": "監控已暫停。",
+  "herdr.monitor.empty": "此電腦沒有可用窗格。",
+  "herdr.monitor.lastRead": "最近讀取於 {time}",
   "opencodeCompatibility.bundled": "OpenCode 隨 OpenChamber 一起提供。請更新 OpenChamber 以取得 OpenCode v2。",
   "opencodeCompatibility.title": "需要 OpenCode v2",
   "opencodeCompatibility.outdatedTitle": "請更新 OpenCode",
@@ -2371,6 +2383,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.badge.command': '命令',
   'chat.commandAutocomplete.badge.system': '系統',
   'chat.commandAutocomplete.empty': '找不到命令',
+  'chat.skillAutocomplete.empty': '找不到技能',
+  'chat.skillAutocomplete.tooManySkills': '每則訊息最多可使用 {max} 個技能。請移除部分技能參照後再試。',
   'chat.agentMentionAutocomplete.badge.system': '系統',
   'chat.agentMentionAutocomplete.empty': '找不到 Agent',
   'chat.fileMentionAutocomplete.searchMoreAgents': '輸入以搜尋更多 Agent',

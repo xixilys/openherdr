@@ -38,7 +38,7 @@ export const conversationActionRequest = z.discriminatedUnion('action', [
   action('form_cancel', z.strictObject({ formId: id })),
   action('fork', z.strictObject({ messageId: id.optional() })),
   action('revert_stage', z.strictObject({ messageId: id })), action('revert_clear', empty), action('revert_commit', empty),
-  action('compact', empty), action('command', z.strictObject({ command: z.string().min(1).max(4096), arguments: z.string().max(65536).optional(), ...attachments }).refine(attachmentLimit, 'Attachments exceed 12 MiB')),
+  action('compact', empty), action('command', z.strictObject({ command: z.string().min(1).max(4096), arguments: z.string().max(65536).optional(), ...attachments, skills: skills.optional() }).refine(attachmentLimit, 'Attachments exceed 12 MiB')),
   action('skill', z.strictObject({ skill: id })),
 ]);
 export const conversationEventsRequest = z.strictObject({ target, sessionId: id });

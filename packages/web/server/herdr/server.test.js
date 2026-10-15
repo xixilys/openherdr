@@ -549,6 +549,33 @@ test('conversation post-dispatch conflicts remain unknown unless explicitly conf
   }
 });
 
+test('command skill actions preserve their input and keep partial writes unknown without replay', async () => {
+  let actions = 0; let partial = false;
+  const input = { command: 'review', arguments: 'private-command-argument $inspect', delivery: 'queue', skills: [{ id: 'native/skill-key' }] };
+  const conversations = conversationsWith({ act: async ({ action, input: received }) => {
+    actions++; assert.equal(action, 'command'); assert.deepEqual(received, input);
+    if (partial) throw Object.assign(new ApiError(400, 'conversation_request_refused', 'The command failed after context admission'), { confirmedNoEffect: false });
+    return { protocol: conversationProtocol, target: conversationTarget, sessionId: conversationSession.id, action, result: null };
+  } });
+  const f = await fixture(undefined, { conversations });
+  const { token } = await f.pair();
+  const request = { target: conversationTarget, sessionId: conversationSession.id, action: 'command', input };
+  assert.equal((await f.request('/api/herdr/conversations/act', { token, body: { request, requestId: 'command-skill-complete' } })).status, 200);
+  partial = true;
+  const body = { request, requestId: 'command-skill-partial' };
+  const failed = await f.request('/api/herdr/conversations/act', { token, body });
+  assert.equal(failed.status, 502);
+  const receipt = (await (await f.request('/api/herdr/receipts/command-skill-partial', { token })).json()).receipt;
+  assert.equal(receipt.status, 'unknown');
+  assert.equal((await f.request('/api/herdr/conversations/act', { token, body })).status, 409);
+  assert.equal(actions, 2);
+  const untrusted = { ...request, input: { ...input, context: [{ text: 'client instruction' }] } };
+  assert.equal((await f.request('/api/herdr/conversations/act', { token, body: { request: untrusted, requestId: 'command-skill-context' } })).status, 400);
+  assert.equal(actions, 2);
+  const journal = await fs.readFile(path.join(f.stateDir, 'receipts.jsonl'), 'utf8');
+  assert.ok(!journal.includes(input.arguments)); assert.ok(!journal.includes(input.skills[0].id));
+});
+
 test('conversation events expose early scope errors as HTTP failures and reject empty sources', async () => {
   let empty = false;
   const conversations = conversationsWith({ async *events() { if (!empty) throw new ApiError(403, 'conversation_scope_forbidden', 'The session is not in this scope'); } });

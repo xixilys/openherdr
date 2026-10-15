@@ -20,6 +20,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.monitor.recentText": "최근 터미널 출력",
+  "herdr.monitor.title": "모니터링",
+  "herdr.monitor.readOnly": "읽기 전용 보기",
+  "herdr.monitor.control": "터미널 제어",
+  "herdr.monitor.screen": "화면",
+  "herdr.monitor.visibleText": "화면 텍스트",
+  "herdr.monitor.screenFallback": "화면 스트림을 사용할 수 없습니다. 창에 표시된 텍스트를 보여줍니다.",
+  "herdr.monitor.stale": "{time}에 마지막으로 읽은 내용을 표시합니다.",
+  "herdr.monitor.waiting": "읽기 성공을 기다리는 중입니다.",
+  "herdr.monitor.paused": "모니터링이 일시 중지되었습니다.",
+  "herdr.monitor.empty": "이 기기에 사용 가능한 창이 없습니다.",
+  "herdr.monitor.lastRead": "마지막 읽기 {time}",
   "opencodeCompatibility.bundled": "OpenCode는 OpenChamber에 포함되어 있습니다. OpenCode v2를 사용하려면 OpenChamber를 업데이트하세요.",
   "opencodeCompatibility.title": "OpenCode v2가 필요합니다",
   "opencodeCompatibility.outdatedTitle": "OpenCode를 업데이트하세요",
@@ -2396,6 +2408,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.badge.command': '명령',
   'chat.commandAutocomplete.badge.system': 'system',
   'chat.commandAutocomplete.empty': '명령 없음',
+  'chat.skillAutocomplete.empty': '스킬을 찾을 수 없습니다',
+  'chat.skillAutocomplete.tooManySkills': '메시지 하나에 최대 {max}개의 스킬을 사용할 수 있습니다. 스킬 참조를 일부 제거한 후 다시 시도하세요.',
   'chat.agentMentionAutocomplete.badge.system': 'system',
   'chat.agentMentionAutocomplete.empty': '에이전트 없음',
   'chat.fileMentionAutocomplete.searchMoreAgents': '입력해 에이전트를 더 검색하세요',

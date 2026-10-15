@@ -69,10 +69,27 @@ keys. Remote hosts require Python3 and Herdr 0.9.3 protocol 22 on the command PA
 or the remote `HERDR_BIN_PATH`. The bridge validates actual server status before
 sending and never guesses another session.
 
+## View existing windows
+
+The app opens in Monitor. Choose a machine, then an existing workspace, tab and
+pane. Agent terminals and ordinary dashboards use the same window list. The
+screen comes from that machine's existing Herdr service; a Codex session ID is
+not required. Agent state appears only when Herdr reports it.
+
+Monitor is read-only. Screen observation falls back to the pane's visible text
+when the stream is unavailable. Read failures retain the last successful
+content and show its time. Switching targets clears the previous target's
+content. Reads pause while the app is hidden or offline.
+
+Conversations and terminal controls are separate entries. Select terminal
+controls deliberately before sending input or changing a workspace. Existing
+agents continue in their current processes.
+
 ## Features and limits
 
 | Feature | OpenHerdr behavior |
 | --- | --- |
+| Window monitoring | Default read-only machine/workspace/tab/pane browser, including ordinary dashboards |
 | Workspaces and tabs | List, create, rename and close explicit targets |
 | Terminal panes | Select, split, rename, close; text input, keys and mobile shortcuts |
 | Terminal output | Official read-only frames in Ghostty, text snapshot fallback |
@@ -131,8 +148,13 @@ Unknown delivery stays locked and is not retried.
 The actual 412x915 HTTPS browser selected and executed one harmless fixture
 command with an argument. The transcript showed one expanded native template and
 one `OPENHERDR_NATIVE_COMMAND_OK ARGUMENT_E2E_OK` reply; the sent draft cleared.
-The receipt is `.tmp/slash-browser-validation.json`. The separate `$` skill picker,
-agent/file autocomplete and the remaining original editing actions are unfinished.
+The receipt is `.tmp/slash-browser-validation.json`. The source also shares the
+original `$` skill picker and preserves selected native skill IDs through prompt
+and command submission. A command with skills admits the original skill context
+before executing; a later failure remains an unknown result. Focused tests cover
+that order and draft retention. This skill increment has no separate live model
+execution acceptance. Agent/file autocomplete and the remaining original editing
+actions are unfinished.
 
 Tool file actions now open the shared original mobile Files browser and existing
 host editor with a captured conversation identity and canonical root. The editor
@@ -150,14 +172,21 @@ directory were cleaned up. These results are recorded in
 `.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
 and `.tmp/untracked-ssh-acceptance.json`.
 
-The latest Android debug APK is 17,136,001 bytes and includes
-`herdr-CIO7wjLL.js`, with its bundled HTML and entry asset matching the web build. It has not been
+The latest Android debug APK is 17,140,452 bytes and includes
+`herdr-BLLJAMLv.js`, with its bundled HTML and entry asset matching the web build. It has not been
 installed or tested interactively on Android. Older native Connect/cold-start
 observations belong to `herdr-BEKetIzv.js`; the previous file-navigation APK used
 `herdr-BDGqP9Kp.js`. Complete editor/Git behavior, connected native interaction
 and full original-feature parity remain unfinished. The earlier browser download
 completion is still unknown. Build details and the isolated Gradle recovery are
 recorded in [native validation](../../packages/mobile/openherdr/VALIDATION.md).
+
+The window monitor passed the actual 412x915 browser flow through Cloudflare
+HTTPS on Local, WSL, JP API and Kansas. Existing agent windows and ordinary
+Kansas dashboards displayed real output. Reloading the same origin restored
+the saved binding without another pairing. Screen observation and visible text
+remain separate read-only choices. These browser checks do not establish native
+Android pairing or lifecycle behavior.
 
 ![Native command picker](assets/command-picker.png)
 ![Native command response](assets/command-response.png)

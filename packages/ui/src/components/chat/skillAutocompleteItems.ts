@@ -3,7 +3,7 @@ import { rankByQuery } from '@/lib/search/fuzzySearch';
 
 interface SkillAutocompleteSearchItem {
   name: string;
-  scope: string;
+  scope?: string;
 }
 
 // Project skills stay above the rest; inside each group, name matches rank

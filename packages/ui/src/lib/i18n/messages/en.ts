@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "Recent terminal output",
+  "herdr.monitor.title": "Monitor",
+  "herdr.monitor.readOnly": "Read-only view",
+  "herdr.monitor.control": "Terminal controls",
+  "herdr.monitor.screen": "Screen",
+  "herdr.monitor.visibleText": "Visible text",
+  "herdr.monitor.screenFallback": "The screen stream is unavailable. Showing the pane's visible text.",
+  "herdr.monitor.stale": "Showing the last successful read from {time}.",
+  "herdr.monitor.waiting": "Waiting for a successful read.",
+  "herdr.monitor.paused": "Monitoring paused.",
+  "herdr.monitor.empty": "No panes are available on this machine.",
+  "herdr.monitor.lastRead": "Last read {time}",
   "opencodeCompatibility.bundled": "OpenCode is bundled with OpenChamber. Update OpenChamber to get OpenCode v2.",
   "opencodeCompatibility.title": "OpenCode v2 required",
   "opencodeCompatibility.outdatedTitle": "Update OpenCode",
@@ -2396,6 +2408,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'command',
   'chat.commandAutocomplete.badge.system': 'system',
   'chat.commandAutocomplete.empty': 'No commands found',
+  'chat.skillAutocomplete.empty': 'No skills found',
+  'chat.skillAutocomplete.tooManySkills': 'You can use up to {max} skills in one message. Remove some skill references and try again.',
   'chat.agentMentionAutocomplete.badge.system': 'system',
   'chat.agentMentionAutocomplete.empty': 'No agents found',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'Type to search more agents',

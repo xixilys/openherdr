@@ -19,6 +19,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.monitor.recentText": "פלט אחרון מהמסוף",
+  "herdr.monitor.title": "ניטור",
+  "herdr.monitor.readOnly": "תצוגה לקריאה בלבד",
+  "herdr.monitor.control": "פקדי המסוף",
+  "herdr.monitor.screen": "מסך",
+  "herdr.monitor.visibleText": "טקסט גלוי",
+  "herdr.monitor.screenFallback": "זרם המסך אינו זמין. מוצג הטקסט הגלוי בחלונית.",
+  "herdr.monitor.stale": "מוצג התוכן האחרון שנקרא בהצלחה בשעה {time}.",
+  "herdr.monitor.waiting": "ממתין לקריאה מוצלחת.",
+  "herdr.monitor.paused": "הניטור מושהה.",
+  "herdr.monitor.empty": "אין חלוניות זמינות במחשב הזה.",
+  "herdr.monitor.lastRead": "קריאה אחרונה בשעה {time}",
   'opencodeCompatibility.bundled': 'OpenCode מגיע יחד עם OpenChamber. יש לעדכן את OpenChamber כדי לקבל את OpenCode v2.',
   'opencodeCompatibility.title': 'נדרש OpenCode v2',
   'opencodeCompatibility.outdatedTitle': 'עדכן את OpenCode',
@@ -2351,6 +2363,8 @@ export const dict = {
   'chat.commandAutocomplete.badge.command': 'פקודה',
   'chat.commandAutocomplete.badge.system': 'מערכת',
   'chat.commandAutocomplete.empty': 'לא נמצאו פקודות',
+  'chat.skillAutocomplete.empty': 'לא נמצאו מיומנויות',
+  'chat.skillAutocomplete.tooManySkills': 'אפשר להשתמש בעד {max} מיומנויות בהודעה אחת. יש להסיר כמה אזכורי מיומנויות ולנסות שוב.',
   'chat.agentMentionAutocomplete.badge.system': 'מערכת',
   'chat.agentMentionAutocomplete.empty': 'לא נמצאו סוכנים',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'יש להקליד כדי לחפש סוכנים נוספים',

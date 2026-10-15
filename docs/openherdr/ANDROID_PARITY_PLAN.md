@@ -4,6 +4,12 @@
 
 The human has corrected the target: Android is the primary application, and development must continue toward the complete OpenChamber feature and UI experience with Herdr. The terminal baseline is an intermediate result. Browser and iOS builds support development but do not replace Android runtime acceptance. This plan supplements [OPENHERDR.md](../../OPENHERDR.md) and the source-level [UI parity map](UI_PARITY_MAP.md).
 
+The latest priority is the existing-window monitoring flow described in
+OPENHERDR.md. Reuse the machine selector and native workspace/tab/pane tree,
+show the selected pane read-only, and keep conversation creation secondary.
+The first monitoring increment needs no native Codex association or new agent.
+The broader feature inventory below remains in scope after this flow works.
+
 Keep the existing authenticated Herdr bridge, receipts, SSH transport and working terminal observation. Replace the simplified Android screen composition with the original mobile presentation as its data owners are adapted. Preserve the original OpenChamber entrypoint. Do not construct fake OpenCode responses or infer chat/tool/reasoning records from ANSI terminal output.
 
 Use three concrete service boundaries:

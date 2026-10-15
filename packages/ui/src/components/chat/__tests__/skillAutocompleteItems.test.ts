@@ -3,7 +3,7 @@ import { rankSkillAutocompleteItems } from '../skillAutocompleteItems';
 
 interface Item {
   name: string;
-  scope: string;
+  scope?: string;
 }
 
 describe('rankSkillAutocompleteItems', () => {
@@ -47,4 +47,11 @@ describe('rankSkillAutocompleteItems', () => {
       'zebra',
     ]);
   });
+});
+
+
+test('native skills without scope retain name ranking without being labeled project or user', () => {
+  const rows = [{ name: 'zeta' }, { name: 'apple-design' }, { name: 'apply' }];
+  expect(rankSkillAutocompleteItems(rows, 'apply').map(row => row.name)).toEqual(['apply', 'apple-design']);
+  expect(rows).toEqual([{ name: 'zeta' }, { name: 'apple-design' }, { name: 'apply' }]);
 });

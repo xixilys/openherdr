@@ -20,6 +20,18 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.monitor.recentText": "最近のターミナル出力",
+  "herdr.monitor.title": "モニター",
+  "herdr.monitor.readOnly": "読み取り専用",
+  "herdr.monitor.control": "ターミナル操作",
+  "herdr.monitor.screen": "画面",
+  "herdr.monitor.visibleText": "画面のテキスト",
+  "herdr.monitor.screenFallback": "画面ストリームを利用できません。ペインに表示中のテキストを表示しています。",
+  "herdr.monitor.stale": "{time} に最後に読み取れた内容を表示しています。",
+  "herdr.monitor.waiting": "読み取りの成功を待っています。",
+  "herdr.monitor.paused": "モニターを一時停止しました。",
+  "herdr.monitor.empty": "このマシンに利用できるペインはありません。",
+  "herdr.monitor.lastRead": "最終読み取り {time}",
   "opencodeCompatibility.bundled": "OpenCode は OpenChamber に同梱されています。OpenCode v2 を利用するには OpenChamber を更新してください。",
   "opencodeCompatibility.title": "OpenCode v2 が必要です",
   "opencodeCompatibility.outdatedTitle": "OpenCode を更新してください",
@@ -2392,6 +2404,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.badge.command': 'コマンド',
   'chat.commandAutocomplete.badge.system': 'システム',
   'chat.commandAutocomplete.empty': 'コマンドが見つかりません',
+  'chat.skillAutocomplete.empty': 'スキルが見つかりません',
+  'chat.skillAutocomplete.tooManySkills': '1つのメッセージで使用できるスキルは{max}個までです。スキルの参照を減らして、もう一度お試しください。',
   'chat.agentMentionAutocomplete.badge.system': 'システム',
   'chat.agentMentionAutocomplete.empty': 'エージェントが見つかりません',
   'chat.fileMentionAutocomplete.searchMoreAgents': 'さらにエージェントを検索するには入力',

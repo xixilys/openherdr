@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { prepareFileEditorContent, serializeEditorContent, type FileLineEnding } from '@openchamber/ui/components/views/fileEditorContent';
 import { HerdrTransport, TransportError, type PendingDelivery } from './transport';
 
 type HostTarget = { machine: string; pane_id: string };
@@ -73,9 +74,14 @@ export type FileDraft = {
   revision: string | null;
   baseContent: string;
   content: string;
+  lineEnding: FileLineEnding;
   editVersion: number;
   reloadConflict?: boolean;
 };
+export function createFileDraft(input: Pick<FileDraft, 'server' | 'target' | 'root' | 'path' | 'revision' | 'content'>): FileDraft {
+  const prepared = prepareFileEditorContent(input.content);
+  return { ...input, baseContent: prepared.content, content: prepared.content, lineEnding: prepared.lineEnding, editVersion: 0 };
+}
 export function draftKey(draft: Pick<FileDraft, 'server' | 'target' | 'root' | 'path'>): string {
   return JSON.stringify([draft.server, draft.target.machine, draft.target.pane_id, draft.root, draft.path]);
 }
@@ -84,7 +90,7 @@ export function editFileDraft(draft: FileDraft, content: string): FileDraft {
 }
 export function prepareFileSave(draft: FileDraft, client: HostClient, currentRoot: string | null, disabled: boolean): HostMutation & { operation: 'files.write' } {
   if (disabled || targetKey(draft.server, draft.target) !== targetKey(client.transport.connection.server, client.target) || currentRoot !== draft.root) throw new TransportError('target_changed', 'The pane directory changed. Your edits are kept');
-  return { operation: 'files.write', expectedRoot: draft.root, path: draft.path, expectedRevision: draft.revision, content: draft.content };
+  return { operation: 'files.write', expectedRoot: draft.root, path: draft.path, expectedRevision: draft.revision, content: serializeEditorContent(draft.content, draft.lineEnding) };
 }
 export function finishFileSave(current: FileDraft, saved: FileDraft, result: z.infer<typeof hostSchemas.write>): FileDraft {
   if (draftKey(current) !== draftKey(saved) || result.root !== saved.root || result.path !== saved.path) throw new TransportError('INVALID_RESPONSE', 'The saved file does not match this editor', true);
@@ -93,7 +99,7 @@ export function finishFileSave(current: FileDraft, saved: FileDraft, result: z.i
 
 
 export function acceptFileReload(current: FileDraft | undefined, captured: FileDraft | undefined, incoming: FileDraft): FileDraft {
-  if (current && (!captured || draftKey(current) !== draftKey(captured) || current.editVersion !== captured.editVersion || current.content !== captured.content || current.revision !== captured.revision || current.baseContent !== captured.baseContent)) return { ...current, reloadConflict: true };
+  if (current && (!captured || draftKey(current) !== draftKey(captured) || current.editVersion !== captured.editVersion || current.content !== captured.content || current.revision !== captured.revision || current.baseContent !== captured.baseContent || current.lineEnding !== captured.lineEnding)) return { ...current, reloadConflict: true };
   return incoming;
 }
 

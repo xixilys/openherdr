@@ -19,6 +19,8 @@ Object.assign(globalThis, {
 });
 
 const { EditorView } = await import('@codemirror/view');
+const { SearchQuery, setSearchQuery, openSearchPanel, findNext, replaceNext, replaceAll } = await import('@codemirror/search');
+const { undo } = await import('@codemirror/commands');
 const { CodeMirrorEditor } = await import('./CodeMirrorEditor');
 
 type EditorProps = React.ComponentProps<typeof CodeMirrorEditor>;
@@ -107,5 +109,46 @@ describe('CodeMirrorEditor reconfiguration', () => {
     await render({ highlightLines: { start: 2, end: 3 }, readOnly: true });
     expect(reconfigures).toBe(2);
     expect(view?.state.facet(EditorView.editable)).toBe(false);
+    expect(view?.state.readOnly).toBe(true);
+  });
+});
+
+describe('CodeMirrorEditor read-only commands', () => {
+  test('initial read-only Find works without exposing replacement controls or changing text', async () => {
+    await render({ readOnly: true, enableSearch: true });
+    const editor = view;
+    if (!editor) throw new Error('Editor was not created');
+    await act(async () => {
+      openSearchPanel(editor);
+      editor.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: 'one', replace: 'other' })) });
+      expect(findNext(editor)).toBe(true);
+      expect(replaceNext(editor)).toBe(false);
+      expect(replaceAll(editor)).toBe(false);
+    });
+    expect(editor.state.readOnly).toBe(true);
+    expect(editor.state.sliceDoc(editor.state.selection.main.from, editor.state.selection.main.to)).toBe('one');
+    expect(editor.state.doc.toString()).toBe('one\ntwo\nthree');
+    expect(container.querySelector('.cm-search')).not.toBeNull();
+    expect(container.querySelector('[name="replace"]')).toBeNull();
+    expect(container.querySelector('button[name="replaceAll"]')).toBeNull();
+  });
+
+  test('switching read-only blocks replace and undo, then restores editable commands on the same view', async () => {
+    await render({ enableSearch: true });
+    const editor = view;
+    if (!editor) throw new Error('Editor was not created');
+    await act(async () => editor.dispatch({ changes: { from: 0, to: 3, insert: 'ONE' } }));
+    await render({ value: 'ONE\ntwo\nthree', readOnly: true, enableSearch: true });
+    expect(view).toBe(editor);
+    await act(async () => {
+      editor.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: 'ONE', replace: 'other' })) });
+      expect(replaceAll(editor)).toBe(false);
+      expect(undo(editor)).toBe(false);
+    });
+    expect(editor.state.doc.toString()).toBe('ONE\ntwo\nthree');
+    await render({ value: 'ONE\ntwo\nthree', readOnly: false, enableSearch: true });
+    await act(async () => { expect(replaceAll(editor)).toBe(true); });
+    expect(editor.state.readOnly).toBe(false);
+    expect(editor.state.doc.toString()).toBe('other\ntwo\nthree');
   });
 });

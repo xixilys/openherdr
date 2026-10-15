@@ -79,5 +79,57 @@
     },
     "ownedWorkspaceClosed": true,
     "testClientRevoked": true
+  },
+  "utf8_editor_increment": {
+    "checked_at_utc": "2026-10-15T14:06:38.480788+00:00",
+    "tests": {
+      "host_client": 26,
+      "shared_editor_core": 19,
+      "retained_files": 10,
+      "retained_changes": 23,
+      "editor_flow": 32,
+      "installed_pierre_preview": 3,
+      "total": 113,
+      "final_affected_run": 35
+    },
+    "repository_checks": "passed",
+    "original_web_build": "passed",
+    "herdr_web_build": "passed",
+    "android_debug_build": "passed",
+    "apk": {
+      "path": "packages/mobile/openherdr/android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 42305988,
+      "entry": "herdr-CMDSuBJY.js",
+      "webHtmlExact": true,
+      "entryExact": true,
+      "nativeLibraries": 12,
+      "scannerRegistered": true,
+      "secureStorageRegistered": true,
+      "firstApkBytes": 40701131,
+      "firstApkSHA256": "35d24d1f368cce6ace11f9941bfac1dbc7ee20a851aa92e4d5d82e5fb0da8bf4",
+      "installed": false,
+      "deviceAcceptance": "NOT_RUN"
+    },
+    "browser": {
+      "viewport": [
+        412,
+        915
+      ],
+      "route": "paired_public_cloudflare_https",
+      "find_replace_undo_redo": true,
+      "crlf_no_final_newline_disk_readback": true,
+      "dirty_active_inactive_close": true,
+      "external_revision_conflict_reload": true,
+      "large_file_bytes": 276053,
+      "large_file_lines": 6002,
+      "full_tail_edit_save_preview_reopen": true,
+      "rtl": "checked_then_English_restored",
+      "default_existing_window": "read_only_Kansas_Claude_US",
+      "bridge_processes_ports_origins": "unchanged",
+      "unauthenticated_private_access": 401
+    },
+    "physical_android_interaction": "not_run",
+    "arbitrary_mounted_scroller_replacement": "not_run",
+    "complete_feature_ui_parity": "unfinished"
   }
 }

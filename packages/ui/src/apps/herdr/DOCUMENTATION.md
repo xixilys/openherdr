@@ -171,3 +171,11 @@ OpenCode/Git controller and preference hooks. Herdr supplies parsed host patches
 its selected theme and disabled comments through the same detail. `CommitSection`
 omits Generate, Push and gitmoji actions when the corresponding callback is
 absent; existing original consumers continue to provide their actions.
+
+The Herdr text editor shares `components/views/files/MobileOpenFilesMenu`,
+`CodeFilePreview` and `lib/codemirror/fileEditorExtensions` with the original
+FilesView. These components receive explicit file, theme and scrolling inputs
+and do not initialize the original runtime. Herdr retains its own full-text
+drafts, root/revision checks, manual save, conflict handling and close intent.
+The shared CodeMirror read-only state governs both typing and mutation commands;
+Find remains available in a read-only document.

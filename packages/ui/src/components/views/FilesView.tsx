@@ -38,13 +38,11 @@ import { pendingFileNavigationStep } from './pendingFileNavigation';
 import { JsonTreeView } from '@/components/ui/JsonTreeView';
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { languageByExtension, loadLanguageByExtension } from '@/lib/codemirror/languageByExtension';
-import { createFlexokiCodeMirrorTheme } from '@/lib/codemirror/flexokiTheme';
-import { shikiHighlightExtension } from '@/lib/codemirror/shikiHighlight';
+import { createFileEditorExtensions } from '@/lib/codemirror/fileEditorExtensions';
+import { revealEditorSelectionAboveKeyboard } from '@/lib/codemirror/keyboardOcclusion';
 import { syncVimMappings } from '@/lib/codemirror/vimModeExtension';
-import { getResolvedShikiTheme } from '@/lib/shiki/appThemeRegistry';
-import { File as PierreFile, VirtualizerContext, WorkerPoolContext } from '@pierre/diffs/react';
-import { useWorkerPool } from '@/contexts/DiffWorkerProvider';
-import { useFileViewVirtualizer, type FileViewVirtualizer } from './useFileViewVirtualizer';
+import { CodeFilePreview } from './files/CodeFilePreview';
+import { MobileOpenFilesMenu } from './files/MobileOpenFilesMenu';
 import { useFilePreviewScrollPosition } from './useFilePreviewScrollPosition';
 import {
   Dialog,
@@ -60,7 +58,7 @@ import { useDeviceInfo } from '@/lib/device';
 import { cn, getRevealLabelKey } from '@/lib/utils';
 import { getLanguageFromExtension, getImageMimeType, isAudioFile, isBinaryFile, isDelimitedTableFile, isDrawioFile, isExcalidrawFile, isFontFile, isImageFile, isMermaidFile, isPdfFile, isSvgFile, isVideoFile, looksLikeBinaryText } from '@/lib/toolHelpers';
 import { shouldAllowFileDraftSave, shouldScheduleFileAutosave } from '@/lib/fileEditorAutosave';
-import { LARGE_FILE_CHAR_THRESHOLD, initialFileTextMode, makeFileContentCacheKey, prepareFileEditorContent, serializeEditorContent, type FileLineEnding } from './fileEditorContent';
+import { LARGE_FILE_CHAR_THRESHOLD, initialFileTextMode, prepareFileEditorContent, serializeEditorContent, type FileLineEnding } from './fileEditorContent';
 import { getRuntimeUrlResolver } from '@/lib/runtime-url';
 import { acquireRuntimeUrlAuthToken, refreshRuntimeUrlAuthToken, subscribeRuntimeUrlAuthToken } from '@/lib/runtime-auth';
 import { getRuntimeApiBaseUrl, getRuntimeKey } from '@/lib/runtime-switch';
@@ -76,8 +74,6 @@ import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { highlightSelectionMatches } from '@codemirror/search';
-import { codeFolding } from '@/lib/codemirror/codeFolding';
-import { bracketAids, multipleCursors } from '@/lib/codemirror/editingAids';
 import { gitChangeGutter, setGitChangeBaseline } from '@/lib/codemirror/gitChangeGutter';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { normalizeContextPanelDirectoryKey, useUIStore } from '@/stores/useUIStore';
@@ -117,7 +113,6 @@ import {
 } from './files/fileTreeRow';
 import { Icon } from "@/components/icon/Icon";
 import { useMessageTTS } from '@/hooks/useMessageTTS';
-import { ensurePierreThemeRegistered } from '@/lib/shiki/appThemeRegistry';
 import { getDefaultTheme } from '@/lib/theme/themes';
 import { isBrowserClientRuntime, isDesktopLocalOriginActive, openDesktopFileInApp, openDesktopPath } from '@/lib/desktop';
 import { registerCloseTabTarget } from '@/lib/closeTabTarget';
@@ -283,47 +278,6 @@ const getDisplayPath = (root: string | null, path: string): string => {
 };
 
 const DEFAULT_IGNORED_DIR_NAMES = new Set(['node_modules']);
-
-const ScrollingFileName: React.FC<{ name: string }> = ({ name }) => {
-  const containerRef = React.useRef<HTMLSpanElement | null>(null);
-  const textRef = React.useRef<HTMLSpanElement | null>(null);
-  const [overflowing, setOverflowing] = React.useState(false);
-
-  React.useLayoutEffect(() => {
-    const container = containerRef.current;
-    const text = textRef.current;
-    if (!container || !text) {
-      return;
-    }
-
-    const updateOverflow = () => {
-      setOverflowing(text.scrollWidth > container.clientWidth + 1);
-    };
-
-    updateOverflow();
-    const resizeObserver = new ResizeObserver(updateOverflow);
-    resizeObserver.observe(container);
-    resizeObserver.observe(text);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [name]);
-
-  return (
-    <span ref={containerRef} className="relative block min-w-0 flex-1 overflow-hidden whitespace-nowrap">
-      <span ref={textRef} aria-hidden="true" className="invisible absolute whitespace-nowrap">{name}</span>
-      {overflowing ? (
-        <span className="open-file-name-marquee-track">
-          <span className="open-file-name-marquee-item">{name}</span>
-          <span className="open-file-name-marquee-item" aria-hidden="true">{name}</span>
-        </span>
-      ) : (
-        <span className="block min-w-0 truncate">{name}</span>
-      )}
-    </span>
-  );
-};
 
 const shouldIgnoreEntryName = (name: string): boolean => DEFAULT_IGNORED_DIR_NAMES.has(name);
 
@@ -971,11 +925,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     [availableThemes, darkThemeId],
   );
 
-  React.useEffect(() => {
-    ensurePierreThemeRegistered(lightTheme);
-    ensurePierreThemeRegistered(darkTheme);
-  }, [lightTheme, darkTheme]);
-
   const EMPTY_PATHS: string[] = React.useMemo(() => [], []);
   const openPaths = useFilesViewTabsStore((state) => (root ? (state.byRoot[root]?.openPaths ?? EMPTY_PATHS) : EMPTY_PATHS));
   const selectedPath = useFilesViewTabsStore((state) => (root ? (state.byRoot[root]?.selectedPath ?? null) : null));
@@ -1014,6 +963,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }, [openPaths, selectedPath]);
   const selectedFile = React.useMemo(() => (effectiveSelectedPath ? toFileNode(effectiveSelectedPath) : null), [effectiveSelectedPath, toFileNode]);
   const selectedFilePath = selectedFile?.path ?? '';
+  const openFilesMenuKey = JSON.stringify([getRuntimeKey(), root, selectedFilePath]);
+  const [openFilesMenu, setOpenFilesMenu] = React.useState<{ key: string; open: boolean } | null>(null);
+  React.useEffect(() => {
+    if (!visible || !isMobile || openFilesMenu?.key !== openFilesMenuKey) setOpenFilesMenu(null);
+  }, [isMobile, openFilesMenu?.key, openFilesMenuKey, visible]);
   const selectedFilePathRef = React.useRef(selectedFilePath);
   selectedFilePathRef.current = selectedFilePath;
 
@@ -3417,46 +3371,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   ]);
 
   const nudgeEditorSelectionAboveKeyboard = React.useCallback((view: EditorView | null) => {
-    if (!isMobile || !view || typeof window === 'undefined') {
-      return;
-    }
-
-    // The inline comment bar is a block widget inside the editor; once its
-    // textarea takes focus the editor itself loses focus, so track the bar.
-    const activeElement = document.activeElement;
-    const commentInput = !view.hasFocus && activeElement instanceof HTMLElement && view.dom.contains(activeElement)
-      ? activeElement.closest<HTMLElement>('[data-comment-input="true"]')
-      : null;
-    if (!view.hasFocus && !commentInput) {
-      return;
-    }
-
-    const viewport = window.visualViewport;
-    if (!viewport) {
-      return;
-    }
-
-    const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
-    const occludedBottom = Math.max(0, layoutHeight - (viewport.offsetTop + viewport.height));
-    if (occludedBottom <= 0) {
-      return;
-    }
-
-    const cursorRect = commentInput
-      ? commentInput.getBoundingClientRect()
-      : view.coordsAtPos(view.state.selection.main.head);
-    if (!cursorRect) {
-      return;
-    }
-
-    const visibleBottom = Math.round(viewport.offsetTop + viewport.height);
-    const clearance = 20;
-    const overlap = cursorRect.bottom + clearance - visibleBottom;
-    if (overlap <= 0) {
-      return;
-    }
-
-    view.scrollDOM.scrollTop += overlap;
+    if (isMobile) revealEditorSelectionAboveKeyboard(view);
   }, [isMobile]);
 
   React.useEffect(() => {
@@ -3682,65 +3597,34 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }), []);
 
   const editorExtensions = React.useMemo(() => {
-    if (!selectedFile?.path) {
-      return [createFlexokiCodeMirrorTheme(currentTheme, { fontSize: editorFontSize })];
-    }
-
-    // Shiki token colors (worker-backed) match the Shiki file view exactly.
-    // Same language resolver as the view, so both agree on the language. When
-    // Shiki is the color source, drop the lezer token colors to avoid a
-    // competing highlighter (Keep the lezer language for indentation/folding).
-    const shikiLanguage = getLanguageFromExtension(selectedFile.path);
-    const extensions = [createFlexokiCodeMirrorTheme(currentTheme, shikiLanguage ? { syntaxColors: false, fontSize: editorFontSize } : { fontSize: editorFontSize })];
-    const language = staticLanguageExtension ?? dynamicLanguageExtension;
-    if (language) {
-      extensions.push(language);
-    }
-    if (shikiLanguage) {
-      extensions.push(shikiHighlightExtension({
-        language: shikiLanguage,
-        themeName: currentTheme.metadata.id,
-        theme: getResolvedShikiTheme(currentTheme),
-      }));
-    }
-    if (wrapLines) {
-      extensions.push(EditorView.lineWrapping);
-    }
     const diffColors = currentTheme.colors.syntax.highlights;
-    extensions.push(
-      gitChangeGutter({
-        added: diffColors?.diffAdded ?? currentTheme.colors.status.success,
-        modified: diffColors?.diffModified ?? currentTheme.colors.status.info,
-        removed: diffColors?.diffRemoved ?? currentTheme.colors.status.error,
-      }),
-      highlightSelectionMatches({ highlightWordAroundCursor: true, minSelectionLength: 2 }),
-      pinPreviewOnEditExtension,
-      bracketAids(),
-    );
-    if (!isMobile) {
-      extensions.push(codeFolding(), multipleCursors({ vimMode: fileEditorKeymap === 'vim' }));
-    }
-    if (isMobile) {
+    const extensions = createFileEditorExtensions({
+      theme: currentTheme,
+      path: selectedFile?.path ?? null,
+      language: staticLanguageExtension ?? dynamicLanguageExtension,
+      fontSize: editorFontSize,
+      wrapLines,
+      isMobile,
+      vimMode: fileEditorKeymap === 'vim',
+      beforeEditingAids: [
+        gitChangeGutter({
+          added: diffColors?.diffAdded ?? currentTheme.colors.status.success,
+          modified: diffColors?.diffModified ?? currentTheme.colors.status.info,
+          removed: diffColors?.diffRemoved ?? currentTheme.colors.status.error,
+        }),
+        highlightSelectionMatches({ highlightWordAroundCursor: true, minSelectionLength: 2 }),
+        pinPreviewOnEditExtension,
+      ],
+    });
+    if (selectedFile?.path && isMobile) {
       extensions.push(EditorView.updateListener.of((update) => {
-        if (!update.view.hasFocus) {
-          return;
-        }
-        if (!(update.selectionSet || update.focusChanged || update.viewportChanged || update.geometryChanged)) {
-          return;
-        }
-
-        window.requestAnimationFrame(() => {
-          nudgeEditorSelectionAboveKeyboard(update.view);
-        });
+        if (!update.view.hasFocus) return;
+        if (!(update.selectionSet || update.focusChanged || update.viewportChanged || update.geometryChanged)) return;
+        window.requestAnimationFrame(() => nudgeEditorSelectionAboveKeyboard(update.view));
       }));
     }
     return extensions;
   }, [currentTheme, selectedFile?.path, staticLanguageExtension, dynamicLanguageExtension, wrapLines, isMobile, nudgeEditorSelectionAboveKeyboard, editorFontSize, pinPreviewOnEditExtension, fileEditorKeymap]);
-
-  const pierreTheme = React.useMemo(
-    () => ({ light: lightTheme.metadata.id, dark: darkTheme.metadata.id }),
-    [lightTheme.metadata.id, darkTheme.metadata.id],
-  );
 
   // PDFs, audio, video and fonts are handed to the browser as a URL it owns
   // (iframe, media element, FontFace), so they need the scoped URL token.
@@ -3966,8 +3850,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     });
   }, [cancel, commentText, deleteDraft, editingDraftId, filesFileDrafts, handleSaveComment, isDragging, lineSelection, selectedFile?.path, setCommentText, startEdit]);
 
-  const mainViewVirtualizer = useFileViewVirtualizer();
-  const fullscreenViewVirtualizer = useFileViewVirtualizer();
   const previewReady = !fileLoading && !fileError && loadedFilePath === selectedFilePath;
   const showCanvas = React.useMemo(
     () => Boolean(selectedFilePath) && shouldShowFileCanvas({ hasCanvas, viewMode: canvasViewMode, previewReady, mountable: canMountCanvas }),
@@ -3976,21 +3858,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const codePreviewActive = previewReady && canUseShikiFileView && textViewMode === 'view'
     && !(isJson && jsonViewMode === 'tree');
   const markdownPreviewActive = previewReady && isMarkdown && getMdViewMode() === 'preview';
-  const { setScroller: setMainCodeScroller, restore: restoreMainCodeScroll } = useFilePreviewScrollPosition(codePreviewActive ? `${filePositionKey}:code` : null);
-  const { setScroller: setFullscreenCodeScroller, restore: restoreFullscreenCodeScroll } = useFilePreviewScrollPosition(codePreviewActive ? `${filePositionKey}:code:fullscreen` : null);
   const { setScroller: setMainMarkdownScroll } = useFilePreviewScrollPosition(markdownPreviewActive ? `${filePositionKey}:markdown` : null);
   const { setScroller: setFullscreenMarkdownScroll } = useFilePreviewScrollPosition(markdownPreviewActive ? `${filePositionKey}:markdown:fullscreen` : null);
-  const { setScroller: connectMainVirtualizer } = mainViewVirtualizer;
-  const { setScroller: connectFullscreenVirtualizer } = fullscreenViewVirtualizer;
-
-  const setMainPreviewScroller = React.useCallback((node: HTMLElement | null) => {
-    connectMainVirtualizer(node);
-    setMainCodeScroller(node);
-  }, [connectMainVirtualizer, setMainCodeScroller]);
-  const setFullscreenPreviewScroller = React.useCallback((node: HTMLElement | null) => {
-    connectFullscreenVirtualizer(node);
-    setFullscreenCodeScroller(node);
-  }, [connectFullscreenVirtualizer, setFullscreenCodeScroller]);
+  const [mainPreviewScroller, setMainPreviewScroller] = React.useState<HTMLElement | null>(null);
+  const [fullscreenPreviewScroller, setFullscreenPreviewScroller] = React.useState<HTMLElement | null>(null);
   const [mdPreviewNode, setMdPreviewNode] = React.useState<HTMLDivElement | null>(null);
   const [mdFullscreenPreviewNode, setMdFullscreenPreviewNode] = React.useState<HTMLDivElement | null>(null);
   const setMainMarkdownScroller = React.useCallback((node: HTMLDivElement | null) => {
@@ -4029,55 +3900,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     enabled: markdownLocalAssetsActive,
     colorScheme: markdownColorScheme,
   });
-  const shikiWorkerPool = useWorkerPool('unified');
-  // Large code previews use the full draft with viewport virtualization and
-  // the shared Shiki worker pool. The threshold does not disable editing.
   const isLargeFile = draftContent.length > LARGE_FILE_CHAR_THRESHOLD;
-  const largeFileCacheKey = React.useMemo(
-    () => (isLargeFile && codePreviewActive ? makeFileContentCacheKey(draftContent) : undefined),
-    [codePreviewActive, draftContent, isLargeFile],
-  );
-
-  const renderShikiFileView = React.useCallback((file: FileNode, content: string, virtualizer: FileViewVirtualizer, restoreScroll: ReturnType<typeof useFilePreviewScrollPosition>['restore']) => {
-    const fileContents = {
-      name: file.name,
-      contents: content,
-      lang: getLanguageFromExtension(file.path) || undefined,
-    };
-    const pierreFile = (key: string) => (
-      <PierreFile
-        key={key}
-        file={isLargeFile && largeFileCacheKey ? { ...fileContents, cacheKey: `${file.path}:${largeFileCacheKey}` } : fileContents}
-        options={{
-          disableFileHeader: true,
-          overflow: wrapLines ? 'wrap' : 'scroll',
-          theme: pierreTheme,
-          themeType: currentTheme.metadata.variant === 'dark' ? 'dark' : 'light',
-          onPostRender: restoreScroll,
-        }}
-        className={isLargeFile ? 'block w-full' : 'block h-full w-full'}
-        style={isLargeFile ? undefined : { height: '100%' }}
-      />
-    );
-
-    if (!isLargeFile) {
-      return <div className="h-full">{pierreFile(file.path)}</div>;
-    }
-
-    // Large files render through pierre's Virtualizer (viewport-only DOM) and
-    // the shared Shiki worker pool. The pool is created lazily: until it is
-    // ready the key carries a 'pending' suffix so the file remounts with the
-    // worker-backed highlighter instead of silently staying on the main thread.
-    return (
-      <div className="h-full">
-        <VirtualizerContext.Provider value={virtualizer.virtualizer}>
-          <WorkerPoolContext.Provider value={shikiWorkerPool}>
-            {pierreFile(`${file.path}:${shikiWorkerPool ? 'pool' : 'pending'}`)}
-          </WorkerPoolContext.Provider>
-        </VirtualizerContext.Provider>
-      </div>
-    );
-  }, [currentTheme.metadata.variant, isLargeFile, largeFileCacheKey, pierreTheme, shikiWorkerPool, wrapLines]);
 
   const renderFloatingFileControls = ({
     exitFullscreenOnly = false,
@@ -4878,65 +4701,19 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
           {isMobile ? (
             selectedFile ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex min-w-0 max-w-full items-center gap-1 text-start typography-ui-label font-medium"
-                    aria-label={t('filesView.editor.openFilesAria')}
-                  >
-                    <FileTypeIcon filePath={selectedFile.path} extension={selectedFile.extension} className="size-3.5 flex-shrink-0" />
-                    <ScrollingFileName name={selectedFile.name} />
-                    <Icon name="arrow-down-s" className="size-4 flex-shrink-0 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]">
-                  {openFiles.map((file) => {
-                    const isActive = selectedFile?.path === file.path;
-                    return (
-                      <DropdownMenuItem
-                        key={file.path}
-                        onSelect={(event) => {
-                          const target = event.target as HTMLElement;
-                          if (target.closest('[data-close-open-file]')) {
-                            event.preventDefault();
-                            return;
-                          }
-                          if (!isActive) {
-                            void handleSelectFile(file);
-                          }
-                        }}
-                        className={cn(
-                          'flex min-w-0 items-center justify-between gap-2 overflow-hidden',
-                          isActive && 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)]'
-                        )}
-                      >
-                        <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-                          <FileTypeIcon filePath={file.path} extension={file.extension} className="size-3.5 flex-shrink-0" />
-                          <ScrollingFileName name={file.name} />
-                        </span>
-                        <button
-                          type="button"
-                          data-close-open-file
-                          onPointerDown={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            handleCloseFile(file.path);
-                          }}
-                          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-[var(--surface-muted-foreground)] hover:text-[var(--surface-foreground)]"
-                          aria-label={t('filesView.editor.closeFileAria', { name: file.name })}
-                        >
-                          <Icon name="close" className="size-3.5" />
-                        </button>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <MobileOpenFilesMenu
+                rows={openFiles.map(file => ({ id: file.path, path: file.path, name: file.name, extension: file.extension }))}
+                activeId={selectedFile.path}
+                open={visible && openFilesMenu?.key === openFilesMenuKey && openFilesMenu.open}
+                onOpenChange={open => setOpenFilesMenu(visible ? { key: openFilesMenuKey, open } : null)}
+                onSelect={path => {
+                  if (!visible || path === selectedFile.path) return;
+                  const file = openFiles.find(entry => entry.path === path);
+                  if (file) void handleSelectFile(file);
+                }}
+                onCloseFile={path => { if (visible) handleCloseFile(path); }}
+                disabled={!visible}
+              />
             ) : (
               <div className="typography-ui-label font-medium truncate">{t('filesView.editor.selectFile')}</div>
             )
@@ -5159,7 +4936,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             </div>
             )
           ) : selectedFile && canUseShikiFileView && textViewMode === 'view' ? (
-            renderShikiFileView(selectedFile, draftContent, mainViewVirtualizer, restoreMainCodeScroll)
+            <CodeFilePreview path={selectedFile.path} name={selectedFile.name} content={draftContent}
+              theme={currentTheme} lightTheme={lightTheme} darkTheme={darkTheme} wrapLines={wrapLines}
+              scroller={mainPreviewScroller} positionKey={codePreviewActive ? `${filePositionKey}:code` : null} />
           ) : (
             <div
               className={cn('relative h-full', shouldMaskEditorForPendingNavigation && 'overflow-hidden')}
@@ -5449,7 +5228,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               />
             </div>
           ) : canUseShikiFileView && textViewMode === 'view' ? (
-            renderShikiFileView(selectedFile, draftContent, fullscreenViewVirtualizer, restoreFullscreenCodeScroll)
+            <CodeFilePreview path={selectedFile.path} name={selectedFile.name} content={draftContent}
+              theme={currentTheme} lightTheme={lightTheme} darkTheme={darkTheme} wrapLines={wrapLines}
+              scroller={fullscreenPreviewScroller} positionKey={codePreviewActive ? `${filePositionKey}:code:fullscreen` : null} />
           ) : (
             <div className={cn('relative h-full', shouldMaskEditorForPendingNavigation && 'overflow-hidden')}>
               <DocumentSymbolsPanel open={isSymbolsOpen} onOpenChange={setIsSymbolsOpen} viewRef={editorViewRef} />

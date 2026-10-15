@@ -160,7 +160,7 @@ agents continue in their current processes.
 | Machines | Local session and enabled saved SSH profiles |
 | Conversations | Real local OpenCode history, message paging, live events, prompt/abort, model/agent selection, permissions, forms and inline attachments |
 | Native slash commands | Original candidate list, scoped live lookup and command/skill/plain submission with attachments and delivery retained |
-| Files | Local/saved-SSH browsing, search, manual editing, create/rename/delete, upload/download, revision conflicts and image/binary preview |
+| Files | Local/saved-SSH browsing, code highlighting, Find/Replace, line navigation, wrapping, full-text code preview, multiple drafts, manual LF/CRLF Save, dirty-file close, create/rename/delete, upload/download, revision conflicts and image/binary preview |
 | Git | Local/saved-SSH status, diff, stage/unstage, commit, history and branch/checkout |
 | Worktrees | Native Herdr list/create/open/remove, with dirty-removal refusal |
 | Device access | One-use pairing, saved servers, client list and revocation |
@@ -234,6 +234,17 @@ an empty staged diff and unchanged readback; its workspace and marked temporary
 directory were cleaned up. These results are recorded in
 `.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
 and `.tmp/untracked-ssh-acceptance.json`.
+
+The text/code editor uses the original highlighting, Find/Replace, wrapping,
+Go to line and generic code preview. Open files switches between retained drafts;
+each row can close its file. Save, Discard and Cancel handle unsaved changes,
+including a file that is not currently selected. Manual Save preserves the
+detected preferred LF/CRLF style and checks the loaded revision. A failed or
+unknown save keeps the document open. Large code previews keep the full file and
+render the visible lines through the original virtualizer. Markdown/HTML/JSON
+and other specialized artifact previews remain separate unfinished work.
+
+![Code editor with a task-owned fixture in the actual CF browser](assets/code-editor.png)
 
 Changes uses the original scrolling file groups, phone diff detail, whitespace
 toggle and pinned multiline commit input. Open a working or staged file, return

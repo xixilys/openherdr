@@ -137,6 +137,24 @@ controller. Original hosted and Capacitor mobile retain their controllers around
 the extracted presentation. The dedicated Herdr entrypoint remains available in
 a browser on Electron and is not mounted in VS Code.
 
+The active editor increment completes the existing UTF-8 code/text flow with
+the original language/theme extensions, Find/Replace, line navigation, wrapping,
+generic code preview and explicit file close. Drafts keep normalized full text
+and the original preferred LF/CRLF style. Manual saves serialize at the host
+boundary, retain revision checks and preserve edits made during a write. Closing
+a dirty active or inactive document offers Save, Discard and Cancel; failed or
+unknown saves keep the document open. No formatter, autosave or host API is added.
+Markdown/HTML/JSON/media/canvas artifact previews remain separate parity work.
+
+For this editor increment, Herdr web/PWA and hosted mobile share the host-owned
+draft controller and original presentation. Herdr Capacitor Android/iOS bundle
+that flow with the existing native lifecycle; native keyboard and Back execution
+require separate device validation. Original web, Electron, hosted mobile and
+Capacitor retain FilesView's controller while reusing the extracted editor
+extensions and code preview. Original VS Code retains its own file bridge and
+does not mount the Herdr editor. The shared CodeMirror read-only facet applies
+to every existing caller. The default CF service and fixed first APK remain live.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and

@@ -117,6 +117,30 @@ the refresh button or reopening the tab. VS Code has no file tree, so nothing
 subscribes there. Desktop `FilesView` keeps its own 8-second poll of expanded
 folders.
 
+## Code editor and code preview
+
+`lib/codemirror/fileEditorExtensions.ts` builds the shared source-editor theme,
+language, Shiki colors, wrapping and local editing aids from explicit inputs.
+`FilesView` retains its Git baseline, preview-tab pinning, comment bindings and
+mobile keyboard listeners. Their extensions keep the original order around the
+shared editing aids. Mobile uses native touch selection; folding and multiple
+cursors remain desktop behaviors.
+
+`CodeMirrorEditor` configures both the editable DOM and the state's read-only
+facet. Read-only files support Find, while replacement and history commands
+cannot mutate their text. External controlled-value updates can still load a
+new authoritative document. A pending Shiki response applies only to its exact
+document generation; edits and editor disposal invalidate it immediately.
+
+`CodeFilePreview.tsx` renders the complete current source draft with the original
+Pierre file renderer. The caller supplies its theme, wrapping, actual scroller
+and a position key containing runtime, directory, file and preview surface.
+Large files retain the full text and content cache key while rendering through
+the shared worker pool and viewport virtualizer. The component owns virtualizer
+binding and position restoration, without importing the Files controller or
+starting an OpenCode session. Markdown, HTML, JSON and other artifact previews
+keep their separate existing controllers.
+
 ## Artifact previews
 
 `previews/` holds what the viewer shows instead of text: `ImageArtifact`

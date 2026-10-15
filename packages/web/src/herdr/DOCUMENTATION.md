@@ -396,7 +396,31 @@ file completions. Requested line focus uses the existing CodeMirror view.
 The editor labels host bytes as the current file, keeps manual Save and existing
 binary preview/download behavior, and retains drafts while hidden. CodeMirror
 detaches its DOM while disabled or hidden and restores its existing view and
-scroll on return. The mobile Back layer first returns from a file to its browser,
+scroll on return. `TextFileEditor` supplies the original shared theme/language
+extensions, Find/Replace, line navigation, wrapping and generic code preview.
+Hidden and preview modes remove the source highlighting extensions; they retain
+the document and undo history. Dynamic language loads are cancelled on hide or
+file changes. Preview uses the complete current draft and the caller's real
+scrolling element. Markdown, JSON, HTML and other artifact-specific previews
+remain separate work.
+
+`createFileDraft` normalizes UTF-8 host text to LF and records its preferred
+LF/CRLF line ending with the original helper. `prepareFileSave` serializes only
+the captured outbound content. A confirmed write updates the normalized saved
+baseline while retaining later edits. The dominant-ending policy normalizes
+mixed endings and lone CR characters; it is not arbitrary encoding conversion.
+Drafts are in memory and require no stored-format migration.
+
+The original `MobileOpenFilesMenu` selects retained documents and closes active
+or inactive files. Dirty close offers Save, Discard and Cancel. Save-and-close
+requires the same intent, owner, root, content and edit version after a confirmed
+write. Failure, unknown delivery, newer edits or navigation keep the document.
+Discard removes only the explicitly selected local draft and preserves delivery
+records. Clean close selects the next file, otherwise the previous one. Reopen
+reads the host again. Menus and dialogs unmount while the panel is hidden.
+
+The mobile Back layer closes editor search or line navigation before returning
+from a file to its browser,
 then clears search, then moves up within the canonical root. The shell closes
 only after those inner routes are exhausted. Creation, rename, delete, upload,
 reload conflicts and downloaded files still use the existing host client.

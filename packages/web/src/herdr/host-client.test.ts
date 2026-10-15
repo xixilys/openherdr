@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { z } from 'zod';
 import { HerdrTransport, PendingDeliveryStore, TransportError, type PendingDelivery } from './transport';
-import { HostClient, hostSchemas, draftKey, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, downloadBytes, type FileDraft } from './host-client';
+import { HostClient, hostSchemas, createFileDraft, draftKey, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, downloadBytes, type FileDraft } from './host-client';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -17,7 +17,7 @@ function fixture() {
   return { store, transport, client: new HostClient(transport, target), storage, raw: () => raw };
 }
 function draft(): FileDraft {
-  return { server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, baseContent: 'before', content: 'phone edit', editVersion: 1 };
+  return { server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, baseContent: 'before', content: 'phone edit', lineEnding: '\n', editVersion: 1 };
 }
 function pending(requestId: string, method = 'files.write'): PendingDelivery {
   return { requestId, server: connection.server, machine: target.machine, session: null, workspaceId: 'w1', tabId: '', paneId: target.pane_id, method };
@@ -50,6 +50,83 @@ describe('host client read contracts', () => {
 });
 
 describe('pinned file drafts', () => {
+  test('raw LF and CRLF files become complete normalized drafts and save in their original style', () => {
+    const f = fixture();
+    for (const lineEnding of ['\n', '\r\n']) {
+      const raw = `first${lineEnding}second${lineEnding}`;
+      const document = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: raw });
+      expect(document.baseContent).toBe('first\nsecond\n');
+      expect(document.content).toBe('first\nsecond\n');
+      expect(document.lineEnding).toBe(lineEnding);
+      expect(document.editVersion).toBe(0);
+      expect(prepareFileSave(document, f.client, '/repo', false).content).toBe(raw);
+      expect(document.content).toBe(document.baseContent);
+    }
+  });
+  test('editing and undoing a CRLF file returns to its normalized clean baseline', () => {
+    const f = fixture();
+    const opened = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: 'first\r\nsecond\r\n' });
+    const edited = editFileDraft(opened, 'first\nchanged\n');
+    expect(edited.content).not.toBe(edited.baseContent);
+    expect(edited.lineEnding).toBe('\r\n');
+    const undone = editFileDraft(edited, opened.content);
+    expect(undone.content).toBe(undone.baseContent);
+    expect(undone.lineEnding).toBe('\r\n');
+    expect(prepareFileSave(undone, f.client, '/repo', false).content).toBe('first\r\nsecond\r\n');
+  });
+  test('BOM, non-ASCII text, empty files and missing final newlines survive draft/save round trips', () => {
+    const f = fixture();
+    const contents = ['', '\uFEFF', 'non-ASCII \u4f60\u597d \u03c0', '\uFEFFfirst\n\u7b2c\u4e8c\u884c', '\uFEFFfirst\r\n\u7b2c\u4e8c\u884c', 'single line', '\n', '\r\n'];
+    for (const raw of contents) {
+      const document = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: raw });
+      expect(document.content).toBe(raw.replace(/\r\n/g, '\n'));
+      expect(document.baseContent).toBe(document.content);
+      const request = prepareFileSave(document, f.client, '/repo', false);
+      expect(request.content).toBe(raw);
+      expect(request.expectedRevision).toBe(hash);
+      expect(document.content).not.toContain('\r');
+    }
+  });
+  test('large normalized drafts retain the full tail through outbound serialization', () => {
+    const f = fixture();
+    const raw = `\uFEFF${'large text\r\n'.repeat(25000)}TAIL`;
+    const document = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: raw });
+    expect(document.content.length).toBeGreaterThan(200000);
+    expect(document.content.endsWith('TAIL')).toBe(true);
+    expect(prepareFileSave(document, f.client, '/repo', false).content).toBe(raw);
+  });
+  test('save acknowledgement keeps a normalized captured baseline and later edits with the original line style', () => {
+    const f = fixture();
+    const opened = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: '\uFEFFfirst\r\nsecond' });
+    const sent = editFileDraft(opened, '\uFEFFsaved\nsecond');
+    const request = prepareFileSave(sent, f.client, '/repo', false);
+    const later = editFileDraft(sent, '\uFEFFsaved\nnewer edit');
+    expect(request.content).toBe('\uFEFFsaved\r\nsecond');
+    const acknowledged = finishFileSave(later, sent, { root: '/repo', path: sent.path, success: true, revision: changedHash });
+    expect(acknowledged.content).toBe('\uFEFFsaved\nnewer edit');
+    expect(acknowledged.baseContent).toBe('\uFEFFsaved\nsecond');
+    expect(acknowledged.lineEnding).toBe('\r\n');
+    expect(acknowledged.revision).toBe(changedHash);
+    expect(acknowledged.content).not.toBe(acknowledged.baseContent);
+    expect(prepareFileSave(acknowledged, f.client, '/repo', false).content).toBe('\uFEFFsaved\r\nnewer edit');
+    const clean = finishFileSave(sent, sent, { root: '/repo', path: sent.path, success: true, revision: changedHash });
+    expect(clean.content).toBe(clean.baseContent);
+    expect(clean.baseContent).not.toContain('\r');
+  });
+  test('line style does not weaken root/path ownership or file revision checks', () => {
+    const f = fixture();
+    const document = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: 'first\r\nsecond' });
+    expect(prepareFileSave(document, f.client, '/repo', false).expectedRevision).toBe(hash);
+    expect(() => prepareFileSave(document, f.client, '/other', false)).toThrow('Your edits are kept');
+    expect(() => finishFileSave(document, document, { root: '/other', path: document.path, success: true, revision: changedHash })).toThrow('does not match');
+    expect(() => finishFileSave(document, document, { root: '/repo', path: 'other.txt', success: true, revision: changedHash })).toThrow('does not match');
+    const current = { ...document, revision: changedHash };
+    const incoming = createFileDraft({ server: connection.server, target, root: '/repo', path: document.path, revision: 'c'.repeat(64), content: 'disk\nstyle' });
+    const preserved = acceptFileReload(current, document, incoming);
+    expect(preserved.revision).toBe(changedHash);
+    expect(preserved.lineEnding).toBe('\r\n');
+    expect(preserved.reloadConflict).toBe(true);
+  });
   test('save captures original root, path, revision and content and refuses target changes', () => {
     const f = fixture();
     const original = draft();
@@ -241,6 +318,23 @@ function nativeSelection(type = 'worktree_created') {
 }
 
 describe('reload, refusal and cross-tab delivery regressions', () => {
+  test('an accepted disk reload replaces line style, while a changed captured style remains a conflict', () => {
+    const f = fixture();
+    const captured = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: 'before\r\nreload' });
+    const incoming = createFileDraft({ server: connection.server, target, root: '/repo', path: captured.path, revision: changedHash, content: 'after\nreload' });
+    const accepted = acceptFileReload(captured, captured, incoming);
+    expect(accepted.lineEnding).toBe('\n');
+    expect(prepareFileSave(accepted, f.client, '/repo', false).content).toBe('after\nreload');
+    const styleChanged: FileDraft = { ...captured, lineEnding: '\n' };
+    const conflict = acceptFileReload(styleChanged, captured, incoming);
+    expect(conflict.lineEnding).toBe('\n');
+    expect(conflict.revision).toBe(hash);
+    expect(conflict.content).toBe('before\nreload');
+    expect(conflict.reloadConflict).toBe(true);
+    const restored = acceptFileReload(accepted, accepted, captured);
+    expect(restored.lineEnding).toBe('\r\n');
+    expect(prepareFileSave(restored, f.client, '/repo', false).content).toBe('before\r\nreload');
+  });
   test('reload preserves typing and newer save acknowledgements made while its read was in flight', () => {
     const captured = draft();
     const incoming = { ...captured, content: 'new disk version', baseContent: 'new disk version', revision: changedHash, editVersion: 0 };

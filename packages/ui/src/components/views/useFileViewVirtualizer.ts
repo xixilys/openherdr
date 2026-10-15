@@ -45,5 +45,3 @@ export function useFileViewVirtualizer() {
 
   return { virtualizer, setScroller };
 }
-
-export type FileViewVirtualizer = ReturnType<typeof useFileViewVirtualizer>;

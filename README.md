@@ -8,6 +8,13 @@ Android is the primary app. Complete feature and UI replication is in progress.
 [Current validation and limits](docs/openherdr/STATUS.md) ·
 [Android build](packages/mobile/openherdr/README.md)
 
+Files now includes the original code editor, Find/Replace, line navigation,
+wrapping and complete code preview, with manual revision-checked saves and
+dirty-file closing. The current APK packages this flow; native interaction
+remains unverified.
+
+<img src="docs/openherdr/assets/code-editor.png" width="300" alt="OpenHerdr code editor in a mobile-width browser, showing a task-owned test file">
+
 This repository retains the MIT-licensed OpenChamber source and its original
 entrypoints. The upstream project documentation follows.
 

@@ -1,6 +1,39 @@
 # Native build validation
 
-## Latest working-tree Changes artifact
+## Latest UTF-8 editor artifact
+
+The final debug APK is 42,305,988 bytes and packages `herdr-CMDSuBJY.js`.
+Its HTML and entry bytes exactly match the Herdr web build in
+`.tmp/editor-apk.json`. Scanner and secure-storage registrations and 12 native
+libraries remain present. The fixed first-phone-test APK and public prerelease
+are unchanged. This new APK has not been installed or interactively tested.
+
+The original Web and Herdr builds pass. Asset preparation, Capacitor Android
+sync and Gradle assembleDebug pass with the existing task cache and NDK 27.1.
+Gradle reports success in 10 seconds with 245 tasks, 27 executed and 218
+up-to-date. Final logs are `.tmp/build-web-editor-preview-final.log`,
+`.tmp/build-herdr-editor-preview-fix.log` and
+`.tmp/build-editor-preview-android-final.log`.
+
+The 412x915 paired CF browser passed highlighted editing, Find/Replace, undo/
+redo, current-draft preview, CRLF/no-final-newline disk readback, dirty active/
+inactive closing and external-revision conflict/reload. It edited and saved a
+276,053-byte file with its full prefix and exact new tail preserved, then
+previewed and scrolled to that tail after reopening. The initial large-preview
+renderer error is preserved in earlier logs; its stable file-object/initial
+scroller fix passes actual browser retest and 3 installed-Pierre cases.
+The focused and retained checks total 113 passing cases; independent source
+review and the final combined static gate pass. Public browser screenshots show
+only task-owned files under `docs/openherdr/assets/code-editor.png` and
+`code-preview-large.png`.
+
+The default CF page still displays the existing Kansas window through a read-only
+terminal frame. Both bridge PIDs, ports and origins are unchanged. This source/
+browser/build evidence does not establish native Android IME, Back, camera,
+KeyStore write/relaunch, process death, rotation or physical-phone use. Remaining
+artifact previews and complete original feature/UI parity are unfinished.
+
+## Previous working-tree Changes artifact
 
 The final debug APK is 42,298,812 bytes and packages `herdr--dPvpIpz.js`.
 Its HTML and entry bytes match the Herdr web build in `.tmp/changes-apk.json`.

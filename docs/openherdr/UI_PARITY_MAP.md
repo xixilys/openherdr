@@ -196,11 +196,36 @@ after recording this result. Receipts are
 Public screenshots are `assets/file-browser.jpg`, `assets/file-editor.jpg` and
 `assets/file-changes.jpg`; these are browser captures, not Android captures.
 
+The text/code increment now shares `createFileEditorExtensions`, the original
+phone `MobileOpenFilesMenu` and `CodeFilePreview`. It restores language/theme
+highlighting, Find/Replace, wrapping, Go to line and the complete draft's generic
+code preview. Herdr owns normalized LF drafts and preferred LF/CRLF serialization,
+manual revision-checked Save and active/inactive dirty-file closing. Save-and-close
+checks the current document and navigation in one state update. Failed or unknown
+writes keep the file and its draft. Original FilesView retains its own controller,
+Git/comment bindings and runtime APIs around the shared presentation.
+
+The shared CodeMirror read-only state blocks replacement and history mutations
+while retaining Find and authoritative external updates. Shiki discards results
+for an older document immediately. The large Pierre preview keeps full content,
+the shared worker and virtualization. Stable file-object identity avoids the
+installed renderer's layout assertion; an initially null scroller keeps its
+queued connection. Current preview/scroller removal uses unmount and remount.
+Arbitrary replacement of a scroller in the same mounted preview is unverified.
+
+The actual 412x915 CF browser passed code editing/search, CRLF/no-final-newline
+save readback, dirty-file closing, fresh reopen, external conflict/reload and
+full-tail editing/preview of a 276,053-byte file. Arabic inspection kept code LTR
+and mirrored the original menu; English was restored. Focused and retained checks
+total 113 passing cases; source review, the combined gate and affected web/Android
+builds pass. `assets/code-editor.png` and `assets/code-preview-large.png` show
+task-owned browser fixtures. This does not establish native Android IME/Back.
+
 Full editor parity still needs the remaining original `FilesView` capabilities
-and runtime adaptations. `FilesView` depends on Git/config/file-tab state,
-effective directory, inline review and raw-asset paths in addition to
-`RuntimeAPIs.files`. Preserve encoding/line endings, syntax highlighting, search,
-previews and attachment behavior as these paths are adapted. The implemented
+and runtime adaptations, including Markdown/HTML/JSON/media/canvas artifact
+previews, fullscreen, comments and autosave. `FilesView` depends on Git/config/
+file-tab state, effective directory, inline review and raw-asset paths in
+addition to `RuntimeAPIs.files`. The implemented
 host file service already supports confined listing/search, text/binary reads,
 manual revision-checked writes, create/rename/delete, upload/download and explicit
 mutation receipts. These capabilities do not establish every original editor

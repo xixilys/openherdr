@@ -13,12 +13,14 @@ import { useI18n } from '@/lib/i18n';
 import { isCapacitorApp } from '@/lib/platform';
 import { shareFileFromNativeApp } from '@/lib/nativeFileShare';
 import { HerdrTransport, TransportError, clearPendingDelivery, loadPendingDelivery, type PendingDelivery } from './transport';
-import { HostClient, hostSchemas, targetKey, draftKey, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, downloadBytes, type FileDraft, type HostMutation } from './host-client';
+import { HostClient, hostSchemas, targetKey, draftKey, createFileDraft, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, downloadBytes, type FileDraft, type HostMutation } from './host-client';
 import { usePolling } from './usePolling';
 import { useHerdrText } from './herdr.i18n';
 import { EditorView } from '@codemirror/view';
 import { driverResolveSchema } from '@/lib/opencode/herdr-driver';
 import { MobileFilesView } from '@/apps/MobileFilesView';
+import { MobileOpenFilesMenu } from '@/components/views/files/MobileOpenFilesMenu';
+import { getDefaultTheme } from '@/lib/theme/themes';
 import { MobileChangesState, MobileDiffDetail, MobileWorkingChangesView } from '@/apps/MobileChangesView';
 import { CommitSection } from '@/components/views/git/CommitSection';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -28,7 +30,7 @@ import { registerBackLayer } from '@/lib/mobileBackLayers';
 import { workspaceFilePath, type WorkspaceDiffRequest, type WorkspaceFileRequest } from './workspace-navigation';
 import type { Theme } from '@/types/theme';
 
-const CodeEditor = lazy(() => import('@/components/ui/CodeMirrorEditor').then((module) => ({ default: module.CodeMirrorEditor })));
+const TextEditor = lazy(() => import('./TextFileEditor').then((module) => ({ default: module.TextFileEditor })));
 
 type PanelProps = { transport: HerdrTransport; machine: string; paneId: string; disabled?: boolean; mutationBlocked?: boolean; themeMode?: 'light' | 'dark'; theme?: Theme; onPendingDelivery?: (record: PendingDelivery | null) => void };
 type FileEntry = z.infer<typeof hostSchemas.list>['entries'][number];
@@ -38,7 +40,19 @@ type FileDialog =
   | { kind: 'folder'; owner: string; root: string; directory: string }
   | { kind: 'rename'; owner: string; choice: FileChoice }
   | { kind: 'delete'; owner: string; choice: FileChoice }
-  | { kind: 'reload'; owner: string; draftId: string };
+  | { kind: 'reload'; owner: string; draftId: string }
+  | { kind: 'close'; owner: string; draftId: string };
+type FileEditorsState = { documents: Map<string, FileDraft>; selected: Map<string, string | null>; dialog: FileDialog | null };
+
+function removeFileDocument(state: FileEditorsState, id: string, owner: string): FileEditorsState {
+  const siblings = [...state.documents.entries()].filter(([, document]) => targetKey(document.server, document.target) === owner).map(([key]) => key);
+  const index = siblings.indexOf(id);
+  if (index < 0) return state;
+  const documents = new Map(state.documents);
+  documents.delete(id);
+  const selected = state.selected.get(owner) === id ? new Map(state.selected).set(owner, siblings[index + 1] ?? siblings[index - 1] ?? null) : state.selected;
+  return { documents, selected, dialog: null };
+}
 type BinaryFile = z.infer<typeof hostSchemas.download> & { owner: string; image: string | null };
 const emptyPaths = new Set<string>();
 const parentPath = (path: string) => path.split('/').slice(0, -1).join('/');
@@ -47,7 +61,7 @@ const childPath = (directory: string, name: string) => directory ? `${directory}
 function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery: PanelProps['onPendingDelivery'], actionOwner?: string) {
   const [activeMutation, setActiveMutation] = useState<{ owner: string; operation: HostMutation['operation'] } | null>(null);
   const busy = activeMutation !== null;
-  const [failure, setFailure] = useState<{ owner: string; error: Error } | null>(null);
+  const [failure, setFailure] = useState<{ owner: string; error: Error; request: HostMutation } | null>(null);
   const running = useRef(false);
   const owner = actionOwner ?? targetKey(client.transport.connection.server, client.target);
   const live = useRef({ owner, disabled });
@@ -61,7 +75,7 @@ function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery
       const { record, outcome } = await client.mutate(request, schema);
       if (outcome.kind === 'pending') {
         onPendingDelivery?.(outcome.record);
-        setFailure({ owner, error: new TransportError('OUTCOME_UNKNOWN', 'outcomeUnknown', true, outcome.record.requestId) });
+        setFailure({ owner, request, error: new TransportError('OUTCOME_UNKNOWN', 'outcomeUnknown', true, outcome.record.requestId) });
         return null;
       }
       if (!await clearPendingDelivery(record.server, record.requestId)) throw new TransportError('DELIVERY_STORAGE', 'deliveryStorage', false, record.requestId);
@@ -69,24 +83,24 @@ function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery
       return outcome.value;
     } catch (error) {
       const failure = error instanceof Error ? error : new Error(String(error));
-      setFailure({ owner, error: failure });
+      setFailure({ owner, request, error: failure });
       try {
         const pending = await loadPendingDelivery(client.transport.connection.server);
         if (pending) {
           onPendingDelivery?.(pending);
           if (isConfirmedHostRefusal(failure) && pending.requestId === failure.requestId && await clearPendingDelivery(pending.server, pending.requestId)) onPendingDelivery?.(await loadPendingDelivery(pending.server));
         }
-      } catch { setFailure({ owner, error: new TransportError('DELIVERY_STORAGE', 'deliveryStorage') }); }
+      } catch { setFailure({ owner, request, error: new TransportError('DELIVERY_STORAGE', 'deliveryStorage') }); }
       return null;
     } finally {
       running.current = false;
       setActiveMutation(null);
     }
   }, [client, onPendingDelivery, owner]);
-  return { busy, operation: activeMutation?.owner === owner ? activeMutation.operation : null, execute, clearError: () => setFailure(null), error: failure?.owner === owner ? failure.error : null };
+  return { busy, operation: activeMutation?.owner === owner ? activeMutation.operation : null, execute, clearError: (captured?: Error) => setFailure(previous => !captured || previous?.error === captured ? null : previous), error: failure?.owner === owner ? failure.error : null, failedRequest: failure?.owner === owner ? failure.request : null };
 }
 
-export function FilesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, onPendingDelivery, requestedFile, isMobile = false, visible = true }: PanelProps & { requestedFile?: WorkspaceFileRequest | null; isMobile?: boolean; visible?: boolean }) {
+export function FilesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, theme = getDefaultTheme(false), onPendingDelivery, requestedFile, isMobile = false, visible = true }: PanelProps & { requestedFile?: WorkspaceFileRequest | null; isMobile?: boolean; visible?: boolean }) {
   const { t } = useI18n();
   const h = useHerdrText();
   const client = useMemo(() => new HostClient(transport, { machine, pane_id: paneId }), [transport, machine, paneId]);
@@ -105,13 +119,21 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const [rootEpoch, setRootEpoch] = useState(0);
   const [query, setQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [documents, setDocuments] = useState(new Map<string, FileDraft>());
+  const [editors, setEditors] = useState<FileEditorsState>(() => ({ documents: new Map(), selected: new Map(), dialog: null }));
+  const { documents, selected, dialog: dialogState } = editors;
+  const setDocuments = useCallback((update: (previous: Map<string, FileDraft>) => Map<string, FileDraft>) => {
+    setEditors(previous => { const documents = update(previous.documents); return documents === previous.documents ? previous : { ...previous, documents }; });
+  }, []);
+  const setSelected = useCallback((update: (previous: Map<string, string | null>) => Map<string, string | null>) => {
+    setEditors(previous => { const selected = update(previous.selected); return selected === previous.selected ? previous : { ...previous, selected }; });
+  }, []);
+  const setDialog = useCallback((dialog: FileDialog | null) => setEditors(previous => ({ ...previous, dialog })), []);
   const documentsRef = useRef(documents);
   documentsRef.current = documents;
-  const [selected, setSelected] = useState(new Map<string, string | null>());
   const [binary, setBinary] = useState<BinaryFile | null>(null);
-  const [dialogState, setDialog] = useState<FileDialog | null>(null);
   const dialog = dialogState?.owner === owner ? dialogState : null;
+  const [openFilesOwner, setOpenFilesOwner] = useState<string | null>(null);
+  useEffect(() => { setOpenFilesOwner(null); setDialog(null); }, [owner, enabled, setDialog]);
   const [name, setName] = useState('');
   const [openingOwner, setOpeningOwner] = useState<string | null>(null);
   const opening = openingOwner === owner;
@@ -143,6 +165,8 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   }, [client, folder, owner, refresh]);
   const listing = usePolling(readDirectory, enabled, 15000, `${owner}:${folder}:${rootEpoch}`);
   const root = listing.data?.root ?? pinnedRoots.current.get(owner) ?? null;
+  const editorScope = useRef({ owner, root, enabled, rootValid: !listing.error });
+  editorScope.current = { owner, root, enabled, rootValid: !listing.error };
   const readSearch = useCallback(async (signal: AbortSignal) => {
     const result = await client.read({ operation: 'files.search', path: '', query: searchTerm, maxResults: 100, includeHidden: false }, hostSchemas.search, signal);
     if (root && result.root !== root) throw new TransportError('target_changed', 'hostTargetChanged');
@@ -154,12 +178,16 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const binaryFile = binary?.owner === owner ? binary : null;
   const openDocuments = [...documents.entries()].filter(([, document]) => targetKey(document.server, document.target) === editorOwner);
   const writable = enabled && !mutationBlocked && !!root && !listing.error && !actions.busy && !opening;
-  const error = actions.error ?? (failure?.owner === owner ? failure.error : null) ?? listing.error ?? search.error;
+  const fileConflict = actions.error instanceof TransportError && actions.error.code === 'file_conflict' && !actions.error.uncertain && actions.failedRequest?.operation === 'files.write' ? actions.failedRequest : null;
+  const errorDraft = dialog?.kind === 'close' || dialog?.kind === 'reload' ? documents.get(dialog.draftId) : draft;
+  const actionError = fileConflict && (!errorDraft || errorDraft.path !== fileConflict.path || errorDraft.root !== fileConflict.expectedRoot) ? null : actions.error;
+  const error = actionError ?? (failure?.owner === owner ? failure.error : null) ?? listing.error ?? search.error;
   const report = (error: Error) => setFailure({ owner, error });
   const selectDraft = (id: string | null) => {
     openingRequest.current += 1; setOpeningOwner(null);
     setSelected((previous) => new Map(previous).set(editorOwner, id));
     setBinary(null);
+    setDialog(null);
   };
   const navigate = (path: string) => {
     setDirectory(path); setDirectoryOwner(owner); setSearchTerm(''); setQuery(''); selectDraft(null);
@@ -174,6 +202,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     const identity = { server: transport.connection.server, target: client.target, root: expectedRoot, path };
     const id = draftKey(identity);
     const captured = documentsRef.current.get(id);
+    if ((replaceDraft || !captured) && fileConflict?.path === path && fileConflict.expectedRoot === expectedRoot && actions.error) actions.clearError(actions.error);
     const selectRequestedLine = () => {
       if (!source) return;
       setFocusLine(source.line && Number.isInteger(source.line) && source.line > 0 ? { id: source.id, draftId: id, line: source.line } : null);
@@ -198,7 +227,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
         if (currentOwner.current !== owner || openingRequest.current !== request) return;
         if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
         if (!await confirmSource()) return;
-        const document: FileDraft = { ...identity, revision: result.revision, baseContent: result.content, content: result.content, editVersion: 0 };
+        const document = createFileDraft({ ...identity, revision: result.revision, content: result.content });
         setDocuments((previous) => new Map(previous).set(id, acceptFileReload(previous.get(id), captured, document)));
         selectRequestedLine(); selectDraft(id);
       } catch (error) {
@@ -253,16 +282,34 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     const timer = setTimeout(() => setSearchTerm(query.trim()), 250);
     return () => clearTimeout(timer);
   }, [isMobile, enabled, query]);
-  const save = async () => {
-    if (!draft || !activeId) return;
-    const saved = draft;
+  const discardClosedDocument = (intent: Extract<FileDialog, { kind: 'close' }>) => {
+    if (!enabled || actions.busy) return;
+    setEditors(previous => previous.dialog === intent ? removeFileDocument(previous, intent.draftId, owner) : previous);
+  };
+  const requestCloseDocument = (id: string) => {
+    if (!enabled || actions.busy) return;
+    setEditors(previous => {
+      const document = previous.documents.get(id);
+      if (!document || targetKey(document.server, document.target) !== owner) return previous;
+      return document.content !== document.baseContent ? { ...previous, dialog: { kind: 'close', owner, draftId: id } } : removeFileDocument(previous, id, owner);
+    });
+  };
+  const save = async (id = activeId, closing?: Extract<FileDialog, { kind: 'close' }>) => {
+    if (!id) return;
+    const saved = documentsRef.current.get(id);
+    if (!saved) return;
     try {
       const request = prepareFileSave(saved, client, root, !writable);
       const result = await actions.execute(request, hostSchemas.write);
       if (!result) return;
-      setDocuments((previous) => {
-        const current = previous.get(activeId);
-        return current ? new Map(previous).set(activeId, finishFileSave(current, saved, result)) : previous;
+      setEditors(previous => {
+        const current = previous.documents.get(id);
+        if (!current) return previous;
+        const next = { ...previous, documents: new Map(previous.documents).set(id, finishFileSave(current, saved, result)) };
+        const scope = editorScope.current;
+        return closing && previous.dialog === closing && scope.owner === owner && scope.root === saved.root && scope.enabled && scope.rootValid
+          && current.editVersion === saved.editVersion && current.content === saved.content && current.baseContent === saved.baseContent && current.revision === saved.revision && current.lineEnding === saved.lineEnding
+          ? removeFileDocument(next, id, owner) : next;
       });
       setRefresh((value) => value + 1);
     } catch (error) { report(error instanceof Error ? error : new Error(String(error))); }
@@ -295,6 +342,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   };
   const confirmDialog = async () => {
     if (!dialog || !root || !writable) return;
+    if (dialog.kind === 'close') { await save(dialog.draftId, dialog); return; }
     if (dialog.kind === 'reload') {
       const document = documentsRef.current.get(dialog.draftId);
       setDialog(null);
@@ -357,10 +405,40 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     if (draft.content !== draft.baseContent) setDialog({ kind: 'reload', owner, draftId: activeId });
     else void loadFile(draft.path, draft.root, true);
   };
-  const dialogTitle = dialog?.kind === 'reload' ? t('filesView.unsaved.title') : dialog?.kind === 'rename' ? t('filesView.dialog.rename.title') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.title') : dialog?.kind === 'folder' ? t('filesView.dialog.createFolder.title') : t('filesView.dialog.createFile.title');
+  const unsavedDialog = dialog?.kind === 'reload' || dialog?.kind === 'close';
+  const dialogTitle = unsavedDialog ? t('filesView.unsaved.title') : dialog?.kind === 'rename' ? t('filesView.dialog.rename.title') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.title') : dialog?.kind === 'folder' ? t('filesView.dialog.createFolder.title') : t('filesView.dialog.createFile.title');
 
-  const editorContent = draft ? <div className="flex min-h-0 flex-1 flex-col" dir="ltr"><Suspense fallback={<p className="herdr-detail">{t('common.loading')}</p>}><CodeEditor key={activeId ?? binaryFile?.path} detached={!enabled} onViewReady={focusEditor} onViewDestroy={() => { editorView.current = null; }} value={draft.content} readOnly={!enabled || draft.root !== root || targetKey(draft.server, draft.target) !== owner} onChange={(content) => { if (!activeId) return; setDocuments((previous) => { const current = previous.get(activeId); return current ? new Map(previous).set(activeId, editFileDraft(current, content)) : previous; }); }} className="min-h-0 flex-1 overflow-auto oc-surface-code" enableSearch /></Suspense><p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground">{draft.content === draft.baseContent ? t('filesView.editor.saved') : t('filesView.unsaved.title')}</p></div> : binaryFile ? <div className="min-h-0 flex-1">{binaryFile.image ? <ImageArtifact src={binaryFile.image} name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} sizeBytes={binaryFile.bytes} /> : <BinaryArtifact name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} path={binaryFile.path} sizeBytes={binaryFile.bytes} />}</div> : null;
-  const fileDialog = <Dialog open={dialog !== null && enabled} onOpenChange={(open) => { if (!open && !actions.busy) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialogTitle}</DialogTitle><DialogDescription>{dialog?.kind === 'reload' ? t('filesView.unsaved.description') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.description', { name: dialog.choice.name }) : dialog?.kind === 'rename' ? t('filesView.dialog.rename.description', { name: dialog.choice.name }) : t(dialog?.kind === 'folder' ? 'filesView.dialog.createFolder.description' : 'filesView.dialog.createFile.description', { path: folder || '/' })}</DialogDescription></DialogHeader>{dialog && dialog.kind !== 'delete' && dialog.kind !== 'reload' && <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('filesView.dialog.namePlaceholder')} aria-label={t('filesView.dialog.namePlaceholder')} dir="ltr" autoFocus onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void confirmDialog(); } }} />}<DialogFooter><Button variant="outline" disabled={actions.busy} onClick={() => setDialog(null)}>{t('filesView.dialog.cancel')}</Button><Button variant={dialog?.kind === 'delete' ? 'destructive' : 'default'} disabled={!writable || !!dialog && !['delete', 'reload'].includes(dialog.kind) && !name.trim()} onClick={() => void confirmDialog()}>{dialog?.kind === 'reload' ? t('filesView.unsaved.discard') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.confirm') : t('filesView.dialog.confirm')}</Button></DialogFooter></DialogContent></Dialog>;
+  const editorContent = draft && activeId ? <div className="flex min-h-0 flex-1 flex-col">
+    <Suspense fallback={<p className="herdr-detail">{t('common.loading')}</p>}>
+      <TextEditor key={activeId} id={activeId} path={draft.path} content={draft.content} theme={theme} enabled={enabled} isMobile={isMobile}
+        readOnly={draft.root !== root || targetKey(draft.server, draft.target) !== owner}
+        onViewReady={focusEditor} onViewDestroy={() => { editorView.current = null; }}
+        canSave={writable && draft.root === root && targetKey(draft.server, draft.target) === owner && draft.content !== draft.baseContent}
+        onSave={() => void save()}
+        onChange={content => {
+          if (!enabled || draft.root !== root || targetKey(draft.server, draft.target) !== owner) return;
+          setDocuments(previous => { const current = previous.get(activeId); return current ? new Map(previous).set(activeId, editFileDraft(current, content)) : previous; });
+        }} />
+    </Suspense>
+    <p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground">{draft.content === draft.baseContent ? t('filesView.editor.saved') : t('filesView.unsaved.title')}</p>
+  </div> : binaryFile ? <div className="min-h-0 flex-1">{binaryFile.image ? <ImageArtifact src={binaryFile.image} name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} sizeBytes={binaryFile.bytes} /> : <BinaryArtifact name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} path={binaryFile.path} sizeBytes={binaryFile.bytes} />}</div> : null;
+  const fileDialog = <Dialog open={dialog !== null && enabled} onOpenChange={open => { if (!open && !actions.busy) setDialog(null); }}>
+    <DialogContent><DialogHeader><DialogTitle>{dialogTitle}</DialogTitle>
+      <DialogDescription>{unsavedDialog ? t('filesView.unsaved.description') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.description', { name: dialog.choice.name }) : dialog?.kind === 'rename' ? t('filesView.dialog.rename.description', { name: dialog.choice.name }) : t(dialog?.kind === 'folder' ? 'filesView.dialog.createFolder.description' : 'filesView.dialog.createFile.description', { path: folder || '/' })}{dialog?.kind === 'close' && <span className="mt-2 block break-all" dir="auto">{documents.get(dialog.draftId)?.path}</span>}</DialogDescription>
+    </DialogHeader>
+      {actionError && <p role="alert" className="typography-meta text-[var(--status-error-text)]">{actionError instanceof TransportError && actionError.code === 'target_changed' ? h('hostTargetChanged') : actionError.message === 'outcomeUnknown' ? h('hostUnknown') : actionError.message === 'deliveryStorage' ? h('deliveryStorage') : actionError.message}</p>}
+      {dialog && dialog.kind !== 'delete' && !unsavedDialog && <Input value={name} onChange={event => setName(event.target.value)} placeholder={t('filesView.dialog.namePlaceholder')} aria-label={t('filesView.dialog.namePlaceholder')} dir="ltr" autoFocus onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void confirmDialog(); } }} />}
+      <DialogFooter>
+        <Button variant="outline" disabled={actions.busy} onClick={() => setDialog(null)}>{t('filesView.dialog.cancel')}</Button>
+        {dialog?.kind === 'close' && <Button variant="destructive" disabled={actions.busy} onClick={() => discardClosedDocument(dialog)}>{t('filesView.unsaved.discard')}</Button>}
+        <Button variant={dialog?.kind === 'delete' ? 'destructive' : 'default'} disabled={!writable || !!dialog && !['delete', 'reload', 'close'].includes(dialog.kind) && !name.trim()} onClick={() => void confirmDialog()}>{dialog?.kind === 'close' ? t('filesView.unsaved.saveChanges') : dialog?.kind === 'reload' ? t('filesView.unsaved.discard') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.confirm') : t('filesView.dialog.confirm')}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>;
+  const openFileMenu = activeId && enabled && <div className="flex min-w-0 shrink-0 items-center border-b border-border/40 px-3 py-1.5"><MobileOpenFilesMenu
+    rows={openDocuments.map(([id, document]) => ({ id, path: document.path, name: document.path.split('/').at(-1) ?? document.path, dirty: document.content !== document.baseContent }))}
+    activeId={activeId} open={enabled && openFilesOwner === owner} onOpenChange={open => setOpenFilesOwner(open ? owner : null)} disabled={!enabled}
+    onSelect={selectDraft} onCloseFile={requestCloseDocument} /></div>;
   if (isMobile) {
     const file = draft ?? binaryFile;
     const viewDirectory = folder ? `${root === '/' ? '' : root}/${folder}` : root ?? '';
@@ -392,9 +470,9 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
           <Button variant="outline" size="sm" disabled={!writable} onClick={() => { if (root) { setDialog({ kind: 'folder', owner, root, directory: folder }); setName(''); } }}>{t('sidebarFilesTree.menu.newFolder')}</Button>
         </div></>}
         canUpload={writable} isUploading={actions.busy} onUpload={() => uploadInput.current?.click()}
-      >{notices}{openDocuments.length > 0 && <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2" aria-label={t('filesView.editor.openFilesAria')}>{openDocuments.map(([id, document]) => <Button key={id} variant="chip" size="sm" aria-pressed={activeId === id} onClick={() => selectDraft(id)}><span className="max-w-44 truncate" dir="auto">{document.path.split('/').at(-1)}{document.content !== document.baseContent ? ' *' : ''}</span></Button>)}</div>}{editorContent}</MobileFilesView>
+      >{notices}{openFileMenu}{editorContent}</MobileFilesView>
       <input ref={uploadInput} type="file" className="hidden" aria-label={t('sidebarFilesTree.menu.uploadFiles')} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} />
-      {fileDialog}
+      {enabled && fileDialog}
     </section>;
   }
   return <section className="herdr-content" aria-label={t('mobile.files.rootDirectory')}>
@@ -405,7 +483,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       {(draft || binaryFile) && <Button variant="ghost" size="icon" aria-label={t('sidebarFilesTree.menu.download')} disabled={disabled || !paneId} onClick={() => { const file = draft ?? binaryFile; if (file) void download(file.path, file.root); }}><Icon name="download" className="size-4" /></Button>}
       <Button variant="ghost" size="icon" aria-label={t('mobile.files.refreshAria')} disabled={opening} onClick={() => draft ? refreshFile() : setRefresh((value) => value + 1)}><Icon name="refresh" className="size-4" /></Button>
     </div>
-    {openDocuments.length > 0 && <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2" aria-label={t('filesView.editor.openFilesAria')}>{openDocuments.map(([id, document]) => <Button key={id} variant="chip" size="sm" aria-pressed={activeId === id} onClick={() => selectDraft(id)}><span className="max-w-44 truncate" dir="auto">{document.path.split('/').at(-1)}{document.content !== document.baseContent ? ' *' : ''}</span></Button>)}</div>}
+    {openFileMenu}
     {error && <div className="herdr-banner herdr-error" role="alert"><p>{error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message === 'outcomeUnknown' ? h('hostUnknown') : error.message === 'deliveryStorage' ? h('deliveryStorage') : error.message}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button size="sm" variant="outline" onClick={reloadRoot}>{t('contextPanel.browser.reload')}</Button>}</div>}
     {draft?.reloadConflict && <p className="herdr-banner herdr-warning" role="alert">{t('filesView.unsaved.title')}. {t('filesView.unsaved.description')}</p>}
     {(opening || listing.loading && !draft && !binaryFile) && <p className="herdr-detail" role="status">{t('common.loading')}</p>}
@@ -418,7 +496,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       </div>
     </>}
     <footer className="herdr-content-root" dir="ltr">{draft?.root ?? binaryFile?.root ?? root}</footer>
-    {fileDialog}
+    {enabled && fileDialog}
   </section>;
 }
 

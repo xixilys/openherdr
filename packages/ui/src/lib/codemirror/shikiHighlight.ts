@@ -97,7 +97,10 @@ const shikiHighlightPlugin = (options: ShikiHighlightOptions) =>
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged) this.schedule(update.view);
+        if (update.docChanged) {
+          this.generation += 1;
+          this.schedule(update.view);
+        }
       }
 
       private schedule(view: EditorView) {
@@ -109,17 +112,19 @@ const shikiHighlightPlugin = (options: ShikiHighlightOptions) =>
       }
 
       private async tokenize(view: EditorView) {
-        const generation = ++this.generation;
-        const text = view.state.doc.toString();
+        const generation = this.generation;
+        const doc = view.state.doc;
+        const text = doc.toString();
         const lines = await highlightTokensInWorker(text, options.language, options.themeName, options.theme);
         if (!lines) return;
-        // Drop if a newer tokenization started or the doc length changed since.
+        // A same-length edit invalidates a result even before the idle job starts.
         if (generation !== this.generation) return;
-        if (view.state.doc.length !== text.length) return;
+        if (view.state.doc !== doc) return;
         view.dispatch({ effects: setShikiDecorations.of(buildDecorations(view, lines)) });
       }
 
       destroy() {
+        this.generation += 1;
         if (this.timer) clearTimeout(this.timer);
       }
     },

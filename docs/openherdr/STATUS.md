@@ -30,7 +30,75 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current working-tree Changes increment
+## Current UTF-8 text and code editor increment
+
+Files now shares the original language/theme extensions, Find/Replace, wrapping,
+line navigation, open-file menu and full-text code preview. Multiple drafts keep
+their own undo state. Closing a dirty active or inactive file offers Save,
+Discard and Cancel. Confirmed Save closes only the same unchanged document;
+later edits, owner/root changes, failures and unknown delivery keep it open.
+Drafts normalize to LF and serialize the original preferred LF/CRLF style on
+manual Save. Existing revision checks remain in force. No formatter or autosave
+is added. Markdown/HTML/JSON/media/canvas artifact previews and the remaining
+original editor features stay unfinished.
+
+The actual 412x915 paired CF browser exercised highlighted code, Find/Replace,
+undo back to clean, redo, current-draft preview, manual Save, multiple dirty
+files, Cancel/Discard/Save-and-close, fresh reopen and external-revision refusal.
+The first save's disk readback preserved all 4 CRLF separators, Unicode and no
+final newline. An explicit reload adopted the external revision and removed its
+obsolete conflict message. File-specific errors stay with their document. A
+276,053-byte, 6,002-line file was edited and saved with its complete original
+prefix and exact new tail retained. Only the 3 task-owned fixture files changed;
+no terminal input, model request or Git mutation was used in this flow.
+
+The first real large-file preview exposed an installed Pierre renderer error
+after React recreated an equivalent file object. The shared view now retains
+that object until its inputs change and preserves queued connections while the
+scroller is initially unavailable. The same complete file now renders, scrolls
+to both tail markers, survives wrapping and Edit/Preview changes, and closes and
+reopens without a new renderer error. It keeps full text and virtualization.
+Arbitrary replacement of a scroller while the same preview stays mounted has
+not been tested; current callers remove and recreate the preview with its
+scrolling container.
+
+The result is 113 passing cases: host client 26, CodeMirror/extensions/Shiki/
+scroll position 19, retained Files 10, retained Changes 23, editor flow 32 and
+actual installed Pierre preview 3. The final affected run passed 35 cases.
+Independent source review found no remaining P1/P2 in the current caller paths.
+The final type/lint/Knip/anti-slop gate passes. Its preceding attempt found only
+an unsupported negative assertion type in the new test, corrected without
+changing runtime code or assertions' behavior. Logs include
+`.tmp/editor-preview-controller-final.log`,
+`.tmp/editor-preview-identity-final-typing.log`,
+`.tmp/check-editor-final-freeze.log` and `.tmp/editor-final-source-review.md`.
+
+Original Web and Herdr builds pass. The final debug APK is 42,305,988 bytes and
+packages `herdr-CMDSuBJY.js`; its HTML and entry bytes exactly match the web build
+in `.tmp/editor-apk.json`. Gradle passed in 10 seconds with 245 tasks, 27 executed
+and 218 up-to-date, using the existing task cache and NDK 27.1. Logs are
+`.tmp/build-web-editor-preview-final.log`,
+`.tmp/build-herdr-editor-preview-fix.log` and
+`.tmp/build-editor-preview-android-final.log`. The new APK has not been installed
+or interactively tested. The fixed first-phone-test APK and public prerelease
+remain unchanged.
+
+The default CF page loads the final asset and still displays the same Kansas
+Claude US worker window with a real read-only frame. Its terminal textarea has
+`readOnly=true` and `inputmode=none`. Both existing bridge PIDs, ports and CF
+origins are unchanged. Both public routes return health 200 and unauthenticated
+private access 401, and serve the exact final entry bytes. Receipts are
+`.tmp/editor-runtime-public-after.json` and
+`.tmp/editor-browser/default-monitor-final.json`. Private worker output stays
+outside published source. Public captures `assets/code-editor.png` and
+`assets/code-preview-large.png` show only task-owned content.
+
+This increment changes no backend operation, provider, remote SSH configuration
+or managed Cloudflare setup. Actual Android Back/IME, camera, KeyStore, process
+death and physical-phone use remain unverified. Full UI and feature parity
+continues beyond this editor flow.
+
+## Previous working-tree Changes increment
 
 Changes now shares the original scrolling file groups, phone diff header,
 whitespace control, loading/error/clean states and pinned multiline commit

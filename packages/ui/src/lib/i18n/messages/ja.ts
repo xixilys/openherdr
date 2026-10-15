@@ -20,6 +20,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.files.nativeDownloadLimit": "ネイティブ共有は 8 MiB 以下のファイルに対応しています。",
   "herdr.monitor.recentText": "最近のターミナル出力",
   "herdr.monitor.title": "モニター",
   "herdr.monitor.readOnly": "読み取り専用",

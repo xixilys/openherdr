@@ -20,6 +20,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.files.nativeDownloadLimit": "El uso compartido nativo admite archivos de hasta 8 MiB.",
   "herdr.monitor.recentText": "Salida reciente del terminal",
   "herdr.monitor.title": "Seguimiento",
   "herdr.monitor.readOnly": "Vista de solo lectura",

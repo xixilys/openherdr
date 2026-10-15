@@ -17,6 +17,7 @@ import { filesRequest, gitRequest, readPaneFiles, readPaneGit } from './content.
 import { hostOperations, parseHostRequest, isHostMutation, executeHostOperation } from './host-operations.js';
 import { createHerdrPreferences, preferencesReadRequest, preferencesUpdateRequest } from './preferences.js';
 import { createHerdrProjectContext, parseProjectContextRequest, isProjectContextMutation } from './project-context.js';
+import { createHerdrAssets } from './assets.js';
 import { conversationTargetSchema, conversationResolveRequest, conversationListRequest, conversationReadRequest, conversationCatalogRequest, conversationRegistryRequest, conversationCreateRequest, conversationActionRequest, conversationEventsRequest, conversationHistoryListRequest, conversationHistoryReadRequest, conversationRebindRequest } from './conversations/contracts.js';
 
 const APP = { app: 'openherdr', version: '0.1.0' };
@@ -123,6 +124,12 @@ export async function createHerdrServer(options = {}) {
   if (!dir.isDirectory() || dir.isSymbolicLink() || dir.uid !== process.getuid?.()) throw new Error('OpenHerdr state directory must be owned by this user');
   await fs.chmod(stateDir, 0o700);
   const remoteAuth = createRemoteClientAuthRuntime({ fsPromises: fs, path, crypto, storePath: path.join(stateDir, 'clients.json') });
+  const assets = createHerdrAssets({
+    bridge,
+    getClient: async (clientId) => (await remoteAuth.listClients()).find((client) => client.id === clientId) ?? null,
+    requirePolicy: checkExposure,
+    clock: options.assetClock,
+  });
   const pairing = createClientPairingRuntime({ fsPromises: fs, path, crypto, remoteClientAuthRuntime: remoteAuth, storePath: path.join(stateDir, 'pairing.json') });
   const receipts = await createReceiptStore(path.join(stateDir, 'receipts.jsonl'));
   const preferences = createHerdrPreferences({ stateDir });
@@ -153,11 +160,13 @@ export async function createHerdrServer(options = {}) {
       }
       if (req.method === 'OPTIONS') {
         if (!origin) throw new ApiError(403, 'origin_required', 'Preflight requests require an Origin');
-        res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600' }); return res.end();
+        res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, HEAD, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, Range, If-Range', 'Access-Control-Max-Age': '600' }); return res.end();
       }
       if (url.pathname === '/health' && req.method === 'GET') return send(res, 200, { ok: true, ...APP });
       const remote = req.socket.remoteAddress;
       if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote) || origins.size) requireNetworkPolicy();
+      const assetId = /^\/api\/herdr\/assets\/([A-Za-z0-9_-]{43})$/.exec(url.pathname)?.[1];
+      if (assetId && ['GET', 'HEAD'].includes(req.method)) return await assets.read(assetId, req, res);
       if (url.pathname === '/api/pairing/redeem' && req.method === 'POST') {
         const now = Date.now();
         for (const [key, value] of rate) if (value.reset < now) rate.delete(key);
@@ -173,6 +182,10 @@ export async function createHerdrServer(options = {}) {
       const token = /^Bearer ([A-Za-z0-9_-]+)$/.exec(req.headers.authorization ?? '')?.[1];
       const auth = await remoteAuth.authenticateBearerToken(token);
       if (!auth) throw new ApiError(401, 'unauthorized', 'Pair this device to connect');
+      if (url.pathname === '/api/herdr/assets' && req.method === 'POST') return send(res, 200, await assets.mint(auth.clientId, await readJson(req), req, res));
+      const renewedAssetId = /^\/api\/herdr\/assets\/([A-Za-z0-9_-]{43})\/renew$/.exec(url.pathname)?.[1];
+      if (renewedAssetId && req.method === 'POST') return send(res, 200, await assets.renew(auth.clientId, renewedAssetId, await readJson(req), req, res));
+      if (assetId && req.method === 'DELETE') return send(res, 200, assets.release(auth.clientId, assetId));
       if (url.pathname === '/api/herdr/info' && req.method === 'GET') return send(res, 200, { ...APP, session: options.session ?? null, allowRemoteFonts: !policy().enterpriseMode, capabilities: { methods: Object.keys(methods), hostOperations, terminalObserve: true, mutationReceipts: true } });
       if (url.pathname === '/api/herdr/machines' && req.method === 'GET') return send(res, 200, { machines: await bridge.machines(), session: options.session ?? null });
       if (url.pathname === '/api/herdr/clients' && req.method === 'GET') return send(res, 200, { clients: await remoteAuth.listClients() });
@@ -204,6 +217,7 @@ export async function createHerdrServer(options = {}) {
       const clientId = /^\/api\/herdr\/clients\/([a-zA-Z0-9_-]+)$/.exec(url.pathname)?.[1];
       if (clientId && req.method === 'DELETE') {
         const result = await remoteAuth.revokeClient(clientId);
+        assets.revoke(clientId);
         for (const child of streams.get(clientId) ?? []) child.kill();
         streams.delete(clientId);
         for (const controller of conversationControllers.get(clientId) ?? []) controller.abort();
@@ -282,6 +296,7 @@ export async function createHerdrServer(options = {}) {
       if (url.pathname === '/api/herdr/host' && req.method === 'POST') {
         const body = parse(hostEnvelope, await readJson(req, 16 * 1024 * 1024));
         const request = parseHostRequest(body.request);
+        if (request.operation === 'files.describe') return send(res, 200, await assets.inspect(auth.clientId, request, req, res));
         if (request.machine !== 'local' && !(await bridge.machines()).some((machine) => machine.id === request.machine)) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');
         const mutation = isHostMutation(request);
         if (mutation && !body.requestId) throw new ApiError(400, 'request_id_required', 'Mutations require a unique requestId');
@@ -420,7 +435,7 @@ export async function createHerdrServer(options = {}) {
       for (const children of streams.values()) for (const child of children) child.kill();
       streams.clear();
       for (const connection of adminConnections) connection.destroy();
-      await Promise.all([conversationClose, preferences.close(), ...[server, adminServer].map((instance) => new Promise((resolve) => { if (!instance.listening) return resolve(); instance.close(resolve); instance.closeIdleConnections?.(); }))]);
+      await Promise.all([assets.close(), conversationClose, preferences.close(), ...[server, adminServer].map((instance) => new Promise((resolve) => { if (!instance.listening) return resolve(); instance.close(resolve); instance.closeIdleConnections?.(); }))]);
       if (listening) { await fs.rm(path.join(stateDir, 'server.json'), { force: true }); listening = false; }
     })();
     return closePromise;

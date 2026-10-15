@@ -19,6 +19,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.files.nativeDownloadLimit": "Natives Teilen ist auf Dateien bis 8 MiB begrenzt.",
   "herdr.monitor.recentText": "Letzte Terminalausgabe",
   "herdr.monitor.title": "Überwachung",
   "herdr.monitor.readOnly": "Schreibgeschützte Ansicht",

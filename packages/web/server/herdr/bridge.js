@@ -1,12 +1,15 @@
 import net from 'node:net';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { lstat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { ApiError } from './contracts.js';
 import { z } from 'zod';
 import { runHostOperation } from './host-transport.js';
+import { openHostAsset } from './asset-transport.js';
+import { parseAssetDescribeRequest, parseAssetRawRequest } from './asset-protocol.js';
 
 const exec = promisify(execFile);
 const cliErrorBody = z.strictObject({ code: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/), message: z.string().max(65536) });
@@ -189,19 +192,57 @@ export function createHerdrBridge({ session, socketPath, herdrBinary = 'herdr', 
   if (!socketPath && (!session || !/^[a-zA-Z0-9_-]{1,64}$/.test(session))) throw new Error('A named Herdr session or explicit socketPath is required');
   const configDir = process.env.HERDR_CONFIG_PATH ? path.dirname(process.env.HERDR_CONFIG_PATH) : path.join(os.homedir(), '.config/herdr');
   const localSocket = path.resolve(socketPath || (session === 'default' ? path.join(configDir, 'herdr.sock') : path.join(configDir, 'sessions', session, 'herdr.sock')));
-  const run = async (args) => {
-    const { stdout } = await execute(herdrBinary, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, HERDR_SOCKET: undefined, HERDR_SOCKET_PATH: undefined, HERDR_PANE_ID: undefined, HERDR_TAB_ID: undefined, HERDR_WORKSPACE_ID: undefined } });
+  const run = async (args, signal) => {
+    const { stdout } = await execute(herdrBinary, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, signal, env: { ...process.env, HERDR_SOCKET: undefined, HERDR_SOCKET_PATH: undefined, HERDR_PANE_ID: undefined, HERDR_TAB_ID: undefined, HERDR_WORKSPACE_ID: undefined } });
     return JSON.parse(stdout);
   };
-  const profiles = async () => savedMachines.parse(await run(['machine', 'list', '--json']));
+  const profiles = async (signal) => savedMachines.parse(await run(['machine', 'list', '--json'], signal));
   const machines = async () => {
     const saved = await profiles();
     return [{ id: 'local', label: 'Local' }, ...saved.filter((m) => m.enabled !== false).map(({ id, label }) => ({ id, label }))];
   };
+  const assetTarget = async (machine, signal, expectedBinding) => {
+    const checkAbort = () => { if (signal?.aborted) throw new ApiError(499, 'asset_cancelled', 'The file read was cancelled'); };
+    checkAbort();
+    let profile;
+    let identity;
+    if (machine === 'local') {
+      let info;
+      try { info = await lstat(localSocket, { bigint: true }); }
+      catch { throw new ApiError(502, 'herdr_unavailable', 'The selected Herdr socket is unavailable'); }
+      if (!info.isSocket()) throw new ApiError(502, 'herdr_unavailable', 'The selected Herdr socket is unavailable');
+      identity = ['local', localSocket, String(info.dev), String(info.ino)];
+    } else {
+      let saved;
+      try { saved = await profiles(signal); }
+      catch (error) { checkAbort(); throw error; }
+      profile = saved.find((entry) => entry.id === machine && entry.enabled !== false);
+      if (!profile) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');
+      identity = ['ssh', profile.target, profile.session];
+    }
+    checkAbort();
+    const binding = createHash('sha256').update(JSON.stringify(identity)).digest('hex');
+    if (expectedBinding !== undefined && binding !== expectedBinding) throw new ApiError(409, 'target_changed', 'The saved file host changed. Open the file again');
+    return { binding, profile, socketPath: profile ? undefined : localSocket };
+  };
+  const describeAsset = async (input, { signal, expectedBinding } = {}) => {
+    const request = parseAssetDescribeRequest(input);
+    const target = await assetTarget(request.machine, signal, expectedBinding);
+    const opened = await openHostAsset({ request, ...target, signal, headOnly: true, validateTarget: () => assetTarget(request.machine, signal, target.binding), spawnProcess, sshBinary });
+    try { return { binding: target.binding, metadata: opened.metadata }; }
+    finally { await opened.close(); }
+  };
   return {
     socketPath: localSocket,
     machines,
+    describeAsset,
+    async openAsset(input, { signal, expectedBinding, range = null, headOnly = false } = {}) {
+      const request = parseAssetRawRequest(input);
+      const target = await assetTarget(request.machine, signal, expectedBinding);
+      return openHostAsset({ request, ...target, signal, range, headOnly, validateTarget: () => assetTarget(request.machine, signal, target.binding), spawnProcess, sshBinary });
+    },
     async host(request) {
+      if (request.operation === 'files.describe') return (await describeAsset(request)).metadata;
       if (request.machine === 'local') return runHostOperation({ request, socketPath: localSocket, spawnProcess, sshBinary });
       const profile = (await profiles()).find((entry) => entry.id === request.machine && entry.enabled !== false);
       if (!profile) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');

@@ -81,7 +81,7 @@ let transport: import('../../../../web/src/herdr/transport').HerdrTransport;
 type FixtureProps = Omit<React.ComponentProps<typeof FilesPanel>, 'transport' | 'onPendingDelivery'>;
 let props: FixtureProps;
 const origin = 'https://text-artifact-fixture.test';
-const wire = z.object({ request: z.object({ operation: z.string(), machine: z.string(), pane_id: z.string(), path: z.string().optional(), content: z.string().optional(), expectedRoot: z.string().optional(), expectedRevision: z.string().nullable().optional() }), requestId: z.string().optional() });
+const wire = z.object({ request: z.object({ operation: z.string(), machine: z.string(), pane_id: z.string(), terminal_id: z.string().optional(), path: z.string().optional(), content: z.string().optional(), expectedRoot: z.string().optional(), expectedRevision: z.string().nullable().optional() }), requestId: z.string().optional() });
 type HostRequest = z.infer<typeof wire>['request'];
 const resolveWire = z.object({ request: z.object({ target: z.object({ machine: z.string(), paneId: z.string(), identity: z.string() }) }) });
 let resolvedTargets: z.infer<typeof resolveWire>['request']['target'][];
@@ -151,6 +151,7 @@ async function defaultReply(request: LoggedRequest): Promise<Response> {
     const bytes = file.binary ?? new TextEncoder().encode(file.content);
     return Response.json({ root: repo.root, path, base64: Buffer.from(bytes).toString('base64'), bytes: bytes.length, mime: file.mime, revision: file.revision });
   }
+  if (request.operation === 'files.describe') return file ? Response.json({ root: repo.root, path, terminal_id: request.terminal_id, assetVersion: 'stat-v1:' + file.revision, bytes: new TextEncoder().encode(file.content).length, sampleKind: 'text' }) : refusal('not_found', 'Fixture file missing', 404);
   if (request.operation === 'files.read') return file ? Response.json({ root: repo.root, path, content: file.content, bytes: new TextEncoder().encode(file.content).length, revision: file.revision }) : refusal('not_found', 'Fixture file missing', 404);
   if (request.operation === 'files.write') {
     if (!file || file.revision !== request.expectedRevision) return refusal('file_conflict', conflictMessage);
@@ -217,7 +218,7 @@ beforeEach(async () => {
   ({ I18nProvider } = await import('@/lib/i18n'));
   const { HerdrTransport } = await import('../../../../web/src/herdr/transport');
   transport = new HerdrTransport({ server: origin, token: 'synthetic-artifact-device' });
-  props = { machine: 'local', paneId: 'w1:p1', isMobile: true, theme: getDefaultTheme(true), themeMode: 'dark' };
+  props = { machine: 'local', paneId: 'w1:p1', terminalId: 'terminal-fixture', isMobile: true, theme: getDefaultTheme(true), themeMode: 'dark' };
   host = document.createElement('div'); document.body.append(host); tree = createRoot(host);
 });
 afterEach(async () => {
@@ -446,7 +447,7 @@ test('actual Mermaid-generated SVG contains no executable injection or external 
   await writeFile(new URL('../../../../../.tmp/artifact-preview-test-mermaid-adversarial.json', import.meta.url), JSON.stringify({ source, svg: svg.outerHTML, exportedSvg, activeElements, handlers, unsafeReferences, externalStyles }, null, 2));
   expect(activeElements).toEqual([]); expect(handlers).toEqual([]); expect(unsafeReferences).toEqual([]); expect(externalStyles).toEqual([]);
   expect(exportedSvg).toContain('<svg'); expect(exportedSvg?.match(/artifact-external\.invalid|@import|javascript:/i)).toBeNull();
-  expect(requests.filter(request => request.operation !== 'files.list' && request.operation !== 'files.read')).toEqual([]);
+  expect(requests.filter(request => request.operation !== 'files.list' && request.operation !== 'files.describe' && request.operation !== 'files.read')).toEqual([]);
 });
 
 const downloads = () => requests.filter(request => request.operation === 'files.download');
@@ -575,7 +576,7 @@ test('root-escaping and unreadable local Markdown links do not borrow another fi
   expect((await clickLink('Outside')).defaultPrevented).toBe(true); await until(() => host.querySelector('[role="alert"]')?.textContent?.includes('outside the current project') === true);
   expect(requests.filter(request => request.operation === 'files.read')).toHaveLength(reads); expect(renderedMarkdown()).toContain('Link boundary');
   expect((await clickLink('Unreadable')).defaultPrevented).toBe(true); await until(() => host.textContent?.includes('Fixture file missing') === true);
-  expect(requests.filter(request => request.operation === 'files.read').at(-1)?.path).toBe('docs/missing.md'); expect(renderedMarkdown()).toContain('Link boundary');
+  expect(requests.filter(request => request.operation === 'files.describe').at(-1)?.path).toBe('docs/missing.md'); expect(renderedMarkdown()).toContain('Link boundary');
 });
 
 for (const transition of ['hidden', 'file', 'machine', 'server', 'transport'] as const) {

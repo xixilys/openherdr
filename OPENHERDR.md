@@ -191,6 +191,66 @@ tracing, real download completion and native Android interaction remain
 unverified. Default CF services and the first-phone APK remain unchanged. See
 STATUS.md for current artifact details and limits.
 
+The active binary Files increment restores the original raster-image, PDF,
+audio/video, font and unsupported-binary viewing flow. This extends the existing
+Files family with necessary metadata and raw/range reads. The earlier pause on
+additional backend families was a development-stage choice; the original
+complete-replication authorization covers this Files transport. Active HTML and
+its separate resource tree remain later work. The original phone Files view has
+no application fullscreen button, so this increment adds none.
+
+Inspect metadata before attempting a capped text read. Browser-owned previews
+use exact-file capabilities minted by the paired bearer API. Capabilities bind
+the issuing client, resolved machine profile, pane terminal, canonical root and
+file metadata version. The main bearer never appears in a URL. GET/HEAD use only
+the opaque capability path, after exact Origin and current enterprise-policy
+checks; Origin null stays refused. Other private API routes keep bearer auth.
+HTML, JavaScript and SVG do not become active same-origin documents through this
+route. Unknown formats use attachment/octet-stream.
+
+The metadata version detects ordinary edits and replacement between requests;
+it is separate from the editor SHA-256 revision and promises no immutable
+snapshot against external in-place writes. Every raw request verifies current
+profile, terminal, root and version before success headers and checks the opened
+file again on completion. It holds that confined descriptor for the response.
+Known UI owner changes, grant release, device revocation and shutdown cancel
+owned reads. There is no continuous server-side pane polling during a body.
+Failures after headers truncate the response. No whole-file hash, base64 or
+root-directory lock is required merely to seek.
+
+Preview grants admit requests for 10 minutes, with bearer renewal every 5 minutes
+only while the selected preview is visible. Renewal keeps its URL and is bounded
+by a 1-hour absolute grant lifetime. Reacquisition at that boundary can remount the
+viewer, as the original token-refresh path does. Capacity refuses new grants
+rather than evicting an active viewer. Explicit browser downloads acquire a
+separate attachment grant; an admitted download may finish after admission
+expiry, while release, revocation and shutdown still cancel it. Native sharing
+keeps the existing complete File/base64 path and 8 MiB host limit in this unit.
+Large native streaming/share is not implemented by the preview endpoint.
+Small native shares also read their dedicated version-pinned download grant
+before invoking the existing File/base64 helper. Every admitted operation has
+a 1-hour absolute deadline, including backpressure, so a disconnected remote
+helper cannot retain its descriptor indefinitely.
+
+Herdr web/PWA and hosted mobile share this selected-host contract. Herdr
+Capacitor Android and iOS bundle it with existing lifecycle and Back handling;
+actual PDF pages, codecs, seek, native sharing and background cleanup need device
+validation. Original web, Electron, hosted mobile and Capacitor keep their
+existing file controllers and authentication. Original VS Code retains its own
+bridge and does not mount the Herdr file viewer. The default bridge/CF origin,
+existing worker windows and fixed first APK remain available during this work.
+
+This transport and image/media/font implementation now has independent core,
+HTTP and UI checks, source review and a passing final static gate. Actual public
+CF HTTP reads match local and saved-WSL fixtures; the phone-sized browser decodes
+images, plays large WAV and WebM, seeks audio and shows font/error/binary views.
+Its PDF iframe remains blank despite exact bytes and a successful loopback
+CSP comparison. Keep PDF rendering unfinished, retain the current CSP and do
+not advertise complete binary-family or native Android acceptance. New backend
+behavior runs on a separate owned test service. The default bridge and its old
+resources stay untouched. STATUS.md and native validation own final artifacts
+and remaining work.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and
@@ -208,9 +268,11 @@ Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS
 
 The user supplied an Android OpenChamber screenshot and explicitly noted that
 the current UI differs too much. Visual and interaction fidelity is the current
-priority. Keep functional adapters, but pause expansion into additional backend
-feature families while the original chat, composer, session navigation and
-workspace screens are restored. A shared header or primitive count does not
+priority. The initial pause on additional backend families protected restoration
+of the original chat, composer, session navigation and workspace screens. These
+core screens now have connected presentation; necessary Files metadata and raw
+transport proceed inside the existing Files family. Keep the remaining parity
+work focused on complete user flows. A shared header or primitive count does not
 establish UI parity.
 
 The reference shows the original compact session header, right-aligned user
@@ -239,7 +301,11 @@ receipts remain separate from substantive agreement and actual dispatch.
 
 ## API contract for parallel implementation
 
-All application data routes use bearer authentication, including loopback. Do not accept bearer tokens in query strings. JSON errors have `{error:{code,message}}`. No failed read becomes a valid empty list.
+Application JSON data routes use bearer authentication, including loopback.
+Exact-file asset GET/HEAD additionally accept their narrow opaque capability
+path; mint, renewal and release still require the owning bearer. Do not accept
+bearer tokens in query strings. JSON errors have `{error:{code,message}}`. No
+failed read becomes a valid empty list.
 
 - `GET /health`: public minimal `{ok:true,app:"openherdr",version:"0.1.0"}`.
 - `POST /api/pairing/redeem`: public JSON `{pairingId,secret,deviceName?}` -> `{token,client}`. Rate limited. A one-time secret arrives in the URL fragment and the UI removes it before exchanging it. Credentials are scoped to OpenHerdr's own state directory.

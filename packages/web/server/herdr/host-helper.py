@@ -1,5 +1,6 @@
 """Fixed host operation helper. Request values are data, never shell source."""
 import base64
+import codecs
 import ctypes
 import errno
 import fcntl
@@ -16,11 +17,14 @@ import stat
 import subprocess
 import sys
 import time
+import threading
 import uuid
 
 MAX_FILE = 8 * 1024 * 1024
 MAX_OUTPUT = 16 * 1024 * 1024
 changed = False
+asset_started = False
+asset_deadline_at = None
 
 
 def stop_helper(signum, frame):
@@ -90,7 +94,7 @@ def remote_socket(session):
     return sock
 
 
-def pane_root(sock, pane_id):
+def pane_root(sock, pane_id, terminal_id=None):
     request_id = str(uuid.uuid4())
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
         connection.settimeout(10)
@@ -114,6 +118,12 @@ def pane_root(sock, pane_id):
                 pane = next((item for item in panes if item.get('pane_id') == pane_id), None)
                 if pane is None:
                     fail(404, 'pane_not_found', 'This pane is no longer available')
+                if terminal_id is not None:
+                    actual_terminal = pane.get('terminal_id')
+                    if not isinstance(actual_terminal, str) or not actual_terminal:
+                        fail(422, 'terminal_unavailable', 'Herdr has not reported the pane terminal')
+                    if actual_terminal != terminal_id:
+                        fail(409, 'target_changed', 'The pane terminal changed. Open the file again')
                 cwd = pane.get('foreground_cwd') or pane.get('cwd')
                 if not isinstance(cwd, str) or not os.path.isabs(cwd):
                     fail(422, 'cwd_unavailable', 'Herdr has not reported a working directory')
@@ -175,6 +185,135 @@ def read_file(root_fd, value):
         if len(data) > MAX_FILE:
             fail(413, 'file_too_large', 'Files are limited to 8 MiB')
         return data, hashlib.sha256(data).hexdigest(), info
+
+
+def asset_deadline(signum, frame):
+    fail(504, 'asset_timeout', 'The asset host stopped making progress')
+
+
+def check_asset_deadline():
+    if asset_deadline_at is not None and time.monotonic() >= asset_deadline_at:
+        fail(504, 'asset_timeout', 'The file read exceeded its maximum lifetime')
+
+
+def watch_asset_input():
+    # SSH closes this pipe on disconnect. The main thread owns descriptor and
+    # subprocess cleanup, including a status command interrupted during setup.
+    try:
+        os.read(sys.stdin.fileno(), 1)
+    except OSError:
+        pass
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def asset_write(data):
+    view = memoryview(data)
+    with selectors.DefaultSelector() as ready:
+        ready.register(sys.stdout.fileno(), selectors.EVENT_WRITE)
+        while view:
+            check_asset_deadline()
+            for _, _events in ready.select(0.2):
+                try:
+                    count = os.write(sys.stdout.fileno(), view)
+                    view = view[count:]
+                except BlockingIOError:
+                    continue
+
+
+def asset_stat_version(root_info, file_info):
+    values = [root_info.st_dev, root_info.st_ino, file_info.st_dev, file_info.st_ino,
+              file_info.st_size, file_info.st_mtime_ns, file_info.st_ctime_ns]
+    return 'stat-v1:' + hashlib.sha256(json.dumps(values, separators=(',', ':')).encode()).hexdigest()
+
+
+def asset_operation(request, payload):
+    global asset_started, asset_deadline_at
+    asset_deadline_at = time.monotonic() + 3600
+    signal.signal(signal.SIGALRM, asset_deadline)
+    signal.setitimer(signal.ITIMER_REAL, 30)
+    streaming = payload.get('assetStream') is True
+    if streaming:
+        threading.Thread(target=watch_asset_input, daemon=True).start()
+    sock = payload.get('socketPath') or remote_socket(payload['session'])
+    root = pane_root(sock, request['pane_id'], request['terminal_id'])
+    if root != request['expectedRoot']:
+        fail(409, 'target_changed', 'The pane directory changed. Open the file again')
+    value = request['path']
+    if not isinstance(value, str) or any(ord(character) < 32 or ord(character) == 127 or character == '\\' for character in value):
+        fail(403, 'path_forbidden', 'Choose a path inside this pane')
+    value = '/'.join(parts(value))
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        root_info = os.fstat(root_fd)
+        fd = open_path(root_fd, value)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                fail(422, 'not_file', 'Choose a regular file')
+            if info.st_size < 0 or info.st_size > 9007199254740991:
+                fail(413, 'asset_too_large', 'The file size cannot be represented safely')
+            version = asset_stat_version(root_info, info)
+            if request.get('expectedAssetVersion', version) != version:
+                fail(409, 'asset_changed', 'The file changed. Open it again')
+            sample = os.pread(fd, min(info.st_size, 8192), 0)
+            try:
+                if b'\0' in sample:
+                    raise UnicodeError()
+                codecs.getincrementaldecoder('utf-8')().decode(sample, final=len(sample) == info.st_size)
+                sample_kind = 'text'
+            except UnicodeError:
+                sample_kind = 'binary'
+            metadata = {'root': root, 'path': value, 'terminal_id': request['terminal_id'],
+                        'assetVersion': version, 'bytes': info.st_size, 'sampleKind': sample_kind}
+
+            def verify():
+                if pane_root(sock, request['pane_id'], request['terminal_id']) != root:
+                    fail(409, 'target_changed', 'The pane directory changed. Open the file again')
+                current_root = os.stat(root, follow_symlinks=False)
+                if (current_root.st_dev, current_root.st_ino) != (root_info.st_dev, root_info.st_ino):
+                    fail(409, 'target_changed', 'The pane directory was replaced. Open the file again')
+                if asset_stat_version(root_info, os.fstat(fd)) != version:
+                    fail(409, 'asset_changed', 'The file changed while reading')
+
+            start, length = 0, 0
+            if request['operation'] == 'files.raw' and not payload.get('headOnly', False):
+                span = payload.get('range')
+                if span is None:
+                    length = info.st_size
+                else:
+                    start, end = span.get('start'), span.get('end')
+                    if type(start) is not int or type(end) is not int or start < 0 or end < start or end >= info.st_size:
+                        fail(416, 'invalid_asset_range', 'The requested file range is unavailable')
+                    length = end - start + 1
+            verify()
+            if request['operation'] == 'files.describe' and not streaming:
+                verify()
+                print(json.dumps({'result': metadata}, ensure_ascii=True))
+                return
+            os.set_blocking(sys.stdout.fileno(), False)
+            asset_started = True
+            asset_write((json.dumps({'metadata': metadata, 'length': length}, ensure_ascii=True) + '\n').encode())
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            offset, remaining = start, length
+            while remaining:
+                check_asset_deadline()
+                signal.setitimer(signal.ITIMER_REAL, 30)
+                chunk = os.pread(fd, min(65536, remaining), offset)
+                signal.setitimer(signal.ITIMER_REAL, 0)
+                if not chunk:
+                    fail(409, 'asset_changed', 'The file changed while reading')
+                asset_write(chunk)
+                offset += len(chunk)
+                remaining -= len(chunk)
+            signal.setitimer(signal.ITIMER_REAL, 30)
+            verify()
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            asset_write(b'{"complete":true}\n')
+        finally:
+            os.close(fd)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        os.close(root_fd)
 
 
 def expected_file(parent_fd, name, expected):
@@ -624,6 +763,8 @@ def git(root, root_fd, request):
 def main():
     payload = json.loads(sys.stdin.buffer.readline(16 * 1024 * 1024 + 1))
     request = payload['request']
+    if request['operation'] in ['files.describe', 'files.raw']:
+        return asset_operation(request, payload)
     sock = payload.get('socketPath') or remote_socket(payload['session'])
     root = pane_root(sock, request['pane_id'])
     if 'expectedRoot' in request and request['expectedRoot'] != root:
@@ -642,9 +783,15 @@ def main():
 try:
     main()
 except Failure as error:
+    if asset_started:
+        sys.exit(1)
     print(json.dumps({'error': {'status': error.status, 'code': error.code, 'message': error.message, 'confirmedNoEffect': not changed}}))
 except OSError as error:
+    if asset_started:
+        sys.exit(1)
     code = {errno.ENOENT: (404, 'file_not_found', 'The file or directory is unavailable'), errno.ELOOP: (403, 'path_forbidden', 'Links cannot leave the pane directory'), errno.ENOTDIR: (403, 'path_forbidden', 'A path component is not a regular directory'), errno.EEXIST: (409, 'path_exists', 'The destination already exists'), errno.ENOTEMPTY: (409, 'directory_not_empty', 'Only empty folders can be deleted'), errno.EACCES: (403, 'permission_denied', 'The host denied file access'), errno.EPERM: (403, 'permission_denied', 'The host denied this operation')}.get(error.errno, (502, 'host_unavailable', 'The host operation could not complete'))
     print(json.dumps({'error': {'status': code[0], 'code': code[1], 'message': code[2], 'confirmedNoEffect': not changed}}))
 except Exception:
+    if asset_started:
+        sys.exit(1)
     print(json.dumps({'error': {'status': 502, 'code': 'host_unavailable', 'message': 'The host operation could not complete', 'confirmedNoEffect': not changed}}))

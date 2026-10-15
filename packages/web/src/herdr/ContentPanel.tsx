@@ -5,15 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Icon } from '@/components/icon/Icon';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
-import { BinaryArtifact } from '@/components/views/files/previews/BinaryArtifact';
-import { ImageArtifact } from '@/components/views/files/previews/ImageArtifact';
 import { ChangesPanel as GitChangesList, type ChangesGroupConfig } from '@/components/views/git/ChangesPanel';
 import { fileDiffFromPatch, isBinaryPatch } from '@/lib/diff/patchFileDiff';
 import { useI18n } from '@/lib/i18n';
 import { isCapacitorApp } from '@/lib/platform';
 import { shareFileFromNativeApp } from '@/lib/nativeFileShare';
 import { HerdrTransport, TransportError, clearPendingDelivery, loadPendingDelivery, type PendingDelivery } from './transport';
-import { HostClient, hostSchemas, targetKey, draftKey, createFileDraft, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, downloadBytes, type FileDraft, type HostMutation } from './host-client';
+import { HostClient, hostSchemas, targetKey, draftKey, createFileDraft, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, type FileDraft, type HostMutation } from './host-client';
 import { usePolling } from './usePolling';
 import { useHerdrText } from './herdr.i18n';
 import { EditorView } from '@codemirror/view';
@@ -31,6 +29,9 @@ import { workspaceFilePath, type WorkspaceDiffRequest, type WorkspaceFileRequest
 import type { Theme } from '@/types/theme';
 import { createHerdrMarkdownAssetSource } from './file-preview-source';
 import { initialFileViewMode, textFilePreviewKind, type FileViewMode } from './file-view-mode';
+import { isBinaryFile } from '@/lib/toolHelpers';
+import { HerdrAssetClient, type AssetLease, type FileDescription } from './asset-client';
+import { BinaryFilePreview } from './BinaryFilePreview';
 
 const TextEditor = lazy(() => import('./TextFileEditor').then((module) => ({ default: module.TextFileEditor })));
 
@@ -57,7 +58,7 @@ function removeFileDocument(state: FileEditorsState, id: string, owner: string):
   const selected = state.selected.get(owner) === id ? new Map(state.selected).set(owner, siblings[index + 1] ?? siblings[index - 1] ?? null) : state.selected;
   return { documents, selected, viewModes, dialog: null };
 }
-type BinaryFile = z.infer<typeof hostSchemas.download> & { owner: string; image: string | null };
+type BinaryFile = FileDescription & { owner: string };
 const emptyPaths = new Set<string>();
 const parentPath = (path: string) => path.split('/').slice(0, -1).join('/');
 const childPath = (directory: string, name: string) => directory ? `${directory}/${name}` : name;
@@ -104,12 +105,12 @@ function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery
   return { busy, operation: activeMutation?.owner === owner ? activeMutation.operation : null, execute, clearError: (captured?: Error) => setFailure(previous => !captured || previous?.error === captured ? null : previous), error: failure?.owner === owner ? failure.error : null, failedRequest: failure?.owner === owner ? failure.request : null };
 }
 
-export function FilesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, theme = getDefaultTheme(false), onPendingDelivery, requestedFile, isMobile = false, visible = true }: PanelProps & { requestedFile?: WorkspaceFileRequest | null; isMobile?: boolean; visible?: boolean }) {
+export function FilesPanel({ transport, machine, paneId, terminalId, disabled = false, mutationBlocked = false, theme = getDefaultTheme(false), onPendingDelivery, requestedFile, isMobile = false, visible = true }: PanelProps & { terminalId?: string; requestedFile?: WorkspaceFileRequest | null; isMobile?: boolean; visible?: boolean }) {
   const { t } = useI18n();
   const h = useHerdrText();
   const client = useMemo(() => new HostClient(transport, { machine, pane_id: paneId }), [transport, machine, paneId]);
   const owner = targetKey(transport.connection.server, client.target);
-  const enabled = visible && !disabled && !!paneId;
+  const enabled = visible && !disabled && !!paneId && !!terminalId;
   const currentOwner = useRef(owner);
   currentOwner.current = owner;
   const lastEditorOwner = useRef(owner);
@@ -143,13 +144,15 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const opening = openingOwner === owner;
   const [failure, setFailure] = useState<{ owner: string; error: Error } | null>(null);
   const openingRequest = useRef(0);
-  const readScope = useRef({ owner, enabled, transport });
-  if (readScope.current.owner !== owner || readScope.current.enabled !== enabled || readScope.current.transport !== transport) {
+  const openingAbort = useRef<AbortController | null>(null);
+  const readScope = useRef({ owner, terminalId, enabled, transport });
+  if (readScope.current.owner !== owner || readScope.current.terminalId !== terminalId || readScope.current.enabled !== enabled || readScope.current.transport !== transport) {
     openingRequest.current += 1;
-    readScope.current = { owner, enabled, transport };
+    openingAbort.current?.abort();
+    readScope.current = { owner, terminalId, enabled, transport };
   }
-  useEffect(() => { setOpeningOwner(null); }, [owner, enabled, transport]);
-  useEffect(() => () => { openingRequest.current += 1; }, []);
+  useEffect(() => { setOpeningOwner(null); }, [owner, terminalId, enabled, transport]);
+  useEffect(() => () => { openingRequest.current += 1; openingAbort.current?.abort(); }, []);
   const currentRequestedFile = useRef(requestedFile);
   currentRequestedFile.current = requestedFile;
   const consumedRequest = useRef<string | null>(null);
@@ -171,6 +174,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const root = listing.data?.root ?? pinnedRoots.current.get(owner) ?? null;
   const editorScope = useRef({ owner, root, enabled, rootValid: !listing.error });
   editorScope.current = { owner, root, enabled, rootValid: !listing.error };
+  useEffect(() => { if (listing.error) openingAbort.current?.abort(); }, [listing.error]);
   const readSearch = useCallback(async (signal: AbortSignal) => {
     const result = await client.read({ operation: 'files.search', path: '', query: searchTerm, maxResults: 100, includeHidden: false }, hostSchemas.search, signal);
     if (root && result.root !== root) throw new TransportError('target_changed', 'hostTargetChanged');
@@ -181,7 +185,21 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const draft = activeId ? documents.get(activeId) : undefined;
   const markdownAssetSource = useMemo(() => draft && textFilePreviewKind(draft.path) === 'markdown' && draft.root === root && targetKey(draft.server, draft.target) === owner
     ? createHerdrMarkdownAssetSource(client, draft.root, draft.path) : null, [client, draft, owner, root]);
-  const binaryFile = binary?.owner === owner ? binary : null;
+  const binaryFile = binary?.owner === owner && binary.terminal_id === terminalId ? binary : null;
+  const binarySource = useMemo(() => binaryFile && terminalId ? new HerdrAssetClient(transport, { machine, pane_id: paneId, terminal_id: terminalId }, binaryFile) : null, [transport, machine, paneId, terminalId, binaryFile]);
+  const downloadContext = useMemo(() => ({ owner, terminalId, root, transport, rootValid: !listing.error }), [owner, terminalId, root, transport, listing.error]);
+  const liveDownloadContext = useRef(downloadContext);
+  liveDownloadContext.current = downloadContext;
+  type DownloadOperation = { context: typeof downloadContext; controller: AbortController; client: HerdrAssetClient | null; lease: AssetLease | null };
+  const downloads = useRef(new Set<DownloadOperation>());
+  useEffect(() => () => {
+    for (const operation of downloads.current) {
+      if (operation.context !== downloadContext) continue;
+      operation.controller.abort();
+      if (operation.lease && operation.client) { const captured = operation.lease; operation.lease = null; void operation.client.release(captured).catch(() => {}); }
+      downloads.current.delete(operation);
+    }
+  }, [downloadContext]);
   const openDocuments = [...documents.entries()].filter(([, document]) => targetKey(document.server, document.target) === editorOwner);
   const writable = enabled && !mutationBlocked && !!root && !listing.error && !actions.busy && !opening;
   const fileConflict = actions.error instanceof TransportError && actions.error.code === 'file_conflict' && !actions.error.uncertain && actions.failedRequest?.operation === 'files.write' ? actions.failedRequest : null;
@@ -190,7 +208,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const error = actionError ?? (failure?.owner === owner ? failure.error : null) ?? listing.error ?? search.error;
   const report = (error: Error) => setFailure({ owner, error });
   const selectDraft = (id: string | null) => {
-    openingRequest.current += 1; setOpeningOwner(null);
+    openingRequest.current += 1; openingAbort.current?.abort(); setOpeningOwner(null);
     setSelected((previous) => new Map(previous).set(editorOwner, id));
     setBinary(null);
     setDialog(null);
@@ -203,7 +221,11 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     setDirectory(''); setDirectoryOwner(owner); setRootEpoch((value) => value + 1); setFailure(null); setDialog(null); actions.clearError(); setSearchTerm(''); setQuery('');
   };
   const loadFile = async (path: string, expectedRoot: string, replaceDraft = false, source?: WorkspaceFileRequest) => {
-    if (!enabled) return;
+    if (!enabled || !terminalId) return;
+    openingAbort.current?.abort();
+    const controller = new AbortController();
+    openingAbort.current = controller;
+    const deadline = setTimeout(() => controller.abort(), 20000);
     const request = ++openingRequest.current;
     const identity = { server: transport.connection.server, target: client.target, root: expectedRoot, path };
     const id = draftKey(identity);
@@ -216,12 +238,13 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       if (line) setEditors(previous => ({ ...previous, viewModes: new Map(previous.viewModes).set(id, 'edit') }));
     };
     setOpeningOwner(owner); setFailure(null);
-    const stillCurrent = () => currentOwner.current === owner && openingRequest.current === request && readScope.current.enabled && (!source || currentRequestedFile.current?.id === source.id);
+    const ownsRequest = () => currentOwner.current === owner && openingRequest.current === request && readScope.current.enabled && editorScope.current.root === expectedRoot && editorScope.current.rootValid && (!source || currentRequestedFile.current?.id === source.id);
+    const stillCurrent = () => !controller.signal.aborted && ownsRequest();
     const confirmSource = async () => {
       if (!source) return stillCurrent();
       if (!stillCurrent()) return false;
       const current = await transport.request('/api/herdr/conversations/resolve', driverResolveSchema, {
-        method: 'POST', body: JSON.stringify({ request: { target: { machine: source.machine, paneId: source.paneId, identity: source.paneIdentity } } }),
+        method: 'POST', signal: controller.signal, body: JSON.stringify({ request: { target: { machine: source.machine, paneId: source.paneId, identity: source.paneIdentity } } }),
       });
       if (!stillCurrent()) return false;
       if (current.target.machine !== source.machine || current.target.paneId !== source.paneId || current.target.identity !== source.paneIdentity || current.directory !== source.root) throw new TransportError('target_changed', 'hostTargetChanged');
@@ -229,32 +252,33 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     };
     try {
       if (!await confirmSource()) return;
+      const metadata = await client.read({ operation: 'files.describe', path, terminal_id: terminalId, expectedRoot }, hostSchemas.describe, controller.signal);
+      if (!stillCurrent()) return;
+      if (metadata.root !== expectedRoot || metadata.path !== path || metadata.terminal_id !== terminalId) throw new TransportError('target_changed', 'hostTargetChanged');
       if (!replaceDraft && documentsRef.current.has(id)) { selectRequestedLine(); selectDraft(id); return; }
-      try {
-        const result = await client.read({ operation: 'files.read', path }, hostSchemas.file);
-        if (currentOwner.current !== owner || openingRequest.current !== request) return;
-        if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
+      const selectBinary = async () => {
         if (!await confirmSource()) return;
-        const document = createFileDraft({ ...identity, revision: result.revision, content: result.content });
-        setEditors(previous => ({
-          ...previous,
-          documents: new Map(previous.documents).set(id, acceptFileReload(previous.documents.get(id), captured, document)),
-          viewModes: previous.viewModes.has(id) ? previous.viewModes : new Map(previous.viewModes).set(id, initialFileViewMode(path, document.content)),
-        }));
-        selectRequestedLine(); selectDraft(id);
-      } catch (error) {
-        if (!(error instanceof TransportError) || error.code !== 'binary_file') throw error;
-        if (currentOwner.current !== owner || openingRequest.current !== request) return;
-        const result = await client.read({ operation: 'files.download', path }, hostSchemas.download);
-        if (currentOwner.current !== owner || openingRequest.current !== request) return;
-        if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
-        if (!await confirmSource()) return;
-        const safeImage = /^image\/(png|jpeg|gif|webp|avif|bmp)$/.test(result.mime);
-        setSelected((previous) => new Map(previous).set(owner, null));
-        setBinary({ ...result, owner, image: safeImage ? `data:${result.mime};base64,${result.base64}` : null });
-      }
-    } catch (error) { if (currentOwner.current === owner && openingRequest.current === request) report(error instanceof Error ? error : new Error(String(error))); }
-    finally { if (openingRequest.current === request) setOpeningOwner((previous) => previous === owner ? null : previous); }
+        setSelected(previous => new Map(previous).set(owner, null));
+        setBinary({ ...metadata, owner });
+      };
+      if (isBinaryFile(path) || metadata.sampleKind === 'binary') { await selectBinary(); return; }
+      const result = await client.read({ operation: 'files.read', path }, hostSchemas.file, controller.signal).catch(async error => {
+        if (!(error instanceof TransportError) || error.code !== 'binary_file' || error.uncertain) throw error;
+        if (stillCurrent()) await selectBinary();
+        return null;
+      });
+      if (!result || !stillCurrent()) return;
+      if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
+      if (!await confirmSource()) return;
+      const document = createFileDraft({ ...identity, revision: result.revision, content: result.content });
+      setEditors(previous => ({
+        ...previous,
+        documents: new Map(previous.documents).set(id, acceptFileReload(previous.documents.get(id), captured, document)),
+        viewModes: previous.viewModes.has(id) ? previous.viewModes : new Map(previous.viewModes).set(id, initialFileViewMode(path, document.content)),
+      }));
+      selectRequestedLine(); selectDraft(id);
+    } catch (error) { if (ownsRequest()) report(error instanceof Error ? error : new Error(String(error))); }
+    finally { clearTimeout(deadline); if (openingAbort.current === controller) openingAbort.current = null; if (openingRequest.current === request) setOpeningOwner(previous => previous === owner ? null : previous); }
   };
   const loadRequestedFile = useRef(loadFile);
   loadRequestedFile.current = loadFile;
@@ -326,19 +350,46 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       setRefresh((value) => value + 1);
     } catch (error) { report(error instanceof Error ? error : new Error(String(error))); }
   };
-  const download = async (path: string, expectedRoot: string) => {
+  const download = async (path: string, expectedRoot: string, selectedBinary?: FileDescription) => {
+    if (!enabled || !terminalId || expectedRoot !== root || listing.error) return;
+    const context = downloadContext;
+    const controller = new AbortController();
+    const operation: DownloadOperation = { context, controller, client: null, lease: null };
+    downloads.current.add(operation);
+    const deadline = setTimeout(() => controller.abort(), 20000);
+    const current = () => liveDownloadContext.current === context && !controller.signal.aborted;
+    const retire = async () => {
+      const lease = operation.lease;
+      operation.lease = null;
+      downloads.current.delete(operation);
+      if (lease && operation.client) await operation.client.release(lease).catch(() => {});
+    };
     try {
-      const result = await client.read({ operation: 'files.download', path }, hostSchemas.download);
-      if (result.root !== expectedRoot || result.path !== path || currentOwner.current !== owner) throw new TransportError('target_changed', 'hostTargetChanged');
-      const fileName = path.split('/').at(-1) ?? path;
-      const file = new File([downloadBytes(result.base64)], fileName, { type: result.mime });
-      if (isCapacitorApp()) { await shareFileFromNativeApp(file); return; }
-      const url = URL.createObjectURL(file);
+      const metadata = selectedBinary ?? await client.read({ operation: 'files.describe', path, terminal_id: terminalId, expectedRoot }, hostSchemas.describe, controller.signal);
+      if (!current()) { await retire(); return; }
+      if (metadata.root !== expectedRoot || metadata.path !== path || metadata.terminal_id !== terminalId) throw new TransportError('target_changed', 'hostTargetChanged');
+      if (isCapacitorApp() && metadata.bytes > 8 * 1024 * 1024) throw new TransportError('native_download_limit', t('herdr.files.nativeDownloadLimit'));
+      const assetClient = new HerdrAssetClient(transport, { machine, pane_id: paneId, terminal_id: terminalId }, metadata);
+      operation.client = assetClient;
+      const lease = await assetClient.acquire('download', controller.signal);
+      operation.lease = lease;
+      if (!current()) { await retire(); return; }
+      if (isCapacitorApp()) {
+        try {
+          const file = await assetClient.nativeDownload(lease, controller.signal);
+          if (current()) await shareFileFromNativeApp(file);
+        } finally { await retire(); }
+        return;
+      }
       const anchor = document.createElement('a');
-      anchor.href = url; anchor.download = path.split('/').at(-1) ?? path;
+      anchor.href = lease.resolvedUrl; anchor.download = lease.fileName;
       document.body.append(anchor); anchor.click(); anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) { report(error instanceof Error ? error : new Error(String(error))); }
+      // Browser completion is not observable. Keep this independent grant until
+      // owner/transport cleanup; admission expiry does not interrupt its body.
+    } catch (error) {
+      await retire();
+      if (liveDownloadContext.current === context) report(error instanceof Error ? error : new Error(String(error)));
+    } finally { clearTimeout(deadline); }
   };
   const chooseEntryAction = async (kind: 'rename' | 'delete', entry: FileEntry) => {
     if (!root || !writable || entry.isSymbolicLink) return;
@@ -448,7 +499,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
         }} />
     </Suspense>
     <p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground">{draft.content === draft.baseContent ? t('filesView.editor.saved') : t('filesView.unsaved.title')}</p>
-  </div> : binaryFile ? <div className="min-h-0 flex-1">{binaryFile.image ? <ImageArtifact src={binaryFile.image} name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} sizeBytes={binaryFile.bytes} /> : <BinaryArtifact name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} path={binaryFile.path} sizeBytes={binaryFile.bytes} />}</div> : null;
+  </div> : binarySource ? <div className="min-h-0 flex-1"><BinaryFilePreview source={binarySource} enabled={enabled && binarySource.file.root === root && !listing.error} onDownload={() => void download(binarySource.file.path, binarySource.file.root, binarySource.file)} /></div> : null;
   const fileDialog = <Dialog open={dialog !== null && enabled} onOpenChange={open => { if (!open && !actions.busy) setDialog(null); }}>
     <DialogContent><DialogHeader><DialogTitle>{dialogTitle}</DialogTitle>
       <DialogDescription>{unsavedDialog ? t('filesView.unsaved.description') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.description', { name: dialog.choice.name }) : dialog?.kind === 'rename' ? t('filesView.dialog.rename.description', { name: dialog.choice.name }) : t(dialog?.kind === 'folder' ? 'filesView.dialog.createFolder.description' : 'filesView.dialog.createFile.description', { path: folder || '/' })}{dialog?.kind === 'close' && <span className="mt-2 block break-all" dir="auto">{documents.get(dialog.draftId)?.path}</span>}</DialogDescription>
@@ -465,7 +516,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const openFileMenu = activeId && enabled && <div className="flex min-w-0 shrink-0 items-center border-b border-border/40 px-3 py-1.5"><MobileOpenFilesMenu
     rows={openDocuments.map(([id, document]) => ({ id, path: document.path, name: document.path.split('/').at(-1) ?? document.path, dirty: document.content !== document.baseContent }))}
     activeId={activeId} open={enabled && openFilesOwner === owner} onOpenChange={open => setOpenFilesOwner(open ? owner : null)} disabled={!enabled}
-    onSelect={selectDraft} onCloseFile={requestCloseDocument} /></div>;
+    onSelect={id => { const document = documents.get(id); if (document) void loadFile(document.path, document.root); }} onCloseFile={requestCloseDocument} /></div>;
   if (isMobile) {
     const file = draft ?? binaryFile;
     const viewDirectory = folder ? `${root === '/' ? '' : root}/${folder}` : root ?? '';
@@ -475,8 +526,8 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     </>;
     const fileActions = <>
       {draft && <Button size="sm" disabled={!writable || draft.root !== root || targetKey(draft.server, draft.target) !== owner || draft.content === draft.baseContent} onClick={() => void save()}>{actions.busy ? t('filesView.editor.saving') : t('filesView.fileEditor.save')}</Button>}
-      {file && <Button variant="ghost" size="icon" aria-label={t('sidebarFilesTree.menu.download')} disabled={!enabled} onClick={() => void download(file.path, file.root)}><Icon name="download" className="size-4" /></Button>}
-      <Button variant="ghost" size="icon" aria-label={t('mobile.files.refreshAria')} disabled={opening || !enabled} onClick={() => draft ? refreshFile() : setRefresh(value => value + 1)}><Icon name="refresh" className="size-4" /></Button>
+      {file && <Button variant="ghost" size="icon" aria-label={t('sidebarFilesTree.menu.download')} disabled={!enabled} onClick={() => void download(file.path, file.root, draft ? undefined : binaryFile ?? undefined)}><Icon name="download" className="size-4" /></Button>}
+      <Button variant="ghost" size="icon" aria-label={t('mobile.files.refreshAria')} disabled={opening || !enabled} onClick={() => draft ? refreshFile() : binaryFile ? void loadFile(binaryFile.path, binaryFile.root, true) : setRefresh(value => value + 1)}><Icon name="refresh" className="size-4" /></Button>
     </>;
     const notices = <>
       {error && <div className="herdr-banner herdr-error" role="alert"><p>{error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message === 'outcomeUnknown' ? h('hostUnknown') : error.message}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button size="sm" onClick={reloadRoot}>{t('contextPanel.browser.reload')}</Button>}</div>}
@@ -507,8 +558,8 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       <Button variant="ghost" size="sm" onClick={() => draft || binaryFile ? selectDraft(null) : navigate(parentPath(folder))} disabled={!draft && !binaryFile && !folder}><Icon name="arrow-go-back" className="size-4" />{t('mobile.files.parentDirectory')}</Button>
       <span className="herdr-file-path" dir="ltr">/{draft?.path ?? binaryFile?.path ?? folder}</span>
       {draft && <Button size="sm" disabled={!writable || draft.root !== root || targetKey(draft.server, draft.target) !== owner || draft.content === draft.baseContent} onClick={() => void save()}>{actions.busy ? t('filesView.editor.saving') : t('filesView.fileEditor.save')}</Button>}
-      {(draft || binaryFile) && <Button variant="ghost" size="icon" aria-label={t('sidebarFilesTree.menu.download')} disabled={disabled || !paneId} onClick={() => { const file = draft ?? binaryFile; if (file) void download(file.path, file.root); }}><Icon name="download" className="size-4" /></Button>}
-      <Button variant="ghost" size="icon" aria-label={t('mobile.files.refreshAria')} disabled={opening} onClick={() => draft ? refreshFile() : setRefresh((value) => value + 1)}><Icon name="refresh" className="size-4" /></Button>
+      {(draft || binaryFile) && <Button variant="ghost" size="icon" aria-label={t('sidebarFilesTree.menu.download')} disabled={disabled || !paneId} onClick={() => { const file = draft ?? binaryFile; if (file) void download(file.path, file.root, draft ? undefined : binaryFile ?? undefined); }}><Icon name="download" className="size-4" /></Button>}
+      <Button variant="ghost" size="icon" aria-label={t('mobile.files.refreshAria')} disabled={opening} onClick={() => draft ? refreshFile() : binaryFile ? void loadFile(binaryFile.path, binaryFile.root, true) : setRefresh((value) => value + 1)}><Icon name="refresh" className="size-4" /></Button>
     </div>
     {openFileMenu}
     {error && <div className="herdr-banner herdr-error" role="alert"><p>{error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message === 'outcomeUnknown' ? h('hostUnknown') : error.message === 'deliveryStorage' ? h('deliveryStorage') : error.message}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button size="sm" variant="outline" onClick={reloadRoot}>{t('contextPanel.browser.reload')}</Button>}</div>}

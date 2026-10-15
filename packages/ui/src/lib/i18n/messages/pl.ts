@@ -20,6 +20,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.files.nativeDownloadLimit": "Udostępnianie systemowe obsługuje pliki do 8 MiB.",
   "herdr.monitor.recentText": "Ostatnie dane z terminala",
   "herdr.monitor.title": "Monitorowanie",
   "herdr.monitor.readOnly": "Widok tylko do odczytu",

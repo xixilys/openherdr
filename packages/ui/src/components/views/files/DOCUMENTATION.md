@@ -160,6 +160,17 @@ with an artifact view: each has a per-path preview/source toggle, and opens
 in preview regardless of the text-first setting because an agent-produced
 artifact is opened to be looked at.
 
+`MediaArtifact` owns its attached audio/video element. Replacing its source or
+kind, showing its decode failure, or unmounting the view pauses only that
+previous element, removes its `src` and calls `load()` to release its media
+resource. Cleanup follows the element's callback-ref lifetime and also covers
+an error branch that removes the player before an effect could inspect it.
+StrictMode ref replay can reattach that same released node; the owner restores
+its current source in that case. Unchanged renders leave the player alone.
+CSS hiding alone does not detach a player; a retained caller must unmount the
+media preview when playback should stop. This behavior is shared by web,
+Electron, VS Code, hosted mobile and Capacitor callers.
+
 Non-text artifacts the browser must own (PDF, audio, video, fonts) are loaded
 through `getRuntimeUrlResolver().authenticatedAsset('/api/fs/raw', …)` with
 the scoped URL token; the server streams byte ranges so playback can seek.

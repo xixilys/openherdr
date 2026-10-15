@@ -20,6 +20,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.files.nativeDownloadLimit": "原生分享僅支援不超過 8 MiB 的檔案。",
   "herdr.monitor.recentText": "最近終端機輸出",
   "herdr.monitor.title": "監控",
   "herdr.monitor.readOnly": "唯讀檢視",

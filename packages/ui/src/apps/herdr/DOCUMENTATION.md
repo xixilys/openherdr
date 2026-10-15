@@ -185,5 +185,13 @@ rendered Markdown search, JSON tree, Mermaid controls, SVG image view and table
 view. Herdr supplies saved source content and its explicit Markdown presentation
 and asset sources. `useMarkdownAssetBindings` owns DOM rewriting and cleanup;
 the injected source owns confined paths and transport. The original wrapper
-keeps its own runtime file adapter and comment bindings. Active HTML grants,
-binary streaming/PDF, canvas editors and their native acceptance remain separate.
+keeps its own runtime file adapter and comment bindings.
+
+Herdr binary previews reuse the original ImageArtifact, MediaArtifact,
+FontArtifact, BinaryArtifact and plain PDF iframe. The Herdr owner supplies
+metadata-first selection and version-pinned browser resource URLs through its
+paired capability client. Hidden or replaced previews release their capability
+and unmount media/font/iframe consumers. Explicit download has its own lifetime;
+native sharing retains the original whole-File/base64 interface and an 8 MiB
+limit. Codec, PDF pages and native share acceptance require actual runtime
+checks. Active HTML and canvas editors remain separate.

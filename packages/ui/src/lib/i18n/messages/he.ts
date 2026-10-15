@@ -19,6 +19,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.files.nativeDownloadLimit": "שיתוף דרך המערכת מוגבל לקבצים בגודל של עד 8 MiB.",
   "herdr.monitor.recentText": "פלט אחרון מהמסוף",
   "herdr.monitor.title": "ניטור",
   "herdr.monitor.readOnly": "תצוגה לקריאה בלבד",

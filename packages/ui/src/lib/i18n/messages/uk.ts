@@ -20,6 +20,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.files.nativeDownloadLimit": "Вбудований обмін підтримує лише файли розміром до 8 MiB.",
   "herdr.monitor.recentText": "Нещодавній вивід термінала",
   "herdr.monitor.title": "Моніторинг",
   "herdr.monitor.readOnly": "Перегляд лише для читання",

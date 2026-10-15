@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ApiError } from './contracts.js';
+import { assetDescribeRequestSchema, assetMetadataSchema } from './asset-protocol.js';
 
 const relativePath = z.string().max(4096).refine((value) => !value.includes('\0') && !value.startsWith('/') && !value.split('/').some((part) => part === '..' || part.toLowerCase() === '.git'), 'Choose a path inside this pane');
 const target = { machine: z.string().min(1).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/), pane_id: z.string().max(160).regex(/^w[A-Za-z0-9]+:p[A-Za-z0-9]+$/) };
@@ -9,6 +10,7 @@ const revision = z.string().regex(/^[a-f0-9]{64}$/).nullable();
 const branch = z.string().min(1).max(240).regex(/^[A-Za-z0-9][A-Za-z0-9_./-]*$/).refine((value) => !value.includes('..') && !value.includes('//') && !value.endsWith('/') && !value.endsWith('.lock'));
 const operation = (name, fields = {}) => z.strictObject({ ...target, operation: z.literal(name), ...fields });
 const hostRequest = z.discriminatedUnion('operation', [
+  assetDescribeRequestSchema,
   operation('files.list', pathField), operation('files.stat', pathField), operation('files.read', pathField), operation('files.binary', pathField), operation('files.download', pathField),
   operation('files.search', { ...pathField, query: z.string().min(1).max(512), maxResults: z.number().int().min(1).max(200).default(100), includeHidden: z.boolean().default(false) }),
   operation('files.write', { ...pathField, ...pinned, content: z.string().max(8 * 1024 * 1024), expectedRevision: revision }),
@@ -24,7 +26,7 @@ const hostRequest = z.discriminatedUnion('operation', [
   operation('git.branch', { ...pinned, name: branch, startPoint: branch.optional() }),
   operation('git.checkout', { ...pinned, branch }),
 ]);
-const reads = new Set(['files.list', 'files.stat', 'files.read', 'files.binary', 'files.download', 'files.search', 'git.status', 'git.diff', 'git.log', 'git.branches']);
+const reads = new Set(['files.describe', 'files.list', 'files.stat', 'files.read', 'files.binary', 'files.download', 'files.search', 'git.status', 'git.diff', 'git.log', 'git.branches']);
 export const isHostMutation = (request) => !reads.has(request.operation);
 export function parseHostRequest(body) {
   const parsed = hostRequest.safeParse(body);
@@ -38,6 +40,7 @@ const status = z.strictObject({ root: z.string(), current: z.string(), tracking:
 const logEntry = z.strictObject({ hash: z.string(), date: z.string(), message: z.string(), refs: z.string(), body: z.string(), author_name: z.string(), author_email: z.string(), filesChanged: z.number(), insertions: z.number(), deletions: z.number(), parents: z.array(z.string()) });
 const mutationResult = z.strictObject({ ...base, success: z.literal(true), revision: revision.optional() });
 const results = {
+  'files.describe': assetMetadataSchema,
   'files.list': z.strictObject({ ...base, directory: z.string(), entries: z.array(fileEntry), truncated: z.boolean() }),
   'files.stat': z.strictObject({ ...base, isFile: z.boolean(), isDirectory: z.boolean(), size: z.number(), mtimeMs: z.number() }),
   'files.read': z.strictObject({ ...base, content: z.string(), bytes: z.number(), revision }),

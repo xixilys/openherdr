@@ -1,6 +1,52 @@
 # Native build validation
 
-## Latest text artifact preview build
+## Latest binary Files build
+
+The debug APK is 42,312,910 bytes and packages `herdr-9BIfPY0f.js`.
+Its HTML and entry bytes exactly match the isolated Web build in
+`.tmp/binary-assets-apk.json`. Scanner, secure storage and 12 native libraries
+remain packaged. The preserved first-phone APK and its prerelease are unchanged.
+This new build has not been installed or interactively tested.
+
+The final type/lint/Knip/anti-slop gate, original Web build, isolated Herdr build,
+Capacitor Android sync and Gradle assembleDebug pass. Gradle reports 9 seconds
+and 245 tasks, 27 executed and 218 up-to-date. It uses the existing working NDK
+27.1 through the task-owned init script; the partial default NDK and shared SDK
+were not changed. Logs are `.tmp/check-binary-assets-publication-final.log`,
+`.tmp/build-web-binary-assets-publication.log`,
+`.tmp/build-herdr-binary-assets-publication.log` and
+`.tmp/build-binary-assets-android-publication.log`.
+
+The binary Files controller inspects metadata before capped text reads and uses
+exact-file capabilities for bounded raw/range reads. Independent HTTP and source
+checks cover expiry, revocation, target/version changes, range semantics and
+cleanup. Actual public CF HTTP reads match local and saved-WSL fixtures. The
+412x915 browser decoded images and WebM, played and sought a large local WAV,
+played the same saved-WSL WAV, displayed fonts and handled invalid media and
+unknown binary files. The final entry was reloaded through CF and decoded the
+WSL WebM at 640x360 with advancing playback. Hiding Files removed media nodes;
+6 focused shared-media cases also cover explicit pause/src release and
+StrictMode reattachment. Native engine behavior remains unverified.
+
+The application PDF iframe remains blank for the valid owned local and WSL
+fixture. Its exact CF bytes are proven; a loopback comparison displayed the
+same pages with the frozen CSP and without it, including the frozen-CSP version
+at phone width. The application failure remains unexplained, so PDF preview is
+unfinished. No production CSP was relaxed. Native PDF rendering, codecs, seek,
+sharing, Back, camera, KeyStore, process death and background cleanup are not
+accepted by these browser or build results. Browser download saving also remains
+unverified. Native sharing retains the existing 8 MiB full-File/base64 limit.
+
+The new backend remains on a separate owned CF test service. The default bridge
+and first-test bridge retain their existing PIDs, ports, public origins and old
+`herdr-Cz-DRZK5.js` resources; their public health returns 200 and private
+unauthenticated reads return 401. The actual default browser still reads the
+Kansas worker window with its terminal input disabled. The new APK requires
+the matching updated backend for its new Files contract; it does not replace
+the first-phone prerelease. Full original Android feature/UI parity remains
+unfinished. See [STATUS.md](../../../docs/openherdr/STATUS.md).
+
+## Previous text artifact preview build
 
 The new debug APK is 42,309,073 bytes and contains `herdr-Cz-DRZK5.js`.
 Its HTML and entry bytes exactly match the Herdr build in

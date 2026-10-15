@@ -20,6 +20,23 @@ export const MediaArtifact: React.FC<{
   const [duration, setDuration] = React.useState<number | null>(null);
   const [dimensions, setDimensions] = React.useState<{ width: number; height: number } | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const mediaRef = React.useRef<HTMLMediaElement | null>(null);
+  const releasedMediaRef = React.useRef<HTMLMediaElement | null>(null);
+  const attachMedia = React.useCallback((node: HTMLMediaElement | null) => {
+    const previous = mediaRef.current;
+    if (previous === node) return;
+    mediaRef.current = node;
+    if (previous) {
+      releasedMediaRef.current = previous;
+      previous.pause();
+      previous.removeAttribute('src');
+      previous.load();
+    }
+    if (node && releasedMediaRef.current === node) {
+      releasedMediaRef.current = null;
+      node.setAttribute('src', src);
+    }
+  }, [src]);
 
   React.useEffect(() => {
     setDuration(null);
@@ -53,6 +70,7 @@ export const MediaArtifact: React.FC<{
         <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--surface-background)] p-3">
           <video
             key={src}
+            ref={attachMedia}
             src={src}
             controls
             playsInline
@@ -68,6 +86,7 @@ export const MediaArtifact: React.FC<{
           <div className="typography-ui-label truncate text-foreground">{name}</div>
           <audio
             key={src}
+            ref={attachMedia}
             src={src}
             controls
             preload="metadata"

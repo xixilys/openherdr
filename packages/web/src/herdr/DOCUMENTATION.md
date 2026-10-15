@@ -393,8 +393,8 @@ once, so polling or a root refresh cannot reopen it. A later request replaces
 the pending editor read. Owner changes, hiding and user navigation withdraw late
 file completions. Requested line focus uses the existing CodeMirror view.
 
-The editor labels host bytes as the current file, keeps manual Save and existing
-binary preview/download behavior, and retains drafts while hidden. CodeMirror
+The editor labels host bytes as the current file, keeps manual Save and retains
+drafts while hidden. CodeMirror
 detaches its DOM while disabled or hidden and restores its existing view and
 scroll on return. `TextFileEditor` supplies the original shared theme/language
 extensions, Find/Replace, line navigation, wrapping and generic code preview.
@@ -430,6 +430,37 @@ refused local resources show a document-scoped failure. No preview request uses
 the original runtime's `/api/fs/raw` or an outside-workspace option. Hidden,
 superseded or changed-transport previews abort reads and retire object URLs.
 
+`FilesPanel` first describes the selected file through the paired host route.
+The description confirms the canonical root, relative path, terminal occupant,
+byte count, a bounded text/binary sample and a stat version. Known binary formats
+and sampled binary content bypass the 8 MiB text reader. If a text-looking sample
+has later binary content, a confirmed `binary_file` text-read refusal selects the
+binary view with that captured metadata. Other read failures remain errors.
+`BinaryFilePreview`
+reuses the original image, audio/video, font, PDF iframe and unsupported-binary
+views. SVG retains its text-artifact path. Codec and PDF engine support remain
+runtime-dependent.
+
+`asset-client.ts` owns exact-file preview/download capabilities for the captured
+transport, machine, pane, terminal, root, path and stat version. Browser-owned
+URLs contain an opaque short-lived resource ID; paired bearer credentials stay
+in control requests. A visible supported preview renews the same resource every
+5 minutes and obtains a new resource at its 1-hour maximum. Hiding, source or
+transport replacement, root failure and terminal changes abort acquisition,
+release the preview resource and unmount media, font and iframe consumers.
+Unsupported binary cards read metadata only. Preview cleanup preserves text drafts.
+
+Explicit downloads acquire an independent download capability. A selected binary
+download pins the displayed stat version. Text download describes the host file
+at the gesture. Browser download uses the server attachment URL and keeps its
+admitted response alive across ordinary preview hiding. Owner, root or transport
+replacement cancels its operation. Browser completion is not observable here.
+Capacitor uses a dedicated pinned download grant and reads at most 8 MiB with
+exact status, MIME and byte-length checks before the original whole-File/native
+base64 share helper. Larger native downloads show a translated unsupported
+message. This path does not establish streamed native sharing, recipient receipt
+or Android PDF/media acceptance.
+
 `createFileDraft` normalizes UTF-8 host text to LF and records its preferred
 LF/CRLF line ending with the original helper. Its `bytes` counts the raw loaded
 UTF-8 snapshot before normalization. `prepareFileSave` serializes only
@@ -450,7 +481,7 @@ The mobile Back layer closes source or rendered-Markdown search or line navigati
 from a file to its browser,
 then clears search, then moves up within the canonical root. The shell closes
 only after those inner routes are exhausted. Creation, rename, delete, upload,
-reload conflicts and downloaded files still use the existing host client.
+reload conflicts still use the existing host client.
 
 `packages/ui/src/lib/herdr-native.ts` reuses native chrome, Back and lifecycle
 helpers. Android Enter inserts a newline; Ctrl/Meta+Enter sends, with an IME

@@ -131,5 +131,60 @@
     "physical_android_interaction": "not_run",
     "arbitrary_mounted_scroller_replacement": "not_run",
     "complete_feature_ui_parity": "unfinished"
+  },
+  "binary_files_increment": {
+    "checked_at_utc": "2026-10-15T16:32:52.216312+00:00",
+    "core_transport_cases": 19,
+    "independent_http_cases": 30,
+    "retained_server_cases": 37,
+    "independent_ui_cases": 41,
+    "asset_client_cases": 7,
+    "preview_leaf_cases": 5,
+    "shared_media_lifecycle_cases": 6,
+    "repository_checks": "passed",
+    "original_web_build": "passed",
+    "herdr_web_build": "passed",
+    "android_debug_build": "passed",
+    "apk": {
+      "checkedAt": "2026-10-15T16:31:14.048624+00:00",
+      "path": "packages/mobile/openherdr/android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 42312910,
+      "sha256": "c67388fae65038a10a9903830555f307058cb7f1460ce396f86512d28f880e76",
+      "entry": "herdr-9BIfPY0f.js",
+      "webHtmlExact": true,
+      "entryExact": true,
+      "nativeLibraries": 12,
+      "firstApkBytes": 40701131,
+      "firstApkSHA256": "35d24d1f368cce6ace11f9941bfac1dbc7ee20a851aa92e4d5d82e5fb0da8bf4",
+      "installed": false,
+      "deviceAcceptance": "NOT_RUN"
+    },
+    "browser": {
+      "viewport": [
+        412,
+        915
+      ],
+      "route": "paired_public_cloudflare_https",
+      "local_and_saved_wsl_image_decode": true,
+      "local_wav_play_seek": true,
+      "saved_wsl_wav_play": true,
+      "local_wav_bytes": 8640044,
+      "webm_decode_play": true,
+      "font_specimen": true,
+      "broken_media_fallback": true,
+      "unsupported_binary_fallback": true,
+      "hidden_media_nodes_removed": true,
+      "final_entry_reload": "herdr-9BIfPY0f.js",
+      "final_saved_wsl_webm_decode_play": true,
+      "default_kansas_monitor": "read_only"
+    },
+    "public_http_checks": 63,
+    "pdf_application_preview": "blank_unresolved",
+    "pdf_transport_bytes": "exact_local_and_saved_wsl",
+    "pdf_loopback_csp_comparison": "both_show_pages_frozen_csp_also_at_phone_width",
+    "browser_download_completion": "not_verified",
+    "native_execution": "not_run",
+    "default_backend": "previous_version_preserved",
+    "complete_feature_ui_parity": "unfinished"
   }
 }

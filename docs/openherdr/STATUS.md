@@ -30,7 +30,77 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current text artifact preview increment
+## Binary Files transport and previews
+
+Files now describes the selected file before attempting a capped text read.
+Images, media and fonts reuse the original presentation. PDF retains the original
+iframe path, with its application-level rendering gap recorded below. Unknown
+binary files and failed media show the original download fallback. The original
+phone Files view has no application fullscreen button, so none was added.
+
+Exact-file capabilities bind the issuing paired client, saved-machine profile,
+pane terminal, canonical root and metadata version. The bearer stays out of
+resource URLs. GET/HEAD support single ranges, bounded streaming, backpressure,
+explicit release, expiry, device revocation and shutdown cancellation. A request
+checks its captured target before headers and again before completing; this
+detects ordinary edits and replacements without promising an immutable snapshot
+or continuous pane polling. Browser downloads acquire a separate capability.
+Native File/base64 sharing keeps the existing 8 MiB host limit.
+
+The core transport suite passes 19 cases, the independent HTTP suite covers 30
+cases, and existing server regression checks pass 37 cases. Independent UI checks
+pass 41 cases; the retained Files/editor/text-preview checks, 7 asset-client
+cases, 5 preview-leaf cases and 6 shared-media lifecycle cases also pass.
+The final combined type/lint/Knip/anti-slop gate passes. Test logs retain the
+initial failures and targeted corrections. A real SSH tail read exposed Node's
+child-exit stdout auto-drain; the corrected reader preserves its readable
+listener through final validation. The same saved WSL fixture then returned
+exact tail, suffix and complete-font bytes. Evidence is in
+`.tmp/asset-transport-maintenance.log`, `.tmp/binary-assets-http-final.log`,
+`.tmp/binary-assets-http-deadline.log`, `.tmp/binary-assets-ui-test-final.log`,
+`.tmp/binary-assets-ssh-evidence/followup.json` and
+`.tmp/check-binary-assets-publication-final.log`.
+
+A separate task-owned CF test service passed 63 serial HTTP checks across local
+and saved-WSL files, including whole/range/HEAD/416 reads, MIME and safety headers,
+expired/released/invalid capabilities and client revocation. The 412x915 CF
+browser decoded local and WSL images, played a 180-second WAV larger than 8 MiB
+on both hosts, sought the local WAV, decoded and played WebM, displayed a font
+specimen, and showed broken-media and unsupported-binary fallbacks. Hiding Files
+removed the active media elements; the shared media component additionally
+pauses, clears src and releases its old element, including StrictMode ref replay.
+These browser results establish neither native engine behavior nor completed
+download saving. Private receipts and screenshots are under
+`.tmp/binary-assets-public-http.json` and `.tmp/binary-assets-browser/`.
+
+PDF bytes and response headers match the owned valid two-page fixture over CF,
+but the application iframe remains blank on local and WSL selections. A bounded
+loopback A/B showed the same PDF pages with the frozen CSP and without it, and
+the frozen-CSP version also displayed at phone width. This rules out treating
+the CSP alone as the established cause. Source reviews found no PDF-specific
+denial or normal polling-induced lease replacement. The actual cause remains
+unknown; PDF application preview is unfinished and its CSP was retained.
+The diagnostic process stopped after the comparison.
+
+The existing default bridge/CF origin, user workers and fixed first phone-test
+APK remain available. The new server contract is exercised on the isolated test
+service; the default running backend has not been restarted into this revision.
+Android PDF pages, codecs, seek, Back, sharing, process death and background
+cleanup remain unverified. Active HTML, canvas and full original feature/UI
+parity remain in scope.
+
+Original Web, isolated Herdr Web and Android packaging pass. The final debug APK
+is 42,312,910 bytes with `herdr-9BIfPY0f.js`; its HTML and entry bytes exactly
+match the final Web output. It has not been installed or exercised on Android.
+The paired browser reloaded that exact entry and decoded and played the saved
+WSL WebM. Screenshots `assets/binary-image-wsl.png` and
+`assets/binary-video-wsl.png` contain only task-owned fixtures. Final artifact
+and preserved-default receipts are `.tmp/binary-assets-apk.json` and
+`.tmp/binary-assets-runtime-final.json`. The first-phone prerelease remains the
+older fixed APK. This new APK needs the matching new backend for its Files
+contract; it is not a drop-in Files upgrade for the still-running old backend.
+
+## Previous text artifact preview increment
 
 Files now reuses the original Markdown, JSON/JSONC/GeoJSON, SVG, Mermaid and
 CSV/TSV previews and controls. Each document retains its text draft and chosen

@@ -10,6 +10,7 @@ const gitEntry = z.strictObject({ path: z.string(), index: z.string(), working_d
 const logEntry = z.strictObject({ hash: z.string(), date: z.string(), message: z.string(), refs: z.string(), body: z.string(), author_name: z.string(), author_email: z.string(), filesChanged: z.number(), insertions: z.number(), deletions: z.number(), parents: z.array(z.string()) });
 export const hostSchemas = {
   list: z.strictObject({ ...fileBase, directory: z.string(), entries: z.array(fileEntry).max(500), truncated: z.boolean() }),
+  describe: z.strictObject({ ...fileBase, terminal_id: z.string().min(1).max(256), assetVersion: z.string().regex(/^stat-v1:[a-f0-9]{64}$/), bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), sampleKind: z.enum(['text', 'binary']) }),
   file: z.strictObject({ ...fileBase, content: z.string(), bytes: z.number().nonnegative(), revision }),
   binary: z.strictObject({ ...fileBase, dataUrl: z.string().regex(/^data:[^;]+;base64,[A-Za-z0-9+/]*={0,2}$/), bytes: z.number().nonnegative(), revision }),
   download: z.strictObject({ ...fileBase, base64: z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/), mime: z.string(), bytes: z.number().nonnegative(), revision }),
@@ -26,6 +27,7 @@ export const hostSchemas = {
 };
 
 type HostRead =
+  | { operation: 'files.describe'; path: string; terminal_id: string; expectedRoot: string }
   | { operation: 'files.list' | 'files.read' | 'files.binary' | 'files.download'; path: string }
   | { operation: 'files.search'; path: string; query: string; maxResults: number; includeHidden: boolean }
   | { operation: 'git.status' | 'git.branches' }

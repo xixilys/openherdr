@@ -21,11 +21,12 @@ let requests: Request[];
 let resolveRequests: { machine: string; paneId: string; identity: string }[];
 let resolveIdentity: string;
 let resolveFailure: boolean;
+let describedBytes: number;
 const resolveWire = z.object({ request: z.object({ target: z.object({ machine: z.string(), paneId: z.string(), identity: z.string() }) }) });
 let respond: (request: Request) => Promise<Response>;
 const hash = 'a'.repeat(64);
 const request: WorkspaceFileRequest = { id: 'file-1', server: 'https://fixture.example', machine: 'local', paneId: 'w1:p1', paneIdentity: 'identity-1', sessionId: 'session-1', root: '/repo', path: 'notes.txt', line: 2 };
-type FilePanelFixtureProps = Pick<React.ComponentProps<typeof FilesPanel>, 'machine' | 'paneId' | 'disabled' | 'visible' | 'requestedFile'>;
+type FilePanelFixtureProps = Pick<React.ComponentProps<typeof FilesPanel>, 'machine' | 'paneId' | 'terminalId' | 'disabled' | 'visible' | 'requestedFile'>;
 let props: FilePanelFixtureProps;
 const entry = (path: string, isDirectory = false) => ({ path, name: path.split('/').at(-1) ?? path, isDirectory, size: 10, modifiedTime: 1, isSymbolicLink: false });
 const listing = (directory = '', root = '/repo') => Response.json({ root, path: directory, directory, entries: directory ? [entry('sub/nested.txt')] : [entry('notes.txt'), entry('sub', true)], truncated: false });
@@ -47,7 +48,7 @@ beforeEach(async () => {
   Object.defineProperty(dom.document, 'hidden', { configurable: true, value: false });
   Object.defineProperty(dom.navigator, 'onLine', { configurable: true, value: true });
   Object.defineProperty(dom.navigator, 'locks', { configurable: true, value: { request: async <T,>(_name: string, callback: () => Promise<T>) => callback() } });
-  requests = []; resolveRequests = []; resolveIdentity = request.paneIdentity; resolveFailure = false;
+  requests = []; resolveRequests = []; resolveIdentity = request.paneIdentity; resolveFailure = false; describedBytes = 5;
   respond = async request => request.operation === 'files.list' ? listing(request.path) : request.operation === 'files.read' ? file(request.path ?? '') : Response.json({ root: '/repo', results: [], truncated: false });
   const originalFetch = globalThis.fetch;
   globalThis.fetch = Object.assign(async (input: string | URL | globalThis.Request, init?: RequestInit) => {
@@ -58,6 +59,7 @@ beforeEach(async () => {
     }
     const parsed = wire.parse(JSON.parse(String(init?.body))).request;
     requests.push(parsed);
+    if (parsed.operation === 'files.describe') return Response.json({ root: parsed.expectedRoot ?? '/repo', path: parsed.path ?? '', terminal_id: 'terminal-fixture', assetVersion: 'stat-v1:' + hash, bytes: describedBytes, sampleKind: parsed.path === 'archive.zip' ? 'binary' : 'text' });
     return respond(parsed);
   }, originalFetch);
   restore = () => { globalThis.fetch = originalFetch; for (const name of Object.keys(globals)) { const descriptor = descriptors[name]; if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); } };
@@ -67,7 +69,7 @@ beforeEach(async () => {
   ({ I18nProvider } = await import('@/lib/i18n'));
   const { HerdrTransport } = await import('../../../../web/src/herdr/transport');
   transport = new HerdrTransport({ server: request.server, token: 'fixture-token' });
-  props = { machine: 'local', paneId: 'w1:p1' };
+  props = { machine: 'local', paneId: 'w1:p1', terminalId: 'terminal-fixture' };
   host = document.createElement('div'); document.body.append(host); tree = createRoot(host);
 });
 afterEach(async () => { await act(async () => tree?.unmount()); await dom.happyDOM.close(); restore(); });
@@ -176,17 +178,32 @@ test('Back leaves file, clears search and climbs folders before the shell closes
 });
 
 
-test('binary requests keep the existing download path and display the host artifact', async () => {
-  respond = async operation => operation.operation === 'files.list' ? listing() : operation.operation === 'files.read'
-    ? Response.json({ error: { code: 'binary_file', message: 'Binary file' } }, { status: 400 })
-    : Response.json({ root: '/repo', path: 'notes.txt', base64: 'aGVsbG8=', mime: 'application/octet-stream', bytes: 5, revision: hash });
-  await render({ requestedFile: request });
-  expect(requests.map(value => value.operation)).toEqual(['files.list', 'files.read', 'files.download']);
-  expect(host.querySelector('h2')?.textContent).toBe('notes.txt');
+test('binary metadata selects an unsupported artifact without the capped text or base64 reads', async () => {
+  await render({ requestedFile: { ...request, path: 'archive.zip' } });
+  expect(requests.map(value => value.operation)).toEqual(['files.list', 'files.describe']);
+  expect(host.querySelector('h2')?.textContent).toBe('archive.zip');
   expect(host.querySelector('.cm-editor')).toBeNull();
   expect(host.textContent).toContain('Current file');
   await act(async () => { closeTopmostBackLayer(); });
   expect(host.querySelector('h2')?.textContent).toBe('Project files');
+});
+
+test('a text-only metadata sample with later binary bytes opens the captured binary card after confirmed text refusal', async () => {
+  const bytes = new TextEncoder().encode('plain text '.repeat(746) + '\0');
+  describedBytes = bytes.length;
+  expect(new TextDecoder().decode(bytes.subarray(0, 8192))).not.toContain('\0');
+  respond = async operation => {
+    if (operation.operation === 'files.list') return listing();
+    if (operation.operation === 'files.read') return Response.json({ error: { code: 'binary_file', message: 'Binary file' } }, { status: 400 });
+    throw new Error('Unexpected binary fallback operation ' + operation.operation);
+  };
+  await render({ requestedFile: { ...request, path: 'misnamed.txt' } });
+  expect(requests.map(value => value.operation)).toEqual(['files.list', 'files.describe', 'files.read']);
+  expect(resolveRequests).toHaveLength(2);
+  expect(host.querySelector('h2')?.textContent).toBe('misnamed.txt');
+  expect(host.querySelector('.cm-editor')).toBeNull(); expect(host.querySelector('[role="alert"]')).toBeNull();
+  expect(host.textContent).toContain('Current file'); expect(host.textContent).toContain('OpenChamber does not decode TXT files');
+  expect(host.querySelector('[aria-label="Download"]')).not.toBeNull();
 });
 
 test('failed listing keeps the error visible and does not authorize the pending file request', async () => {

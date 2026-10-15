@@ -80,7 +80,7 @@ let transport: import('../../../../web/src/herdr/transport').HerdrTransport;
 type FixtureProps = Omit<React.ComponentProps<typeof FilesPanel>, 'transport' | 'onPendingDelivery'>;
 let props: FixtureProps;
 const origin = 'https://file-editor-fixture.test';
-const wire = z.object({ request: z.object({ operation: z.string(), machine: z.string(), pane_id: z.string(), path: z.string().optional(), content: z.string().optional(), expectedRoot: z.string().optional(), expectedRevision: z.string().nullable().optional() }), requestId: z.string().optional() });
+const wire = z.object({ request: z.object({ operation: z.string(), machine: z.string(), pane_id: z.string(), terminal_id: z.string().optional(), path: z.string().optional(), content: z.string().optional(), expectedRoot: z.string().optional(), expectedRevision: z.string().nullable().optional() }), requestId: z.string().optional() });
 type HostRequest = z.infer<typeof wire>['request'];
 type LoggedRequest = HostRequest & { requestId?: string };
 type StoredFile = { content: string; revision: string };
@@ -120,6 +120,7 @@ async function defaultReply(request: HostRequest): Promise<Response> {
     entries: [...repo.files].map(([path, file]) => ({ path, name: path, isDirectory: false, size: new TextEncoder().encode(file.content).length, modifiedTime: 1, isSymbolicLink: false })) });
   const path = request.path ?? '';
   const file = repo.files.get(path);
+  if (request.operation === 'files.describe') return file ? Response.json({ root: repo.root, path, terminal_id: request.terminal_id, assetVersion: 'stat-v1:' + file.revision, bytes: new TextEncoder().encode(file.content).length, sampleKind: 'text' }) : refusal('not_found', 'Fixture file missing', 404);
   if (request.operation === 'files.read') return file ? Response.json({ root: repo.root, path, content: file.content, bytes: new TextEncoder().encode(file.content).length, revision: file.revision }) : refusal('not_found', 'Fixture file missing', 404);
   if (request.operation === 'files.write') {
     if (!file || file.revision !== request.expectedRevision) return refusal('file_conflict', conflictMessage);
@@ -166,7 +167,7 @@ beforeEach(async () => {
   ({ I18nProvider } = await import('@/lib/i18n'));
   const { HerdrTransport } = await import('../../../../web/src/herdr/transport');
   transport = new HerdrTransport({ server: origin, token: 'synthetic-editor-device' });
-  props = { machine: 'local', paneId: 'w1:p1', isMobile: true, theme: getDefaultTheme(true), themeMode: 'dark' };
+  props = { machine: 'local', paneId: 'w1:p1', terminalId: 'terminal-fixture', isMobile: true, theme: getDefaultTheme(true), themeMode: 'dark' };
   host = document.createElement('div'); document.body.append(host); tree = createRoot(host);
 });
 afterEach(async () => {

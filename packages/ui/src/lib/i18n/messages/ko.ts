@@ -20,6 +20,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "herdr.files.nativeDownloadLimit": "기본 공유는 8 MiB 이하의 파일만 지원합니다.",
   "herdr.monitor.recentText": "최근 터미널 출력",
   "herdr.monitor.title": "모니터링",
   "herdr.monitor.readOnly": "읽기 전용 보기",

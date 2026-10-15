@@ -19,6 +19,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
+  "herdr.files.nativeDownloadLimit": "Sistem üzerinden paylaşım en fazla 8 MiB boyutundaki dosyaları destekler.",
   "herdr.monitor.recentText": "Son terminal çıktısı",
   "herdr.monitor.title": "İzleme",
   "herdr.monitor.readOnly": "Salt okunur görünüm",

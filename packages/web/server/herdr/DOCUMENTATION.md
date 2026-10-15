@@ -71,13 +71,14 @@ issuance and redeem, respectively. Files contain hashes and public metadata.
 
 `GET /health` is public and returns only app/version/ok. Pairing redeem is public,
 JSON-only, limited to 10 attempts per direct socket address per minute. Forwarded
-IP headers are ignored. All other `/api/` routes require a client bearer header,
-including loopback requests. Query strings are rejected. Browser Origins must
+IP headers are ignored. Private JSON routes require a client bearer header,
+including loopback requests. Exact-file asset GET/HEAD use the narrow capability
+path described below. Query strings are rejected. Browser Origins must
 exactly match a registered origin or the loopback URL for the listening port.
 The two native application origins `capacitor://localhost` and `https://localhost`
 are also accepted. They identify a webview context and grant no authentication;
 private API routes still require a bearer. The `null` Origin is refused.
-There is no wildcard CORS and no URL bearer support.
+There is no wildcard CORS and no main-bearer URL support.
 
 The API in `OPENHERDR.md` is implemented, with these additional routes:
 
@@ -216,6 +217,88 @@ pre-dispatch journaling, deduplication, unknown/rejected outcomes, route body
 limits, failed reads and the enterprise gate. Helper confinement and real
 local/SSH operation validation belong to `host-operations.test.js` and the
 coordinator's owned fixtures.
+
+## Exact-file assets
+
+`assets.js` owns file capability admission, HTTP ranges, capacity and cancellation.
+`asset-protocol.js` owns parsed metadata and fixed-helper requests;
+`asset-transport.js` owns local/SSH byte framing, pressure and child cleanup.
+The original `/api/fs/raw` auth and outside-workspace policy are not used.
+
+`files.describe` goes through the asset owner on the existing host route. Its
+request adds `terminal_id`, `expectedRoot` and a nonempty confined `path`. The
+response is `{root,path,terminal_id,assetVersion,bytes,sampleKind}`. A description
+reads at most 8192 bytes for UTF-8 classification. A cut multibyte sequence at
+that sample boundary is not a decoding failure. Known binary extensions are
+classified by the UI before it considers the text reader. Full text reads retain
+their existing 8 MiB limit and SHA revision.
+
+`POST /api/herdr/assets` takes flat
+`{machine,pane_id,terminal_id,expectedRoot,path,expectedAssetVersion?,purpose}`,
+where purpose is `preview` or `download`. It returns that metadata plus
+`{assetId,url,expiresAt,maxExpiresAt,mime,fileName}`. The URL is the relative path
+`/api/herdr/assets/<43-character opaque ID>` and contains no host paths or client
+credential. `POST <url>/renew` with `{}` renews the same ID and returns its expiry
+fields. `DELETE <url>` releases it. These control routes require the owning
+bearer. GET/HEAD accept possession of that exact-file capability after normal
+exact-Origin and current network-policy checks; possession does not prove the
+physical device's identity. Origin null and query strings remain refused.
+
+Grants admit requests for 10 minutes and renew up to 1 hour from creation, bounded
+by the client's expiry. The visible UI renews every 5 minutes. At most 16 grants
+per client and 128 overall may admit requests. Pending mint reservations count
+toward those limits. Pending and active operations, including description and
+renewal, reserve capacity before any host preparation: 8 per client, 4 per grant
+and 32 overall. Full capacity returns 429; it never evicts another active view.
+`options.assetClock` supplies `{now,setTimeout,clearTimeout}` for focused lifecycle
+tests. It is not a persisted setting or client input.
+
+Preview expiry cancels its pending and active reads. A dedicated download grant
+allows an admitted response to finish after admission expiry; its cancellation
+owner remains registered until cleanup. Release, client revocation and server
+close cancel both purposes and join owned children. Every operation also has a
+1-hour absolute deadline, including downstream pressure. Node and the remote
+helper both enforce that bound. It limits a partitioned SSH peer even if EOF
+never arrives. No current user pane, unrelated process or service is terminated.
+
+Each request checks the current socket or saved profile binding, terminal
+occupant, canonical root and descriptor metadata before headers and on completion.
+The version is `stat-v1:` followed by a hash of exact integer metadata, including
+root/file identity, size and nanosecond times. It is not an immutable byte snapshot
+or the editor's content SHA. Known UI owner changes abort/release their preview;
+there is no continuous server pane watcher. No directory flock is held while
+streaming. Confined descriptor walking rejects symlinks, `.git`, traversal and
+special files. Profile retargeting never redirects an existing grant.
+
+Raw GET returns 200 or one 206 byte span with Accept-Ranges, Content-Range and the
+exact Content-Length. The existing byte-range reducer owns suffix/open-ended,
+clamping and malformed/multi-range whole-response behavior. Unsatisfiable ranges
+return 416 with `bytes */size`. HEAD ignores Range and sends no HTTP body. It may
+perform the same bounded metadata sample; HEAD, empty GET and 416 await completed
+helper validation before headers. No ETag is advertised; an If-Range request uses
+the whole pinned file. A changed file fails rather than switching to new bytes.
+
+The helper writes bounded JSON metadata, an exact raw byte count and a completion
+frame. The transport checks completion and exit before yielding its bounded final
+tail. HTTP withholds a final byte until it also rechecks client authority and
+network policy. Failure after headers truncates the response, with no appended
+JSON. Regular progress has a 30-second upstream deadline; time waiting for the
+consumer is separate from that progress budget and still subject to the absolute
+deadline. Memory and work stay bounded per active response rather than file size.
+
+MIME is a closed raster/PDF/audio/video/font map. Unknown files, HTML, JavaScript
+and SVG are attachment/octet-stream. All asset responses use no-store, nosniff,
+no-referrer, a sandbox/default-src-none CSP and sanitized download filenames.
+No active HTML tree or null-origin resource grant is added here. PDF page display,
+codecs and seek still need actual renderer checks. Native sharing reads its own
+pinned download grant with an actual 8 MiB bound before the existing complete
+File/base64 share helper; this transport does not implement large native sharing.
+
+Herdr browser/PWA, hosted mobile and Capacitor share this API. Original web,
+Electron and mobile keep their existing file controllers/auth; VS Code retains
+its bridge and does not mount the Herdr viewer. Focused real-helper and injected
+HTTP tests establish those scopes; actual SSH, public CF, browser and native
+results are recorded separately in `docs/openherdr/STATUS.md`.
 
 ## Conversation HTTP API
 

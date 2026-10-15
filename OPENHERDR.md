@@ -273,18 +273,48 @@ physical-phone result has arrived. Resume that check when usable device access
 or concrete phone feedback is available. PDF remains a documented unresolved
 branch.
 
-The next bounded UI unit restores the original Settings navigation, search and
+The active bounded UI unit restores the original Settings navigation, search and
 Appearance/Chat pages around the existing real Herdr preferences. Its complete
-flow is existing window, Settings, an implemented control, explicit Save and
+flow is existing window, Settings, an implemented control, persisted change and
 authoritative readback, then return to the same window. Share the original
 presentation while keeping original Provider/OpenCode stores in their existing
 wrapper. Search must list only supported controls and reach their real anchors.
-Preserve draft/conflict handling, manual save, surface-specific Enter behavior
+Preserve draft/conflict handling, automatic save after a change, explicit retry,
+surface-specific Enter behavior
 and mobile inner Back before closing Settings. Add no preference family,
 provider page, default change or native workaround. Validate that round trip
 through a separate owned build/runtime, preserving this live static directory,
 the original default connection and the first phone-test APK. Full Settings
-parity and native acceptance remain unfinished.
+parity and native acceptance remain unfinished. The earlier planning phrase
+"manual save" was incorrect: `HerdrPreferencesController.change` already starts
+its serialized save. This unit preserves that behavior and the explicit
+refresh required after a conflict.
+
+Settings surface scope: the Herdr Web/PWA and hosted-mobile entrypoints share
+the existing per-instance preferences owner and original navigation/search
+presentation. Herdr Capacitor Android and iOS bundle the same controller with
+their existing native Back/lifecycle integration; hardware Back and device
+execution require separate acceptance. Original Web and Electron retain their
+Settings domain stores, page dispatch and runtime APIs around the extracted
+presentation. Original hosted and Capacitor mobile retain those controllers and
+the existing mobile page stages. Original VS Code retains its runtime-specific
+Settings controller and availability; the dedicated Herdr app is not mounted
+there. This unit adds no server route, native bridge, credential store or
+Provider configuration.
+
+The Settings presentation and bounded preferences flow are implemented. The
+original wrapper and Herdr adapter share `SettingsViewPresentation` and the pure
+search index; original domain initialization stays with `SettingsView`. The
+focused and retained checks pass 58 cases, the final combined static gate and
+original Web/Herdr/Android builds pass, and 20 actual public HTTP requests verify
+preference persistence, conflict refusal, restoration and default-socket window
+identity. The new APK packages `herdr-CXWKWYR7.js`. Actual Settings browser
+interaction remains unexecuted because Chrome returned `ERR_BLOCKED_BY_CLIENT`
+for both the new public origin and its loopback address. Keep those browser
+checks and native acceptance pending. Do not change browser protection or
+substitute API results for UI acceptance. Existing CF instances, phone connection
+and fixed first-test APK are preserved. Current evidence is in STATUS.md and
+native validation; full feature/UI parity remains unfinished.
 
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native

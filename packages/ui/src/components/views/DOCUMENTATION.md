@@ -144,3 +144,29 @@ Most focused tests use Bun. `MultiFileDiffEntry.vitest.tsx` exercises the real
 diff component through the web workspace's Vitest runner because its transitive
 UI imports require Vite asset transforms. The web test configuration includes
 UI `*.vitest.tsx` fixtures; the isolated Bun runner intentionally does not.
+
+
+## Settings navigation and search
+
+`SettingsViewPresentation` owns the original grouped navigation, search query,
+result order and keyboard selection, target reveal/highlight, mobile root/list/
+content stages, inner Back and split-detail browser history, and desktop split
+layout. Its caller controls the selected page, runtime availability and content.
+Search receives the caller's result builder and optional target-preparation
+callback; a result enters the page before its exact anchor is revealed. Reveal
+focuses the existing anchor container with a temporary `tabIndex=-1`. On mobile,
+a search anchor that is itself an editor uses its existing parent for focus,
+so search does not open the software keyboard. Existing tab-index values and
+later changes are preserved. Escape clears an active query before an outer
+Settings surface can dismiss. Composition keeps text entry intact; intentional
+Ctrl+N/P commands and arrow keys share result navigation.
+
+`SettingsView` retains the original UI stores, project-scoped loads, domain page
+and sidebar dispatch, shortcut title and conditional target preparation. Its
+native `registerBackHandler` and settings jump owner feed the presentation.
+Standalone Herdr supplies its own preferences pages and exact searchable items;
+it does not mount the original feature-page owners. Existing shared scrollbar,
+page-layout and localization primitives keep their behavior. Web, Electron,
+hosted mobile, Capacitor and VS Code retain their original runtime contracts.
+The dedicated Herdr entrypoint uses the same presentation without introducing
+Provider/OpenCode operations.

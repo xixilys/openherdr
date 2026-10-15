@@ -30,7 +30,52 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current backend against existing Herdr windows
+## Settings navigation and search
+
+Herdr now uses the original Settings navigation, search and responsive page
+presentation around its existing Appearance and Chat preferences. Search lists
+the 7 actual mobile controls or 8 desktop controls and reaches their anchors.
+Mobile inner Back returns through Settings before closing it. Existing automatic
+save, explicit retry, conflict refresh and instance/surface preference ownership
+are preserved. Opening Settings pauses hidden conversation reads and retains the
+selected window, unsent draft and pending delivery. The original Settings wrapper
+retains its domain stores and page preparation around the same presentation.
+
+The focused and retained suites pass 58 cases, including 10 actual HerdrApp
+fixtures and 3 original SettingsView fixtures. Independent source review has no
+unresolved P1/P2 finding. The final type/lint/Knip/anti-slop gate, original Web
+build, isolated Herdr build and Android assembleDebug pass. The debug APK is
+42,331,767 bytes and packages `herdr-CXWKWYR7.js`; its HTML and entry bytes match
+the frozen Web output. Scanner, secure storage and 12 native libraries remain
+packaged. It has not been installed or exercised on Android.
+
+A separate owned CF instance against the actual default Herdr socket passed
+20 public HTTP requests. They confirm exact static entry bytes, health 200,
+unauthenticated access 401, foreign-Origin refusal 403, font/reasoning save and
+readback, surface/profile scope, stale-revision refusal 409, restored effective
+baseline and the selected pane's authoritative terminal identity. Only its own
+isolated preferences were changed. Its HTTP test client was revoked and then
+returned 401. No existing pane input or user preference store was changed.
+
+Actual Settings browser interaction is still unexecuted. Chrome returned
+`ERR_BLOCKED_BY_CLIENT` at both the public and loopback URLs; the cause is unknown
+and browser protection was left unchanged. DOM fixtures do not establish real
+phone geometry, landscape, RTL, browser history or a connected UI save round
+trip. Native camera, KeyStore, Back/IME and lifecycle acceptance also remain
+pending. Full Settings and Android feature/UI parity are unfinished.
+
+Private evidence is in `.tmp/settings-source-review.md`,
+`.tmp/check-settings-publication.log`, `.tmp/settings-public-http.json`,
+`.tmp/settings-apk.json` and `.tmp/settings-browser/navigation-blocks.json`.
+Initial test, tool-cache and HTTP-test failures are retained beside the corrected
+runs. The HTTP test initially misunderstood profile-shared reasoning; its
+corrected expectation follows the unchanged server contract. The old default,
+first-test and 9B CF instances retain their original processes, origins and
+client resources. The fixed first-phone APK and public prerelease are unchanged;
+no saved phone connection was migrated. The new `.tmp/settings-web` output is
+live and frozen. Preservation checks are in `.tmp/settings-preservation.json`.
+
+## Earlier matching backend against existing Herdr windows
 
 The published `19690e85f` backend and its matching `herdr-9BIfPY0f.js` client now
 run through a separate owned CF instance connected to the authoritative default

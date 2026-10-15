@@ -18,6 +18,9 @@ export type HerdrMobileFullscreen = {
   onOpenChange: (open: boolean) => void;
   title: React.ReactNode;
   content: React.ReactNode;
+  /** Settings owns its header and inner navigation. */
+  headerless?: boolean;
+  ariaLabel?: string;
 };
 export type HerdrMobileOverlay = {
   open: boolean;

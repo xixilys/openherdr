@@ -89,6 +89,9 @@ closes the sessions drawer; a workspace selection leaves its session list open.
   `DedicatedMobileAppProvider`.
 - `fullscreen` and `overlay`, each either a controlled content record or null.
   They use the existing `MobileFullscreenSurface` and `MobileOverlayPanel`.
+  Fullscreen content may set `headerless` and `ariaLabel` when its child owns
+  the original navigation header, as Settings does. Its owner handles an inner
+  Back step before accepting `onOpenChange(false)` as a surface close.
 
 The shell registers open drawers and fullscreen content with `mobileBackLayers`.
 The owning native root continues to use `useNativeAndroidBackButton` and checks

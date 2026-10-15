@@ -532,6 +532,24 @@ retains Enter for a newline and Ctrl/Meta+Enter for sending; web obeys its store
 send preference. Streaming reasoning uses the stored expansion preference.
 Remote fonts require a current successful info response allowing them.
 
+`PreferencesPanel` supplies the original `SettingsViewPresentation` with only
+Appearance and Chat pages. Phone Settings opens at the navigation root in the
+original headerless fullscreen surface; desktop opens Appearance beside the
+persistent navigation. Search uses the shared matching logic with an explicit
+registry of the controls Herdr actually renders. Interface font size remains
+available on phones, while Enter-to-send remains absent on the mobile surface.
+Language uses the existing i18n owner rather than an instance preference field.
+
+`HerdrPreferencesController` remains scoped to its captured paired server and
+surface. Changes start serialized automatic saves. Save retries a retained
+change after failure; a conflict requires explicit Refresh before another save.
+Page navigation and closing Settings keep that controller and its pending edits
+alive. The settings Back handler consumes an inner page before the shell closes
+the surface. Search Escape clears its query before the enclosing surface can
+dismiss. Monitor and conversation readers pause while Settings is open and
+retain their current target and drafts. Original provider/configuration page
+owners are not mounted by the dedicated Herdr entrypoint.
+
 The Context workspace tab reuses KnowledgeCard, KnowledgeEntryView and NoteEditor
 with the typed project-context client. New and existing drafts include the
 resolved project owner. Unknown project owners disable creation. A confirmed

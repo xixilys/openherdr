@@ -1,6 +1,38 @@
 # Native build validation
 
-## Matching current backend
+## Latest Settings build
+
+The debug APK is 42,331,767 bytes and contains `herdr-CXWKWYR7.js`. Its HTML
+and entry bytes exactly match the isolated Web output. Scanner, secure storage
+and 12 native libraries remain packaged. Original Web and Herdr builds,
+Capacitor Android sync and Gradle assembleDebug pass. Gradle reports 12 seconds,
+245 tasks, 27 executed and 218 up-to-date, using the existing task cache and
+NDK 27.1. The fixed first-phone APK and public prerelease are unchanged.
+This new APK has not been installed or interactively tested.
+
+The original Settings navigation, search and responsive presentation now wrap
+the existing Herdr preferences. The original application keeps its domain
+controllers around that shared presentation. Focused and retained tests pass
+58 cases; independent source review and the final type/lint/Knip/anti-slop gate
+pass. A separate matching CF instance against the actual default Herdr socket
+passed 20 public HTTP checks, including preference save/readback, stale-revision
+refusal, baseline restoration, authentication and selected-window identity.
+Its own HTTP test client was revoked. These API checks do not prove UI operation.
+
+Chrome blocked both the new public and loopback Settings URLs with
+`ERR_BLOCKED_BY_CLIENT`. No actual Settings browser flow ran, and browser
+protection was left unchanged. Real layout, landscape, RTL, history and connected
+UI save/return remain pending. Native camera, KeyStore, Back/IME, process death,
+background cleanup and physical-phone execution also remain unverified. PDF
+application preview and full original feature/UI parity remain unfinished.
+Existing CF instances and the phone's saved connection were preserved.
+
+Evidence is in `.tmp/settings-apk.json`, `.tmp/settings-public-http.json`,
+`.tmp/settings-browser/navigation-blocks.json`, `.tmp/settings-preservation.json`,
+`.tmp/check-settings-publication.log`, `.tmp/build-web-settings-final.log`,
+`.tmp/build-herdr-settings-final.log` and `.tmp/build-settings-android-final.log`.
+
+## Earlier matching binary Files backend
 
 The unchanged `herdr-9BIfPY0f.js` APK now has a matching separately owned CF
 backend against the actual default Herdr socket. Independent public HTTP checks
@@ -21,7 +53,7 @@ build identity or completed-pairing evidence. PDF application preview remains
 unsuccessful in the new browser route too. Camera, KeyStore, native Back/IME,
 background cleanup and force-stop/relaunch still need actual native acceptance.
 
-## Latest binary Files build
+## Previous binary Files build
 
 The debug APK is 42,312,910 bytes and packages `herdr-9BIfPY0f.js`.
 Its HTML and entry bytes exactly match the isolated Web build in

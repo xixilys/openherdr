@@ -231,5 +231,60 @@
     "pdf_preview": "unsuccessful",
     "existing_cf_bridge_and_first_apk": "preserved",
     "full_feature_ui_parity": "unfinished"
+  },
+  "settings_navigation_increment": {
+    "checked_at_utc": "2026-10-15T17:47:50.594Z",
+    "source_base_revision": "11eac9718cb1d76bb423c9f4c94c5c51840976b7",
+    "implementation": "original_shared_presentation_and_pure_search_with_existing_herdr_preferences_owner",
+    "focused_and_retained_cases": 58,
+    "actual_herdr_app_cases": 10,
+    "actual_original_settings_wrapper_cases": 3,
+    "source_review": "no_unresolved_P1_P2_in_examined_scope",
+    "repository_checks": "passed",
+    "original_web_build": "passed",
+    "herdr_web_build": "passed",
+    "android_debug_build": "passed",
+    "apk": {
+      "path": "packages/mobile/openherdr/android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 42331767,
+      "entry": "herdr-CXWKWYR7.js",
+      "web_html_exact": true,
+      "entry_exact": true,
+      "scanner_registered": true,
+      "secure_storage_registered": true,
+      "native_libraries": 12,
+      "installed": false,
+      "native_execution": "not_run"
+    },
+    "public_http": {
+      "requests": 20,
+      "health": 200,
+      "unauthenticated_private": 401,
+      "foreign_origin": 403,
+      "static_entry_exact": true,
+      "save_and_authoritative_readback": true,
+      "per_surface_font_size_preserved": true,
+      "reasoning_shared_within_instance_profile": true,
+      "stale_revision": 409,
+      "effective_baseline_restored": true,
+      "default_socket_terminal_identity_matches": true,
+      "own_test_client_revoked": true,
+      "revoked_bearer": 401,
+      "existing_pane_input": "not_sent",
+      "user_preference_store": "not_changed"
+    },
+    "browser": {
+      "public_navigation": "Chrome_ERR_BLOCKED_BY_CLIENT",
+      "loopback_navigation": "Chrome_ERR_BLOCKED_BY_CLIENT",
+      "cause": "unknown",
+      "protection_changed": false,
+      "settings_ui_flow": "not_executed",
+      "real_phone_layout_landscape_rtl_history": "not_verified"
+    },
+    "first_phone_apk_and_release": "unchanged",
+    "existing_cf_instances_and_saved_phone_connection": "preserved",
+    "phone_cutover": "not_performed",
+    "pdf_application_preview": "blank_unresolved",
+    "full_settings_and_android_parity": "unfinished"
   }
 }

@@ -306,9 +306,31 @@ Worktree ownership is in `components/sections/openchamber/WorktreeSectionContent
 
 ### Settings, appearance and attachments
 
-`components/views/SettingsView.tsx` already accepts `forceMobile`, `visiblePageSlugs`, `initialMobileStage` and `registerBackHandler`. Reuse its actual mobile navigation and `components/sections/shared/Settings*` layout. `visiblePageSlugs` is useful for staged integration, but hiding every unimplemented page is not completion of the requested parity.
+`components/views/SettingsViewPresentation.tsx` now contains the original grouped
+navigation, search, mobile stages/inner Back, split detail history and desktop
+layout. `SettingsView.tsx` keeps original domain stores, page dispatch and
+conditional preparation around that shared presentation. Herdr mounts the
+presentation with its existing preferences controller, without initializing
+the original Provider/OpenCode page owners. The shared pure
+`lib/settings/search-index.ts` accepts its actual item registry; the original
+search wrapper retains the original catalog and store-derived availability.
 
-Appearance preferences can use existing UI/settings state and `SettingsAPI.load/save`. `contexts/ThemeSystemContext.tsx` also accesses `/api/config/themes` for theme catalog/import/delete. Supply the settings/theme host contracts before mounting it in the Herdr app. Keep local appearance/language/keyboard controls independent from agent/provider configuration. OpenCode provider/MCP/skills/commands/plugin settings need corresponding real agent configuration adapters; a global Herdr agent-kind picker does not implement those settings.
+Herdr exposes the existing Appearance and Chat controls with 7 searchable mobile
+items or 8 desktop items. Search reaches real anchors, and automatic save,
+explicit retry, conflict refresh, surface-specific font size/Enter behavior and
+profile-shared preferences retain their existing contracts. Locale keeps its
+existing i18n owner. The original wrapper and Herdr fixtures, source review,
+static checks, builds and actual public preference API checks pass. Actual new
+Settings browser navigation was blocked at both public and loopback addresses;
+connected UI operation, real layout/history and native Back/IME remain pending.
+See STATUS.md for the exact tested scope.
+
+Full Settings parity remains in scope. Original theme catalog/import/delete
+through `contexts/ThemeSystemContext.tsx` and `/api/config/themes` need their
+host contracts before those controls can be mounted in Herdr. Keep appearance,
+language and keyboard ownership independent from agent/provider configuration.
+OpenCode provider/MCP/skills/commands/plugin settings require corresponding real
+agent adapters; a global Herdr agent-kind picker does not implement them.
 
 `components/chat/composer/ui/ComposerAttachmentControls.tsx` is already callback-driven and supports `filesOnly`, mobile sheets and optional repository/Linear actions. Reuse this visual control and the existing attachment preparation in `sync/attachment-files.ts`, `document-attachments.ts` and the input store's draft lifecycle. The actual delivery contract must distinguish uploaded remote files, structured provider attachments and text references:
 

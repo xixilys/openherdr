@@ -190,7 +190,7 @@ test('same-machine snapshot failure retains the tree and displays its last succe
   expect(document.body.textContent).not.toContain('No workspaces yet');
 });
 
-test('the explicit chat entry retains its draft across monitor while all conversation reads pause', async () => {
+test('the explicit chat retains its draft across Settings and Monitor while hidden conversation reads pause', async () => {
   await until(() => monitorText()?.includes('LOCAL_VISIBLE') === true);
   await openWindows(); await click('Conversations'); await until(() => !!host.querySelector('[data-mobile-composer-pill]'));
   await act(async () => host.querySelector<HTMLButtonElement>('[data-composer-morph-prompt]')?.click());
@@ -198,6 +198,17 @@ test('the explicit chat entry retains its draft across monitor while all convers
   const node = host.querySelector<HTMLElement>('.cm-content'); const editor = node && EditorView.findFromDOM(node);
   if (!editor) throw new Error('Missing real explicit chat editor');
   await act(async () => editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: 'Unsent existing chat draft' } }));
+  await openWindows(); await click('Settings');
+  await until(() => !!document.querySelector('[data-settings-view]'));
+  const settingsReads = requests.filter(path => path.includes('/conversations/')).length;
+  await wait(120);
+  expect(requests.filter(path => path.includes('/conversations/'))).toHaveLength(settingsReads);
+  expect(host.querySelector('.cm-content')).toBeNull();
+  await click('Close settings');
+  await until(() => !!host.querySelector('[data-mobile-composer-pill]'));
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-composer-morph-prompt]')?.click());
+  await until(() => !!host.querySelector('.cm-content'));
+  expect(host.querySelector('.cm-content')?.textContent).toBe('Unsent existing chat draft');
   await openWindows(); await click('Monitor'); await wait();
   const conversationReads = requests.filter(path => path.includes('/conversations/')).length;
   await refresh(); await wait(120);

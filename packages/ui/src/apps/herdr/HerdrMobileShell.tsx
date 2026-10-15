@@ -101,7 +101,7 @@ export function HerdrMobileShell(props: HerdrMobileShellProps) {
           {props.sidebarFooter && <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border/70 px-2 pt-1.5" style={{ paddingBottom: 'calc(0.375rem + var(--oc-safe-area-bottom, 0px))' }}>{props.sidebarFooter}</div>}
         </MobileSessionsDrawerView>
         <MobileWorkspaceDrawerView open={props.workspaceOpen} onClose={() => props.onWorkspaceOpenChange(false)} tab={props.workspaceTab} onTabChange={props.onWorkspaceTabChange} panels={props.workspacePanels} />
-        <MobileFullscreenSurface open={props.fullscreen?.open ?? false} onClose={() => props.fullscreen?.onOpenChange(false)} title={props.fullscreen?.title}>
+        <MobileFullscreenSurface open={props.fullscreen?.open ?? false} onClose={() => props.fullscreen?.onOpenChange(false)} title={props.fullscreen?.title} ariaLabel={props.fullscreen?.ariaLabel} headerless={props.fullscreen?.headerless}>
           {props.fullscreen?.content}
         </MobileFullscreenSurface>
         <MobileOverlayPanel open={props.overlay?.open ?? false} onClose={() => props.overlay?.onOpenChange(false)} title={props.overlay?.title ?? ''} footer={props.overlay?.footer}>

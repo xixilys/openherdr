@@ -9,7 +9,7 @@
 - `registry.ts` — the settings registry. One `SETTINGS_REGISTRY` table plus two key lists (`LOCAL_DEVICE_KEYS`, `DESKTOP_SHELL_KEYS`) and the derived helpers other modules use: `DesktopSettings` (the document type), `parseSettingsDocument`, `applySettingsToStores`, `AUTO_SAVE_KEYS` / `readAutoSaveSnapshot`, `MIRRORED_KEYS`, `buildSettingsRegistrySnapshot`.
 - `parsers.ts` — value-level boundary parsers (zod schemas wrapped as `SettingsParser<T>`). `undefined` means "reject", never "default".
 - `registry-snapshot.ts` — renders the plain-JSON snapshot for the two consumers that cannot import the UI's TypeScript: the OpenChamber server (`packages/web/server/lib/opencode/settings-registry.json`) and the VS Code extension host (`packages/vscode/src/settings-registry.json`). Regenerate with `bun run settings-registry:generate`; `registry.test.ts` fails when a checked-in copy is stale.
-- `metadata.ts`, `search.ts` — Settings page metadata and the search index (unchanged by the registry; see `.agents/skills/settings-ui-patterns`).
+- `metadata.ts` owns Settings page metadata. `search-index.ts` owns the explicit search catalog and matching from supplied runtime availability. Its optional `items` input lets a product index exactly the controls it renders, retaining the shared matching and item order. `search.ts` binds the original catalog to the current control-tool, isolated-spaces and memory-feature flags in the original UI store. Standalone callers import the index and supply their own real items; they do not import the original Settings owner. These modules do not change the persistence registry.
 
 ## Invariants
 

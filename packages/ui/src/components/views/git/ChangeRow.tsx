@@ -43,8 +43,6 @@ export const ChangeRow = React.memo<ChangeRowProps>(function ChangeRow({
   const descriptor = useMemo(() => describeChange(file), [file]);
   const { t } = useI18n();
   const indicatorLabel = t(descriptor.descriptionKey);
-  const insertions = stats?.insertions ?? 0;
-  const deletions = stats?.deletions ?? 0;
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -89,13 +87,13 @@ export const ChangeRow = React.memo<ChangeRowProps>(function ChangeRow({
     </button>
   );
 
-  const statsLabel = (
+  const statsLabel = stats ? (
     <span className="shrink-0 typography-micro">
-      <span style={{ color: 'var(--status-success)' }}>+{insertions}</span>
+      <span style={{ color: 'var(--status-success)' }}>+{stats.insertions}</span>
       <span className="text-muted-foreground mx-0.5">/</span>
-      <span style={{ color: 'var(--status-error)' }}>-{deletions}</span>
+      <span style={{ color: 'var(--status-error)' }}>-{stats.deletions}</span>
     </span>
-  );
+  ) : null;
 
   const revertButton = showRevert ? (
     <Tooltip>

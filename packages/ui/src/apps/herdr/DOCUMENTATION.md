@@ -162,3 +162,12 @@ The shared view disables rejected-row selection without preventing local
 removal; each owner enforces its mutation locks. The focused view test covers
 both this presentation and original wrapper editing/removal/long-press without
 network bootstrap.
+
+`../MobileChangesView.tsx` owns the original working-list/pinned-footer frame,
+status presentation and phone diff detail. Diff data, whitespace preference,
+Back/retry, optional context expansion and appearance come from the controller.
+The view performs no runtime requests. `MobileChangesSurface` retains its
+OpenCode/Git controller and preference hooks. Herdr supplies parsed host patches,
+its selected theme and disabled comments through the same detail. `CommitSection`
+omits Generate, Push and gitmoji actions when the corresponding callback is
+absent; existing original consumers continue to provide their actions.

@@ -19,12 +19,16 @@ import { useHerdrText } from './herdr.i18n';
 import { EditorView } from '@codemirror/view';
 import { driverResolveSchema } from '@/lib/opencode/herdr-driver';
 import { MobileFilesView } from '@/apps/MobileFilesView';
+import { MobileChangesState, MobileDiffDetail, MobileWorkingChangesView } from '@/apps/MobileChangesView';
+import { CommitSection } from '@/components/views/git/CommitSection';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { dropdownTriggerVariants } from '@/components/ui/dropdown-trigger';
+import { useUIStore } from '@/stores/useUIStore';
 import { registerBackLayer } from '@/lib/mobileBackLayers';
-import type { WorkspaceFileRequest } from './workspace-navigation';
+import { workspaceFilePath, type WorkspaceDiffRequest, type WorkspaceFileRequest } from './workspace-navigation';
 import type { Theme } from '@/types/theme';
 
 const CodeEditor = lazy(() => import('@/components/ui/CodeMirrorEditor').then((module) => ({ default: module.CodeMirrorEditor })));
-const DiffViewer = lazy(() => import('@/components/views/PierreDiffViewer').then((module) => ({ default: module.PierreDiffViewer })));
 
 type PanelProps = { transport: HerdrTransport; machine: string; paneId: string; disabled?: boolean; mutationBlocked?: boolean; themeMode?: 'light' | 'dark'; theme?: Theme; onPendingDelivery?: (record: PendingDelivery | null) => void };
 type FileEntry = z.infer<typeof hostSchemas.list>['entries'][number];
@@ -40,17 +44,18 @@ const emptyPaths = new Set<string>();
 const parentPath = (path: string) => path.split('/').slice(0, -1).join('/');
 const childPath = (directory: string, name: string) => directory ? `${directory}/${name}` : name;
 
-function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery: PanelProps['onPendingDelivery']) {
-  const [busy, setBusy] = useState(false);
+function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery: PanelProps['onPendingDelivery'], actionOwner?: string) {
+  const [activeMutation, setActiveMutation] = useState<{ owner: string; operation: HostMutation['operation'] } | null>(null);
+  const busy = activeMutation !== null;
   const [failure, setFailure] = useState<{ owner: string; error: Error } | null>(null);
   const running = useRef(false);
-  const owner = targetKey(client.transport.connection.server, client.target);
+  const owner = actionOwner ?? targetKey(client.transport.connection.server, client.target);
   const live = useRef({ owner, disabled });
   live.current = { owner, disabled };
   const execute = useCallback(async <T extends { root: string },>(request: HostMutation, schema: z.ZodType<T>): Promise<T | null> => {
     if (running.current || live.current.disabled || live.current.owner !== owner) return null;
     running.current = true;
-    setBusy(true);
+    setActiveMutation({ owner, operation: request.operation });
     setFailure(null);
     try {
       const { record, outcome } = await client.mutate(request, schema);
@@ -75,10 +80,10 @@ function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery
       return null;
     } finally {
       running.current = false;
-      setBusy(false);
+      setActiveMutation(null);
     }
   }, [client, onPendingDelivery, owner]);
-  return { busy, execute, clearError: () => setFailure(null), error: failure?.owner === owner ? failure.error : null };
+  return { busy, operation: activeMutation?.owner === owner ? activeMutation.operation : null, execute, clearError: () => setFailure(null), error: failure?.owner === owner ? failure.error : null };
 }
 
 export function FilesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, onPendingDelivery, requestedFile, isMobile = false, visible = true }: PanelProps & { requestedFile?: WorkspaceFileRequest | null; isMobile?: boolean; visible?: boolean }) {
@@ -417,101 +422,135 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   </section>;
 }
 
-export function ChangesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, themeMode, theme, onPendingDelivery, initialDiff }: PanelProps & { initialDiff?: { path: string; staged?: boolean } | null }) {
+type ChangesRoute = { type: 'changes' | 'branches' | 'history' } | { type: 'diff'; path: string; staged: boolean };
+
+export function ChangesPanel({ transport, machine, paneId, terminalId, disabled = false, mutationBlocked = false, themeMode, theme, onPendingDelivery, initialDiff }: PanelProps & { terminalId?: string; initialDiff?: WorkspaceDiffRequest | null }) {
   const { t } = useI18n();
   const h = useHerdrText();
   const client = useMemo(() => new HostClient(transport, { machine, pane_id: paneId }), [transport, machine, paneId]);
-  const owner = targetKey(transport.connection.server, client.target);
+  const owner = JSON.stringify([transport.connection.server, machine, paneId, terminalId ?? null]);
+  const enabled = !!paneId && !disabled;
   const pinnedRoots = useRef(new Map<string, string>());
   const [refresh, setRefresh] = useState(0);
   const [epoch, setEpoch] = useState(0);
-  const [mode, setMode] = useState<'changes' | 'branches' | 'history' | 'diff'>('changes');
-  const [diffTarget, setDiffTarget] = useState({ path: '', staged: false });
-  useEffect(() => { if (initialDiff) { setDiffTarget({ path: initialDiff.path, staged: initialDiff.staged ?? false }); setMode('diff'); } }, [initialDiff]);
+  const [navigation, setNavigation] = useState<{ scope: string; route: ChangesRoute } | null>(null);
   const [messages, setMessages] = useState(new Map<string, string>());
   const [branchName, setBranchName] = useState('');
   const [branchDialogOwner, setBranchDialogOwner] = useState<string | null>(null);
-  const branchDialog = branchDialogOwner === owner;
-  const setBranchDialog = (open: boolean) => setBranchDialogOwner(open ? owner : null);
   const [historyLimit, setHistoryLimit] = useState(30);
-  const actions = useHostActions(client, disabled || mutationBlocked || !paneId, onPendingDelivery);
+  const hideWhitespace = useUIStore(state => state.diffHideWhitespace);
+  const setHideWhitespace = useUIStore(state => state.setDiffHideWhitespace);
   const readStatus = useCallback(async (signal: AbortSignal) => {
     void refresh;
     const result = await client.read({ operation: 'git.status' }, hostSchemas.status, signal);
     signal.throwIfAborted();
-    const root = pinnedRoots.current.get(owner);
-    if (root && root !== result.root) throw new TransportError('target_changed', 'hostTargetChanged');
+    const pinned = pinnedRoots.current.get(owner);
+    if (pinned && pinned !== result.root) throw new TransportError('target_changed', 'hostTargetChanged');
     pinnedRoots.current.set(owner, result.root);
     return result;
   }, [client, owner, refresh]);
-  const status = usePolling(readStatus, !!paneId && !disabled, 15000, `${owner}:${epoch}`);
+  const status = usePolling(readStatus, enabled, 15000, `${owner}:${epoch}`);
   const root = status.data?.root ?? pinnedRoots.current.get(owner) ?? null;
+  const scope = JSON.stringify([owner, root]);
+  const actions = useHostActions(client, !enabled || mutationBlocked, onPendingDelivery, scope);
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
+  const route: ChangesRoute = navigation?.scope === scope ? navigation.route : { type: 'changes' };
+  const mode = route.type;
+  const setMode = (type: 'changes' | 'branches' | 'history') => setNavigation({ scope, route: { type } });
+  const branchDialog = branchDialogOwner === scope;
+  const setBranchDialog = (open: boolean) => setBranchDialogOwner(open ? scope : null);
+  const [modeMenuOwner, setModeMenuOwner] = useState<string | null>(null);
+  useEffect(() => setModeMenuOwner(null), [enabled, scope]);
+  const consumedRequest = useRef<string | null>(null);
+  useEffect(() => {
+    if (!enabled || !initialDiff || consumedRequest.current === initialDiff.id || !status.data || status.error) return;
+    if (initialDiff.server !== transport.connection.server || initialDiff.machine !== machine || initialDiff.paneId !== paneId || initialDiff.terminalId !== terminalId) return;
+    consumedRequest.current = initialDiff.id;
+    const path = workspaceFilePath(initialDiff.path, status.data.root);
+    if (path) setNavigation({ scope, route: { type: 'diff', path, staged: initialDiff.staged ?? false } });
+  }, [enabled, initialDiff, status.data, status.error, transport.connection.server, machine, paneId, terminalId, scope]);
+  const backToList = useRef(() => {});
+  backToList.current = () => setMode('changes');
+  useEffect(() => {
+    if (!enabled || mode !== 'diff') return;
+    return registerBackLayer(() => backToList.current());
+  }, [enabled, mode]);
   const readBranches = useCallback(async (signal: AbortSignal) => {
     void refresh;
     const result = await client.read({ operation: 'git.branches' }, hostSchemas.branches, signal);
     if (root && root !== result.root) throw new TransportError('target_changed', 'hostTargetChanged');
     return result;
   }, [client, root, refresh]);
-  const branches = usePolling(readBranches, mode === 'branches' && !!root && !disabled, 15000, `${owner}:${root}`);
+  const branches = usePolling(readBranches, mode === 'branches' && !!root && enabled && !status.error, 15000, `${owner}:${root}`);
   const readHistory = useCallback(async (signal: AbortSignal) => {
     void refresh;
     const result = await client.read({ operation: 'git.log', limit: historyLimit }, hostSchemas.log, signal);
     if (root && root !== result.root) throw new TransportError('target_changed', 'hostTargetChanged');
     return result;
   }, [client, root, refresh, historyLimit]);
-  const history = usePolling(readHistory, mode === 'history' && !!root && !disabled, 15000, `${owner}:${root}:${historyLimit}`);
+  const history = usePolling(readHistory, mode === 'history' && !!root && enabled && !status.error, 15000, `${owner}:${root}:${historyLimit}`);
+  const diffPath = route.type === 'diff' ? route.path : '';
+  const diffStaged = route.type === 'diff' && route.staged;
+  const stagedFiles = status.data?.files.filter(file => file.index.trim() && file.index !== '?') ?? [];
+  const workingFiles = status.data?.files.filter(file => file.working_dir.trim() || file.index === '?') ?? [];
+  const fileExists = (diffStaged ? stagedFiles : workingFiles).some(file => file.path === diffPath);
   const readDiff = useCallback(async (signal: AbortSignal) => {
     void refresh;
-    const path = root && diffTarget.path.startsWith(root + '/') ? diffTarget.path.slice(root.length + 1) : diffTarget.path;
-    const result = await client.read({ operation: 'git.diff', path, staged: diffTarget.staged }, hostSchemas.diff, signal);
+    const result = await client.read({ operation: 'git.diff', path: diffPath, staged: diffStaged }, hostSchemas.diff, signal);
     if (root && root !== result.root) throw new TransportError('target_changed', 'hostTargetChanged');
     return result;
-  }, [client, root, diffTarget, refresh]);
-  const diff = usePolling(readDiff, mode === 'diff' && !!root && !disabled, 15000, `${owner}:${root}:${diffTarget.path}:${diffTarget.staged}`);
-  const relativeDiffPath = root && diffTarget.path.startsWith(root + '/') ? diffTarget.path.slice(root.length + 1) : diffTarget.path;
-  const fileDiff = useMemo(() => diff.data?.diff && !isBinaryPatch(diff.data.diff) ? fileDiffFromPatch(diffTarget.path, diff.data.diff) : null, [diff.data, diffTarget.path]);
-  const writable = !disabled && !mutationBlocked && !!root && !status.error && !actions.busy;
-  const message = messages.get(owner) ?? '';
-  const error = actions.error ?? status.error ?? (mode === 'branches' ? branches.error : mode === 'history' ? history.error : mode === 'diff' ? diff.error : null);
+  }, [client, root, diffPath, diffStaged, refresh]);
+  const diff = usePolling(readDiff, mode === 'diff' && !!root && enabled && !status.error && fileExists, 15000, `${scope}:${diffPath}:${diffStaged}`);
+  const selectedDiff = useMemo(() => {
+    if (!diff.data) return null;
+    const isBinary = isBinaryPatch(diff.data.diff);
+    return { original: '', modified: '', isBinary, fileDiff: !isBinary && diff.data.diff ? fileDiffFromPatch(diffPath, diff.data.diff) ?? undefined : undefined };
+  }, [diff.data, diffPath]);
+  const writable = enabled && !mutationBlocked && !!root && !!status.data && !status.error && !actions.busy;
+  const message = messages.get(scope) ?? '';
+  const error = actions.error ?? status.error ?? (mode === 'branches' ? branches.error : mode === 'history' ? history.error : null);
+  const errorText = (failure: Error) => failure instanceof TransportError && failure.code === 'target_changed' ? h('hostTargetChanged') : failure.message === 'outcomeUnknown' ? h('hostUnknown') : failure.message === 'deliveryStorage' ? h('deliveryStorage') : failure.message;
   const stage = async (paths: string[], staged: boolean) => {
     if (!writable || !root) return;
     const result = await actions.execute({ operation: staged ? 'git.unstage' : 'git.stage', expectedRoot: root, paths }, hostSchemas.gitMutation);
-    if (result) setRefresh((value) => value + 1);
+    if (result && currentScope.current === scope) setRefresh(value => value + 1);
   };
-  const openDiff = (path: string, staged: boolean) => { setDiffTarget({ path, staged }); setMode('diff'); };
-  const stagedFiles = status.data?.files.filter((file) => file.index.trim() && file.index !== '?') ?? [];
-  const workingFiles = status.data?.files.filter((file) => file.working_dir.trim() || file.index === '?') ?? [];
+  const openDiff = (path: string, staged: boolean) => setNavigation({ scope, route: { type: 'diff', path, staged } });
   const groups: ChangesGroupConfig[] = [
-    { id: 'staged', title: t('gitView.changes.stagedTitle'), entries: stagedFiles, statsScope: 'staged', actionSymbol: '-', actionAllLabel: t('gitView.changes.unstageAllAria'), getActionLabel: (path) => t('gitView.changes.unstageFileAria', { path }), onActionFile: (path) => void stage([path], true), onActionAll: (paths) => void stage(paths, true), onViewDiff: (path) => openDiff(path, true), onRevertFile: () => undefined, showRevertActions: false },
-    { id: 'working', title: t('gitView.changes.title'), entries: workingFiles, statsScope: 'working', actionSymbol: '+', actionAllLabel: t('gitView.changes.stageAllAria'), getActionLabel: (path) => t('gitView.changes.stageFileAria', { path }), onActionFile: (path) => void stage([path], false), onActionAll: (paths) => void stage(paths, false), onViewDiff: (path) => openDiff(path, false), onRevertFile: () => undefined, showRevertActions: false },
+    { id: 'staged', title: t('gitView.changes.stagedTitle'), entries: stagedFiles, statsScope: 'staged', actionSymbol: '-', actionAllLabel: t('gitView.changes.unstageAllAria'), getActionLabel: path => t('gitView.changes.unstageFileAria', { path }), onActionFile: path => void stage([path], true), onActionAll: paths => void stage(paths, true), onViewDiff: path => openDiff(path, true), onRevertFile: () => undefined, showRevertActions: false },
+    { id: 'working', title: t('gitView.changes.title'), entries: workingFiles, statsScope: 'working', actionSymbol: '+', actionAllLabel: t('gitView.changes.stageAllAria'), getActionLabel: path => t('gitView.changes.stageFileAria', { path }), onActionFile: path => void stage([path], false), onActionAll: paths => void stage(paths, false), onViewDiff: path => openDiff(path, false), onRevertFile: () => undefined, showRevertActions: false },
   ];
   const commit = async () => {
-    if (!root || !writable || !message.trim()) return;
+    if (!root || !writable || !message.trim() || stagedFiles.length === 0) return;
     const sent = message;
     const result = await actions.execute({ operation: 'git.commit', expectedRoot: root, message: sent }, hostSchemas.commit);
     if (!result) return;
-    setMessages((previous) => previous.get(owner) === sent ? new Map(previous).set(owner, '') : previous);
-    setRefresh((value) => value + 1);
+    setMessages(previous => previous.get(scope) === sent ? new Map(previous).set(scope, '') : previous);
+    if (currentScope.current === scope) setRefresh(value => value + 1);
   };
   const createBranch = async () => {
     if (!root || !writable || !branchName.trim()) return;
     const result = await actions.execute({ operation: 'git.branch', expectedRoot: root, name: branchName.trim() }, hostSchemas.branchMutation);
-    if (result) { setBranchDialog(false); setBranchName(''); setRefresh((value) => value + 1); }
+    if (result && currentScope.current === scope) { setBranchDialog(false); setBranchName(''); setRefresh(value => value + 1); }
   };
   const checkout = async (branch: string) => {
     if (!root || !writable) return;
-    if (await actions.execute({ operation: 'git.checkout', expectedRoot: root, branch }, hostSchemas.branchMutation)) setRefresh((value) => value + 1);
+    if (await actions.execute({ operation: 'git.checkout', expectedRoot: root, branch }, hostSchemas.branchMutation) && currentScope.current === scope) setRefresh(value => value + 1);
   };
-  return <section className="herdr-content" aria-label={t('gitView.changes.title')}>
-    <div className="herdr-content-toolbar flex-wrap"><Button variant="chip" size="sm" aria-pressed={mode === 'changes'} onClick={() => setMode('changes')}>{t('gitView.changes.title')}</Button><Button variant="chip" size="sm" aria-pressed={mode === 'branches'} onClick={() => setMode('branches')}>{t('gitView.branch.localBranches')}</Button><Button variant="chip" size="sm" aria-pressed={mode === 'history'} onClick={() => setMode('history')}>{t('gitView.history.title')}</Button><span className="herdr-spacer" /><Button variant="ghost" size="icon" aria-label={t('gitView.history.refresh')} onClick={() => setRefresh((value) => value + 1)}><Icon name="refresh" className="size-4" /></Button></div>
-    <p className="herdr-content-root" dir="ltr">{root}{status.data?.current ? ` · ${status.data.current}` : ''}</p>
-    {error && <div className="herdr-banner herdr-error" role="alert"><p>{error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message === 'outcomeUnknown' ? h('hostUnknown') : error.message === 'deliveryStorage' ? h('deliveryStorage') : error.message}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button variant="outline" size="sm" onClick={() => { pinnedRoots.current.delete(owner); actions.clearError(); setEpoch((value) => value + 1); }}>{t('contextPanel.browser.reload')}</Button>}</div>}
-    {!paneId && <p className="herdr-detail">{h('noPane')}</p>}
-    {status.loading && <p className="herdr-detail" role="status">{t('common.loading')}</p>}
-    {mode === 'changes' && <><form className="flex shrink-0 gap-2 border-b border-border p-3" onSubmit={(event) => { event.preventDefault(); void commit(); }}><Input value={message} onChange={(event) => setMessages((previous) => new Map(previous).set(owner, event.target.value))} placeholder={t('gitView.commit.messagePlaceholder')} aria-label={t('gitView.commit.messagePlaceholder')} /><Button type="submit" size="sm" disabled={!writable || !message.trim() || stagedFiles.length === 0}>{actions.busy ? t('gitView.commit.committing') : t('gitView.commit.commit')}</Button></form>{status.data?.isClean && <p className="herdr-detail">{h('empty')}</p>}<fieldset disabled={!writable} className="m-0 flex min-h-0 flex-1 flex-col border-0 p-0" aria-label={t('gitView.changes.changedFilesAria')}><GitChangesList groups={groups} diffStats={undefined} revertingPaths={emptyPaths} /></fieldset></>}
-    {mode === 'diff' && <><div className="herdr-content-toolbar"><Button variant="ghost" size="sm" onClick={() => setMode('changes')}><Icon name="arrow-go-back" className="size-4" />{t('gitView.changes.title')}</Button><span className="herdr-file-path" dir="ltr">{diffTarget.path}</span><Button size="sm" variant="outline" disabled={!writable || !!diff.error || !diff.data || !relativeDiffPath} onClick={() => void stage([relativeDiffPath], diffTarget.staged)}>{t(diffTarget.staged ? 'gitView.changes.unstageFileAria' : 'gitView.changes.stageFileAria', { path: diffTarget.path })}</Button></div>{diff.loading && <p className="herdr-detail">{t('gitView.history.loadingDiff')}</p>}{diff.data && (isBinaryPatch(diff.data.diff) ? <p className="herdr-detail">{t('gitView.history.binaryNoDiff')}</p> : fileDiff ? <div className="min-h-0 flex-1 overflow-auto" dir="ltr"><Suspense fallback={<p className="herdr-detail">{t('common.loading')}</p>}><DiffViewer original="" modified="" fileDiff={fileDiff} language="text" fileName={diffTarget.path} renderSideBySide={false} enableComments={false} theme={theme} themeMode={themeMode} wrapLines /></Suspense></div> : <p className="herdr-detail">{h('empty')}</p>)}</>}
+  const reloadRoot = () => { pinnedRoots.current.delete(owner); setNavigation(null); setBranchDialogOwner(null); actions.clearError(); setEpoch(value => value + 1); };
+  const notices = <>{error && <div className="herdr-banner herdr-error" role="alert"><p>{errorText(error)}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button variant="outline" size="sm" onClick={reloadRoot}>{t('contextPanel.browser.reload')}</Button>}</div>}{!paneId && <p className="herdr-detail">{h('noPane')}</p>}</>;
+  return <section className="herdr-content bg-background text-foreground" aria-label={t('gitView.changes.title')} onKeyDownCapture={event => { if (mode === 'diff' && enabled && event.key === 'Escape' && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); setMode('changes'); } }}>
+    {mode === 'diff' ? <>{notices}<MobileDiffDetail path={diffPath} subtitle={t(diffStaged ? 'gitView.changes.stagedTitle' : 'gitView.changes.title')} diff={selectedDiff} staged={diffStaged} fileExists={fileExists || !status.data || !!status.error} error={diff.error ? errorText(diff.error) : null} onBack={() => setMode('changes')} onRetry={() => setRefresh(value => value + 1)} hideWhitespace={hideWhitespace} onHideWhitespaceChange={setHideWhitespace} theme={theme} themeMode={themeMode} enableComments={false} /></> : <>
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
+        <DropdownMenu open={enabled && modeMenuOwner === scope} onOpenChange={open => setModeMenuOwner(open ? scope : null)}><DropdownMenuTrigger asChild><Button variant="outline" className={dropdownTriggerVariants({ size: 'mobile' })} aria-label={t('diffView.scope.selectorAria')}><span>{t(mode === 'branches' ? 'gitView.branch.localBranches' : mode === 'history' ? 'gitView.history.title' : 'mobile.nav.changes')}</span><Icon name="arrow-down-s" className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={mode} onValueChange={value => { if (value === 'changes' || value === 'branches' || value === 'history') { setMode(value); setModeMenuOwner(null); } }}><DropdownMenuRadioItem value="changes">{t('mobile.nav.changes')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="branches">{t('gitView.branch.localBranches')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="history">{t('gitView.history.title')}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+        <span className="min-w-0 flex-1 truncate typography-meta text-muted-foreground" dir="ltr" title={root ?? undefined}>{status.data?.current ?? root}</span><Button variant="ghost" size="icon" aria-label={t('gitView.history.refresh')} onClick={() => setRefresh(value => value + 1)}><Icon name="refresh" className="size-4" /></Button>
+      </header>
+      {notices}
+      {mode === 'changes' && (!status.data ? <MobileChangesState loading={status.loading} message={t(status.loading ? 'gitView.loading.checkingRepository' : 'common.unavailable')} /> : status.data.files.length === 0 ? <MobileChangesState icon message={t('gitView.empty.cleanTitle')} description={t('mobile.changes.cleanDescription')} /> : <MobileWorkingChangesView commitFooter={<fieldset disabled={!writable} className="m-0 min-w-0 border-0 p-0"><CommitSection stagedCount={stagedFiles.length} commitMessage={message} onCommitMessageChange={value => setMessages(previous => new Map(previous).set(scope, value))} onCommit={() => void commit()} commitAction={actions.operation === 'git.commit' ? 'commit' : null} hasPendingIndexMutation={!writable} /></fieldset>}><fieldset disabled={!writable} className="m-0 flex h-full min-h-0 flex-col border-0 p-0" aria-label={t('gitView.changes.changedFilesAria')}><GitChangesList groups={groups} diffStats={undefined} revertingPaths={emptyPaths} headerBackgroundClassName="bg-transparent" /></fieldset></MobileWorkingChangesView>)}
     {mode === 'branches' && <div className="herdr-file-list"><Button variant="outline" size="sm" disabled={!writable} onClick={() => { setBranchName(''); setBranchDialog(true); }}>{t('gitView.branch.create')}</Button>{branches.loading && <p>{t('common.loading')}</p>}{branches.data?.all.length === 0 && <p>{t('gitView.branch.empty')}</p>}{branches.data?.all.map((name) => <div key={name} className="flex items-center gap-2 py-2"><Icon name="git-branch" className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate" dir="auto">{name}</span>{name === branches.data?.current ? <span className="text-muted-foreground typography-micro">{t('gitView.branch.currentBadge')}</span> : <Button variant="outline" size="sm" disabled={!writable || branches.data?.branches[name]?.linkedWorktree} onClick={() => void checkout(name)}>{t('gitView.history.actions.checkout')}</Button>}</div>)}</div>}
     {mode === 'history' && <div className="herdr-file-list">{history.loading && <p>{t('common.loading')}</p>}{history.data?.all.length === 0 && <p>{t('gitView.history.noCommits')}</p>}{history.data?.all.map((entry) => <details key={entry.hash} className="border-b border-border py-3"><summary className="cursor-pointer"><span className="font-medium" dir="auto">{entry.message}</span><span className="ms-2 text-muted-foreground typography-micro" dir="ltr">{entry.hash.slice(0, 8)}</span></summary><p className="text-muted-foreground typography-micro" dir="auto">{entry.author_name} · {entry.date}</p>{entry.body && <pre className="whitespace-pre-wrap typography-ui" dir="auto">{entry.body}</pre>}</details>)}{history.data && history.data.total > history.data.all.length && historyLimit < 100 && <Button variant="outline" size="sm" onClick={() => setHistoryLimit((value) => Math.min(100, value + 30))}>{t('gitView.history.loadMore')}</Button>}</div>}
+    </>}
     <Dialog open={branchDialog && !disabled} onOpenChange={(open) => !actions.busy && setBranchDialog(open)}><DialogContent><DialogHeader><DialogTitle>{t('gitView.branch.create')}</DialogTitle><DialogDescription>{t('gitView.branch.currentBranchTooltip')} <span dir="ltr">{status.data?.current}</span></DialogDescription></DialogHeader><Input value={branchName} onChange={(event) => setBranchName(event.target.value)} placeholder={t('gitView.branch.namePlaceholder')} aria-label={t('gitView.branch.namePlaceholder')} autoFocus dir="ltr" onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void createBranch(); } }} /><DialogFooter><Button variant="outline" disabled={actions.busy} onClick={() => setBranchDialog(false)}>{t('gitView.common.cancel')}</Button><Button disabled={!writable || !branchName.trim()} onClick={() => void createBranch()}>{t('gitView.history.actions.createBranchConfirm')}</Button></DialogFooter></DialogContent></Dialog>
   </section>;
 }

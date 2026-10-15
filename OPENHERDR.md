@@ -109,6 +109,34 @@ saved selection and return to the same Kansas window. The rebuilt Android APK
 packages this flow; device execution remains unverified. STATUS.md and the native
 validation document record the artifact and remaining limits.
 
+The active Changes increment restores one complete working-tree flow using the
+original file groups, phone diff detail and pinned multiline commit footer.
+Files save, working/staged diff, stage/unstage and a local commit of the current
+index use the existing host API. A commit does not capture an immutable index
+snapshot and does not automatically stage working contents. Navigation and drafts
+are scoped to the server, machine, pane terminal and canonical root. Hidden views
+pause reads, and unknown mutations retain their durable record without replay.
+Generate, push, discard and comparison controls require their own implemented
+host capabilities and are absent from this flow. Existing Branches and History
+remain reachable. The default CF service and first phone-test APK stay available.
+
+The working-tree flow now passes independent DOM/source review, the combined
+static gate, actual paired CF file-save/stage/unstage/commit/history/return checks,
+and rebuilt web/Android packaging. Final asset and runtime details are in
+STATUS.md. The default Kansas monitor still reads its existing worker window;
+its current cwd is not a Git repository and is shown as such. No remote Git
+write or physical Android execution is newly accepted. Complete original editor,
+Git network/comparison and remaining UI features stay in scope for later units.
+
+For this Changes increment, Herdr web/PWA and hosted mobile use the same host
+controller and shared list/diff/footer presentation. Capacitor Android and iOS
+bundle that controller with the existing Back and lifecycle bridge; native
+execution remains separate acceptance. Original web and Electron retain their
+existing Git controllers. Original VS Code retains its runtime bridge and Git
+controller. Original hosted and Capacitor mobile retain their controllers around
+the extracted presentation. The dedicated Herdr entrypoint remains available in
+a browser on Electron and is not mounted in VS Code.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and

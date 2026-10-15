@@ -30,7 +30,80 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current saved connection management increment
+## Current working-tree Changes increment
+
+Changes now shares the original scrolling file groups, phone diff header,
+whitespace control, loading/error/clean states and pinned multiline commit
+footer. Working and staged routes stay distinct. Branches and History remain
+available through the mode selector. Herdr supplies real host operations and
+current-index commit semantics. Generate, Push and discard stay absent because
+their host operations are not implemented. Missing line statistics no longer
+appear as zeroes. Full editor, Git and original-feature parity remain unfinished.
+
+Navigation, commit text and mutation feedback are scoped to the origin, machine,
+pane terminal and canonical root. External diff requests wait for a successful
+status read and matching visible owner. Hidden views pause reads and close mode
+portals. Back/Escape inside a diff returns to its list. A root change requires
+explicit reload. Old acknowledgements cannot refresh a different owner or clear
+its draft. Failed and unknown mutations retain the established delivery behavior.
+
+Independent review found a retained mode portal, false zero statistics and an
+import-time OpenCode bootstrap through Pierre's comment barrel. Those are fixed.
+The comments-enabled original viewer now loads its real session binding on demand;
+read-only diffs import pure utilities and do not initialize the original runtime.
+A later actual-browser check found that mode selection kept the menu open. It
+now closes as in the original, with a targeted regression. Final source review
+has no remaining P1/P2.
+
+The result is 63 passing cases: independent Changes 23, shared presentation 8,
+original comment binding 2, retained Files 10 and host-client/navigation 20.
+The real installed Pierre worker renders both working and staged text in the
+DOM suites, whose fetch assertions reject original runtime requests. Cases cover
+owner/root collisions, deleted/binary files, hidden reads, mode portals, delayed
+acknowledgements, failed and unknown mutations and preserved commit drafts.
+The final type/lint/Knip/anti-slop gate passes. The first gate's sole failure was
+the test harness's Fast Refresh scope, corrected without weakening assertions.
+Logs are `.tmp/changes-panel-menu-release.log`, `.tmp/mobile-changes-view-v2.log`,
+`.tmp/pierre-diff-binding-v2.log`, `.tmp/changes-files-regression.log`,
+`.tmp/changes-host-client-regression.log` and `.tmp/check-changes-menu-release.log`.
+Earlier browser-fixture failures remain in their original logs.
+
+The real 412x915 test CF browser edited and saved one task-owned file, inspected
+its working patch, staged it, inspected its staged patch, returned, unstaged and
+staged again, then submitted a multiline local commit. Disk and Git readback
+confirmed only that file was committed and the prior dirty files were preserved.
+History displayed the new commit; returning to Files retained the same editor,
+then closing the workspace returned to its read-only window. No terminal input,
+agent start or conversation creation was used. The test connection's expired
+browser access was explicitly paired again for this flow. The default bridge,
+CF origin and fixed first-phone APK remain available. Private browser captures
+and Git receipts stay under `.tmp/changes-browser/` and `.tmp/changes-git-result.json`.
+
+Original Web and Herdr builds pass. The final Android debug APK is 42,298,812
+bytes, packages `herdr--dPvpIpz.js`, and its HTML/entry bytes match the web build
+in `.tmp/changes-apk.json`. Gradle passed in 10 seconds with 245 tasks, 27 executed
+and 218 up-to-date, using the existing task cache and NDK 27.1. Logs are
+`.tmp/build-web-changes-final.log`, `.tmp/build-herdr-changes-menu-final.log` and
+`.tmp/build-changes-menu-android.log`. The first full browser write flow used
+`herdr-CnNHHhHF.js`; the final menu-only correction was rebuilt and checked on
+`herdr--dPvpIpz.js`, including actual History/menu closure and RTL. The new APK
+has not been installed or interactively tested. The preserved first-phone-test
+copy still matches its published digest and was not replaced.
+
+The final default CF page restored the same Kansas worker window with a real
+read-only frame. Its `/root/us-claude` directory is not a Git repository, and
+Changes displayed that actual error with disabled commit, without a fake clean
+list. No Git mutation was sent to that remote directory. Remote Git write
+acceptance was not rerun for this UI increment; the prior owned-SSH host evidence
+remains separate. Both existing bridge PIDs, ports and CF origins are unchanged.
+Public health is 200 and unauthenticated private access is 401 for both origins
+in `.tmp/changes-runtime-after.json`.
+
+Actual Android Back/IME, camera, KeyStore, process death and physical phone use
+remain unverified. This increment changes no backend Git operation,
+provider configuration, remote SSH configuration or managed Cloudflare setup.
+
+## Previous saved connection management increment
 
 Instances now uses the original mobile list, edit framing, two-step local
 removal and fullscreen/dialog presentation. Saved entries have optional local

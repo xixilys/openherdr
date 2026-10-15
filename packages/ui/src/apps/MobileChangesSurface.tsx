@@ -2,7 +2,6 @@ import { isCompleteIdentity } from '@/lib/api/git-identity';
 import React from 'react';
 import { Icon } from '@/components/icon/Icon';
 import { useIsContributorWorktree } from '@/hooks/useIsContributorWorktree';
-import { WhitespaceToggleIcon } from '@/components/views/WhitespaceToggleIcon';
 
 import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,7 @@ import { useConnectedAccountIds, useSourceControlAuthStore } from '@/stores/useS
 import type { GitIdentityProfile } from '@/lib/api/types';
 import { InProgressOperationBanner } from '@/components/views/git/InProgressOperationBanner';
 import { hasUncommittedTrackedChanges, isConflictedStatusFile } from '@/components/views/git/changeStatus';
-import { PierreDiffViewer, type ContextExpansionRequest } from '@/components/views/PierreDiffViewer';
+import type { ContextExpansionRequest } from '@/components/views/PierreDiffViewer';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useRepositoryBinding } from '@/lib/source-control/repository-binding';
 import { hasConfigChangedGrant } from '@/lib/source-control/types';
@@ -55,15 +54,13 @@ import { useReviewFlowStart } from '@/components/session/useReviewFlowStart';
 import { cn } from '@/lib/utils';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { fileDiffFromPatch, isBinaryPatch } from '@/lib/diff/patchFileDiff';
-import { parseDiffFromFile, type FileDiffMetadata } from '@pierre/diffs';
-import type { GitStatus, GitSubmoduleState } from '@/lib/api/types';
+import { parseDiffFromFile } from '@pierre/diffs';
+import type { GitStatus } from '@/lib/api/types';
 import { GitPathUnavailableError } from '@/lib/api/git-path-diff';
-import { SubmoduleDiffSummary } from '@/components/views/SubmoduleDiffSummary';
 import { changeRequestCopy } from '@/lib/source-control/changeRequestCopy';
 import { useI18n } from '@/lib/i18n';
 import { generateCommitMessage, stageGitFile, stageGitFiles, unstageGitFile, unstageGitFiles } from '@/lib/gitApi';
 import type { GitRemote } from '@/lib/gitApi';
-import { getLanguageFromExtension, isImageFile } from '@/lib/toolHelpers';
 import {
   useGitStore,
   useGitIdentity,
@@ -84,6 +81,7 @@ import { PublishDialog } from '@/components/views/git/PublishDialog';
 import { settleGitFileReverts } from './mobileChangesOperations';
 import { commitAndSwitchBranch } from './mobileDirtySwitch';
 import { normalizePath } from '@/lib/pathNormalization';
+import { MobileChangesState, MobileDiffDetail as MobileDiffDetailView, MobileWorkingChangesView, type MobileDiffData, type MobileDiffDetailProps } from './MobileChangesView';
 
 type SyncAction = 'fetch' | 'pull' | 'sync' | 'publish' | null;
 type CommitAction = 'commit' | 'commitAndPush' | null;
@@ -97,13 +95,6 @@ interface ChangesNavigation {
   ownerKey: string;
   mode: ChangesMode;
   route: ChangesRoute;
-}
-interface MobileDiffData {
-  original: string;
-  modified: string;
-  isBinary?: boolean;
-  fileDiff?: FileDiffMetadata;
-  submodule?: GitSubmoduleState | null;
 }
 type ComparisonDiff =
   | { status: 'loading' }
@@ -1237,37 +1228,32 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
       {mode !== 'working' ? (
         <div className="min-h-0 flex-1">{renderComparison()}</div>
       ) : changeEntries.length > 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* File list scrolls inside ChangesPanel; the commit footer stays pinned. */}
-          <div className="min-h-0 flex-1 overflow-hidden px-4 pt-4">
-            <ChangesPanel
-              groups={changeGroups}
-              diffStats={status?.diffStats}
-              revertingPaths={revertingPaths}
-              onRevertAll={handleRevertAll}
-              isRevertingAll={isRevertingAll}
-              headerBackgroundClassName="bg-transparent"
-              onVisiblePathsChange={setVisibleChangePaths}
-            />
-          </div>
-          <div className="shrink-0 border-t border-border/70 px-4 pb-4 pt-3">
-            <CommitSection
-              stagedCount={stagedChangeEntries.length}
-              commitMessage={commitMessage}
-              onCommitMessageChange={setCommitMessage}
-              generatedHighlights={generatedHighlights}
-              onInsertHighlights={handleInsertHighlights}
-              onGenerateMessage={handleGenerateCommitMessage}
-              isGeneratingMessage={isGeneratingMessage}
-              onCommit={() => void handleCommit({ pushAfter: false })}
-              onCommitAndPush={() => void handleCommit({ pushAfter: true })}
-              commitAction={commitAction}
-              networkOperationBlocked={operationRecovery.blocked}
-              gitmojiEnabled={false}
-              onOpenGitmojiPicker={() => {}}
-            />
-          </div>
-        </div>
+        <MobileWorkingChangesView commitFooter={
+          <CommitSection
+            stagedCount={stagedChangeEntries.length}
+            commitMessage={commitMessage}
+            onCommitMessageChange={setCommitMessage}
+            generatedHighlights={generatedHighlights}
+            onInsertHighlights={handleInsertHighlights}
+            onGenerateMessage={handleGenerateCommitMessage}
+            isGeneratingMessage={isGeneratingMessage}
+            onCommit={() => void handleCommit({ pushAfter: false })}
+            onCommitAndPush={() => void handleCommit({ pushAfter: true })}
+            commitAction={commitAction}
+            networkOperationBlocked={operationRecovery.blocked}
+            gitmojiEnabled={false}
+          />
+        }>
+          <ChangesPanel
+            groups={changeGroups}
+            diffStats={status?.diffStats}
+            revertingPaths={revertingPaths}
+            onRevertAll={handleRevertAll}
+            isRevertingAll={isRevertingAll}
+            headerBackgroundClassName="bg-transparent"
+            onVisiblePathsChange={setVisibleChangePaths}
+          />
+        </MobileWorkingChangesView>
       ) : (
         <div className="min-h-0 flex-1">
           <MobileChangesState icon message={t('gitView.empty.cleanTitle')} description={t('mobile.changes.cleanDescription')} />
@@ -1324,119 +1310,10 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
   );
 };
 
-const MobileChangesState: React.FC<{
-  message: string;
-  description?: string;
-  loading?: boolean;
-  icon?: boolean;
-}> = ({ message, description, loading = false, icon = false }) => (
-  <div className="flex h-full items-center justify-center px-6 text-center">
-    <div className="flex max-w-sm flex-col items-center gap-2">
-      {loading ? <Icon name="loader-4" className="size-5 animate-spin text-muted-foreground" /> : null}
-      {icon ? <Icon name="git-branch" className="size-6 text-muted-foreground" /> : null}
-      <p className="typography-ui-label font-semibold text-foreground">{message}</p>
-      {description ? <p className="typography-meta text-muted-foreground">{description}</p> : null}
-    </div>
-  </div>
-);
-
-const MobileDiffDetail: React.FC<{
-  path: string;
-  subtitle?: string;
-  diff: MobileDiffData | null;
-  staged?: boolean;
-  fileExists: boolean;
-  unavailableReason?: 'nested_repository' | 'untracked_directory' | null;
-  error: string | null;
-  onBack: () => void;
-  onRetry: () => void;
-  onExpandContextRequest?: (request: ContextExpansionRequest) => void;
-  pendingContextExpansion?: ContextExpansionRequest | null;
-  contextLoading?: boolean;
-}> = ({ path, subtitle, diff, staged = false, fileExists, unavailableReason = null, error, onBack, onRetry, onExpandContextRequest, pendingContextExpansion, contextLoading }) => {
-  const { t } = useI18n();
-  const language = React.useMemo(() => getLanguageFromExtension(path) || 'text', [path]);
+const MobileDiffDetail: React.FC<Omit<MobileDiffDetailProps, 'hideWhitespace' | 'onHideWhitespaceChange'>> = (props) => {
   const hideWhitespace = useUIStore((state) => state.diffHideWhitespace);
-  const setHideWhitespace = useUIStore((state) => state.setDiffHideWhitespace);
-  const whitespaceState = hideWhitespace ? t('diffView.whitespace.hidden') : t('diffView.whitespace.shown');
-
-  return (
-    <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-[var(--oc-header-height,56px)] shrink-0 items-center gap-3 border-b border-border/70 px-3 text-foreground">
-        <button
-          type="button"
-          className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-interactive-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={t('header.actions.backAria')}
-          onClick={onBack}
-        >
-          <Icon name="arrow-left" className="size-5" />
-        </button>
-        <div className="min-w-0 flex-1 px-2">
-          <h2 className="truncate typography-ui-header text-foreground">{path}</h2>
-          {subtitle && <p className="truncate typography-meta text-muted-foreground">{subtitle}</p>}
-        </div>
-        <button
-          type="button"
-          className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-interactive-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            hideWhitespace ? 'text-foreground' : 'text-muted-foreground',
-          )}
-          aria-label={t('diffView.actions.hideWhitespace')}
-          aria-pressed={hideWhitespace}
-          title={whitespaceState}
-          onClick={() => setHideWhitespace(!hideWhitespace)}
-        >
-          <WhitespaceToggleIcon hidden={hideWhitespace} className="size-5" />
-        </button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {!fileExists ? (
-          <MobileChangesState icon message={t('mobile.changes.diffDetail.missingTitle')} description={t('mobile.changes.diffDetail.missingDescription')} />
-        ) : unavailableReason === 'nested_repository' ? (
-          <MobileChangesState icon message={t('diffView.unavailable.nestedRepositoryTitle')} description={t('diffView.unavailable.nestedRepositoryDescription')} />
-        ) : unavailableReason === 'untracked_directory' ? (
-          <MobileChangesState icon message={t('diffView.unavailable.untrackedDirectoryTitle')} description={t('diffView.unavailable.untrackedDirectoryDescription')} />
-        ) : error ? (
-          <div className="flex h-full items-center justify-center px-6 text-center">
-            <div className="flex max-w-sm flex-col items-center gap-3">
-              <p className="typography-ui-label font-semibold text-foreground">{t('mobile.changes.diffDetail.loadFailed')}</p>
-              <p className="typography-meta text-muted-foreground">{error}</p>
-              <Button type="button" size="sm" variant="outline" onClick={onRetry}>{t('diffView.actions.retry')}</Button>
-            </div>
-          </div>
-        ) : !diff ? (
-          <MobileChangesState loading message={t('diffView.state.loadingDiff')} />
-        ) : diff.submodule ? (
-          <div className="p-3"><SubmoduleDiffSummary state={diff.submodule} staged={staged} /></div>
-        ) : diff.isBinary ? (
-          <MobileChangesState icon message={t('diffView.binary.unavailable')} />
-        ) : isImageFile(path) && !diff.fileDiff ? (
-          <MobileChangesState icon message={t('mobile.changes.diffDetail.imageUnavailable')} />
-        ) : (
-          <ScrollShadow
-            className="h-full overflow-y-auto overflow-x-hidden p-3"
-            data-diff-virtual-root
-            data-diff-virtual-content
-          >
-            <PierreDiffViewer
-              original={diff.original}
-              modified={diff.modified}
-              fileDiff={diff.fileDiff}
-              language={language}
-              fileName={path}
-              renderSideBySide={false}
-              wrapLines={true}
-              hideWhitespace={hideWhitespace}
-              layout="inline"
-              onExpandContextRequest={onExpandContextRequest}
-              pendingContextExpansion={pendingContextExpansion}
-              contextLoading={contextLoading}
-            />
-          </ScrollShadow>
-        )}
-      </div>
-    </div>
-  );
+  const onHideWhitespaceChange = useUIStore((state) => state.setDiffHideWhitespace);
+  return <MobileDiffDetailView {...props} hideWhitespace={hideWhitespace} onHideWhitespaceChange={onHideWhitespaceChange} />;
 };
 
 const MobileComparisonFileList: React.FC<{ files: GitComparisonFile[]; onSelect: (path: string) => void }> = ({ files, onSelect }) => {

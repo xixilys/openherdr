@@ -20,10 +20,10 @@ import type { WorkerPoolManager } from '@pierre/diffs/worker';
 import {
   buildPierreLineAnnotations,
   type PierreAnnotationData,
-  PierreDiffCommentOverlays,
   toPierreAnnotationId,
-  useInlineCommentController,
-} from '@/components/comments';
+} from '@/components/comments/PierreDiffCommentUtils';
+import type { PierreDiffCommentOverlays } from '@/components/comments/PierreDiffCommentOverlays';
+import type { PierreDiffCommentController } from './PierreDiffCommentBinding';
 
 import { useOptionalThemeSystem } from '@/contexts/useThemeSystem';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
@@ -37,7 +37,6 @@ import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { hideWhitespaceChanges } from '@/lib/diff/hideWhitespaceChanges';
 import type { PatchHunkAnchor } from '@/lib/diff/patchFileDiff';
-import { getDiffLinesText } from '@/lib/diff/selectedDiffLines';
 import { PIERRE_DIFF_TINT_CSS } from '@/lib/shiki/pierreDiffTint';
 
 /**
@@ -442,25 +441,6 @@ const useDiffSwapAfterHighlight = (
   return displayed;
 };
 
-const extractSelectedCode = (
-  original: string,
-  modified: string,
-  fileDiff: FileDiffMetadata | undefined,
-  range: SelectedLineRange,
-): string => {
-  // Default to modified if side is ambiguous, as users mostly comment on new code
-  const isOriginal = range.side === 'deletions';
-  const from = Math.min(range.start, range.end);
-  const to = Math.max(range.start, range.end);
-  if (fileDiff) return getDiffLinesText(fileDiff, isOriginal ? 'deletions' : 'additions', from, to);
-
-  const lines = (isOriginal ? original : modified).split('\n');
-  const startLine = Math.max(1, from);
-  const endLine = Math.min(lines.length, to);
-  if (startLine > endLine) return '';
-  return lines.slice(startLine - 1, endLine).join('\n');
-};
-
 const isSameSelection = (left: SelectedLineRange | null, right: SelectedLineRange | null): boolean => {
   if (left === right) return true;
   if (!left || !right) return false;
@@ -743,6 +723,8 @@ const wakeVirtualizer = (
   };
 };
 
+const PierreDiffCommentBinding = React.lazy(() => import('./PierreDiffCommentBinding'));
+
 export const PierreDiffViewer: React.FC<PierreDiffViewerProps> = ({ hideWhitespace = false, ...props }) => {
   const { t } = useI18n();
   const { original, modified, fileDiff, fileName } = props;
@@ -766,37 +748,18 @@ export const PierreDiffViewer: React.FC<PierreDiffViewerProps> = ({ hideWhitespa
   const bodyProps = { ...props, fileDiff: visibleDiff, hunkActions: hideWhitespace ? undefined : props.hunkActions };
   return props.enableComments === false
     ? <PierreDiffViewerBody {...bodyProps} />
-    : <PierreDiffViewerWithComments {...bodyProps} />;
+    : <React.Suspense fallback={null}>
+      <PierreDiffCommentBinding original={original} modified={modified} fileDiff={visibleDiff} fileName={fileName} language={props.language}>
+        {({ comments, Overlays }) => <PierreDiffViewerBody {...bodyProps} comments={comments} CommentOverlays={Overlays} />}
+      </PierreDiffCommentBinding>
+    </React.Suspense>;
 };
 
-type DiffCommentController = Pick<ReturnType<typeof useInlineCommentController<SelectedLineRange>>,
-  'drafts' | 'selection' | 'setSelection' | 'commentText' | 'setCommentText' | 'editingDraftId' | 'saveComment' | 'cancel' | 'startEdit' | 'deleteDraft'>;
-type DiffBodyProps = Omit<PierreDiffViewerProps, 'hideWhitespace'> & { comments?: DiffCommentController };
-const EMPTY_COMMENT_DRAFTS: DiffCommentController['drafts'] = [];
+type DiffBodyProps = Omit<PierreDiffViewerProps, 'hideWhitespace'> & { comments?: PierreDiffCommentController; CommentOverlays?: typeof PierreDiffCommentOverlays };
+const EMPTY_COMMENT_DRAFTS: PierreDiffCommentController['drafts'] = [];
 const ignoreCommentChange = () => {};
 
 // Only this branch binds comments to the selected OpenCode session.
-const PierreDiffViewerWithComments: React.FC<Omit<PierreDiffViewerProps, 'hideWhitespace'>> = (props) => {
-  const { original, modified, fileDiff: incomingFileDiff, fileName, language } = props;
-  const comments = useInlineCommentController<SelectedLineRange>({
-    source: 'diff',
-    fileLabel: fileName || 'unknown',
-    language,
-    getCodeForRange: (range) => extractSelectedCode(original, modified, incomingFileDiff, range),
-    toStoreRange: (range) => ({
-      startLine: range.start,
-      endLine: range.end,
-      side: range.side === 'deletions' ? 'original' : 'modified',
-    }),
-    fromDraftRange: (draft) => ({
-      start: draft.startLine,
-      end: draft.endLine,
-      side: draft.side === 'original' ? 'deletions' : 'additions',
-    }),
-  });
-  return <PierreDiffViewerBody {...props} comments={comments} />;
-};
-
 const PierreDiffViewerBody: React.FC<DiffBodyProps> = ({
   original,
   modified,
@@ -810,6 +773,7 @@ const PierreDiffViewerBody: React.FC<DiffBodyProps> = ({
   themeMode,
   theme,
   comments,
+  CommentOverlays,
   hunkActions,
   onExpandContextRequest,
   pendingContextExpansion = null,
@@ -1722,8 +1686,8 @@ const PierreDiffViewerBody: React.FC<DiffBodyProps> = ({
     return null;
   }
 
-  const commentOverlays = enableComments ? (
-    <PierreDiffCommentOverlays
+  const commentOverlays = enableComments && CommentOverlays ? (
+    <CommentOverlays
       diffRootRef={diffRootRef}
       drafts={fileDrafts}
       selection={selection}

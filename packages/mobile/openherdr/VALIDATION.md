@@ -1,6 +1,35 @@
 # Native build validation
 
-## Latest saved connection management artifact
+## Latest working-tree Changes artifact
+
+The final debug APK is 42,298,812 bytes and packages `herdr--dPvpIpz.js`.
+Its HTML and entry bytes match the Herdr web build in `.tmp/changes-apk.json`.
+The scanner remains registered. The fixed D8G2xhGi first-phone-test copy is
+unchanged, as confirmed against its previously published digest; the public
+prerelease is not replaced.
+
+The original Web and Herdr builds pass. Asset preparation, Capacitor Android
+sync and Gradle assembleDebug pass with the existing task-owned cache and NDK
+27.1 selection. The final native build log is `.tmp/build-changes-menu-android.log`;
+the final Herdr build is `.tmp/build-herdr-changes-menu-final.log`, and the
+original Web build is `.tmp/build-web-changes-final.log`.
+
+The 412x915 paired CF browser completed actual Files edit/Save, working/staged
+diff inspection, stage/unstage, multiline local commit, History and return to
+the same editor and read-only window in the task-owned fixture. Disk and Git
+readback confirmed the exact file, current-index commit and preserved prior
+dirty files. The final asset also passed mode-menu closure and Arabic RTL; the
+English locale was restored. The default CF origin restored the same Kansas
+worker window with real read-only output. Focused suites total 63 passing cases,
+and the final combined static gate passes. Details and limits are in
+[STATUS.md](../../../docs/openherdr/STATUS.md).
+
+This APK has not been installed or interactively tested. Android camera,
+KeyStore, native IME/system Back and process death remain unverified; no physical
+phone result has been received. Full original editor/Git/UI parity remains
+unfinished. Browser and build results do not establish native acceptance.
+
+## Previous saved connection management artifact
 
 The debug APK is 40,701,131 bytes and packages `herdr-CpTmNVqs.js`. Its HTML and
 entry match the Herdr web build exactly in `.tmp/instances-apk.json`; scanner

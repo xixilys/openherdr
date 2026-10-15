@@ -229,6 +229,27 @@ local tests. This is a bounded Git capability, not full Git screen or native par
 
 Reusable original presentation includes `components/views/git/ChangesPanel.tsx` with explicit `groups`, `diffStats` and per-file callbacks, `CommitSection`, `GitHeader`, `HistorySection`, branch pickers and `PierreDiffViewer`. Some children still use stores; trace each enabled child rather than assuming all descendants are pure.
 
+The working-tree Changes increment extracts `MobileChangesView`: the original
+scrolling list/pinned footer, phone diff detail and explicit status states.
+`CommitSection` supplies the multiline local-commit input. Herdr owns real host
+requests, canonical-root and terminal-scoped routes/drafts, unknown-delivery
+locks and refresh after confirmed stage/unstage/commit. The mode menu preserves
+the existing Branches and History entrypoints. Missing diff statistics stay
+absent. Generate, Push and discard actions require separate host capabilities.
+Commit uses Herdr's existing current-index semantics and cannot promise an
+immutable reviewed snapshot while other processes edit the checkout.
+
+The actual 412x915 paired CF browser completed Files edit/Save, working and
+staged patches, stage/unstage, a multiline local commit and return to the same
+editor/window on a task-owned checkout. Git readback preserved all prior dirty
+files and committed only the selected fixture file. The full flow used the first
+build; a final menu-close correction passed the rebuilt History/RTL browser
+check. Screenshots are [working tree](assets/changes-working-tree.png) and
+[commit footer](assets/changes-commit.png). The final default CF monitor also
+restored Kansas; its non-repository cwd produced an explicit Changes error.
+No remote write or Android device acceptance is inferred from those reads.
+Current artifact/test details are in [STATUS.md](STATUS.md).
+
 Full Git parity also includes `SourceControlAPI`, `lib/source-control/repository-binding.ts`, `boundGitNetworkOperation.ts`, identity storage and operation recovery. A successful local commit does not prove push/PR/auth integration. Preserve the existing planned network-operation/grant design when exposing these controls.
 
 Worktree ownership is in `components/sections/openchamber/WorktreeSectionContent.tsx`, `useProjectWorktrees.ts`, `components/session/NewWorktreeDialog.tsx`, `lib/worktrees/worktreeManager.ts`, `worktreeCreate.ts` and `worktreeRemovalFlow.ts`, plus session attachment/repair state. Herdr and the current OpenHerdr allowlist expose list/create/open/remove. The remaining original-screen adaptation must map those real worktree records and receipt handling to the original controls. Keep worktree deletion, attached panes and dirty state explicit. A workspace close must not silently substitute for worktree removal.

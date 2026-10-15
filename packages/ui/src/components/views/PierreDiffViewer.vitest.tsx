@@ -1,7 +1,9 @@
 import React from 'react';
 import { expect, test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { renderToString } from 'react-dom/server';
+import { renderToPipeableStream, renderToString } from 'react-dom/server';
+import { PassThrough } from 'node:stream';
+import { Window } from 'happy-dom';
 import { OpenCode } from '@opencode/client';
 import { I18nProvider } from '@/lib/i18n';
 import { SyncProvider } from '@/sync/sync-context';
@@ -23,10 +25,31 @@ test('read-only diffs render without an OpenCode sync or theme provider', () => 
   }
 });
 
-test('comments keep their session binding and default to enabled', () => {
-  assert.throws(() => renderToString(
+const renderResolved = async (content: React.ReactNode) => {
+  const errors: unknown[] = [];
+  let html = '';
+  await new Promise<void>((resolve, reject) => {
+    const output = new PassThrough();
+    output.on('data', (chunk: Buffer) => { html += chunk.toString(); });
+    output.on('end', resolve);
+    output.on('error', reject);
+    const stream = renderToPipeableStream(content, {
+      onAllReady: () => stream.pipe(output),
+      onError: error => { errors.push(error); },
+    });
+  });
+  return { html, errors };
+};
+
+test('comments resolve their real default session binding and require SyncProvider', async () => {
+  // Wait for the lazy binding. A synchronous SSR render would only inspect
+  // Suspense's initial fallback and never exercise the comment controller.
+  const missing = await renderResolved(
     <I18nProvider><PierreDiffViewer {...diff} /></I18nProvider>,
-  ), /useSyncRuntime must be used within <SyncProvider>/);
+  );
+  expect(missing.errors).toHaveLength(1);
+  expect(missing.errors[0]).toBeInstanceOf(Error);
+  expect(String(missing.errors[0])).toContain('useSyncRuntime must be used within <SyncProvider>');
 
   let requests = 0;
   const sdk = OpenCode.make({
@@ -36,8 +59,20 @@ test('comments keep their session binding and default to enabled', () => {
       throw new Error('Server rendering must not make an OpenCode request');
     },
   });
-  assert.doesNotThrow(() => renderToString(
-    <I18nProvider><SyncProvider sdk={sdk} directory=""><PierreDiffViewer {...diff} /></SyncProvider></I18nProvider>,
-  ));
-  expect(requests).toBe(0);
+  const dom = new Window({ url: 'https://diff.test' });
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', { value: dom, configurable: true, writable: true });
+  try {
+    const bound = await renderResolved(
+      <I18nProvider><SyncProvider sdk={sdk} directory=""><PierreDiffViewer {...diff} /></SyncProvider></I18nProvider>,
+    );
+    expect(bound.errors).toEqual([]);
+    expect(bound.html).toContain('pierre-diff-wrapper');
+    expect(bound.html).not.toContain('<template');
+    expect(requests).toBe(0);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'window', descriptor);
+    else Reflect.deleteProperty(globalThis, 'window');
+    await dom.happyDOM.close();
+  }
 });

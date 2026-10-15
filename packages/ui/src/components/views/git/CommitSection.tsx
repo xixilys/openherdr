@@ -12,33 +12,33 @@ interface CommitSectionProps {
   stagedCount: number;
   commitMessage: string;
   onCommitMessageChange: (value: string) => void;
-  generatedHighlights: string[];
-  onInsertHighlights: (highlights: string[]) => void;
-  onGenerateMessage: () => void;
-  isGeneratingMessage: boolean;
+  generatedHighlights?: string[];
+  onInsertHighlights?: (highlights: string[]) => void;
+  onGenerateMessage?: () => void;
+  isGeneratingMessage?: boolean;
   onCommit: () => void;
-  onCommitAndPush: () => void;
+  onCommitAndPush?: () => void;
   commitAction: CommitAction;
   networkOperationBlocked?: boolean;
   hasPendingIndexMutation?: boolean;
-  gitmojiEnabled: boolean;
-  onOpenGitmojiPicker: () => void;
+  gitmojiEnabled?: boolean;
+  onOpenGitmojiPicker?: () => void;
 }
 
 export const CommitSection: React.FC<CommitSectionProps> = ({
   stagedCount,
   commitMessage,
   onCommitMessageChange,
-  generatedHighlights,
+  generatedHighlights = [],
   onInsertHighlights,
   onGenerateMessage,
-  isGeneratingMessage,
+  isGeneratingMessage = false,
   onCommit,
   onCommitAndPush,
   commitAction,
   networkOperationBlocked = false,
   hasPendingIndexMutation = false,
-  gitmojiEnabled,
+  gitmojiEnabled = false,
   onOpenGitmojiPicker,
 }) => {
   const { t } = useI18n();
@@ -62,10 +62,10 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
       </div>
 
       <div className={contentClassName}>
-        <AIHighlightsBox
+        {onInsertHighlights ? <AIHighlightsBox
           highlights={generatedHighlights}
           onInsert={onInsertHighlights}
-        />
+        /> : null}
 
         <CommitInput
           value={commitMessage}
@@ -79,7 +79,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
           isMobile={isMobile}
         />
 
-        {gitmojiEnabled && (
+        {gitmojiEnabled && onOpenGitmojiPicker && (
           <Button
             variant="outline"
             size="sm"
@@ -93,7 +93,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
         )}
 
         <div className="@container/commit-actions flex items-center gap-2 min-w-0">
-          <Button
+          {onGenerateMessage ? <Button
             variant="outline"
             size="sm"
             onClick={onGenerateMessage}
@@ -113,7 +113,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
               <Icon name="ai-generate-2" className="size-4 text-primary" />
             )}
             <span className="commit-actions__label">{t('gitView.commit.generate')}</span>
-          </Button>
+          </Button> : null}
 
           <div className="flex-1" />
 
@@ -138,13 +138,13 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
             )}
           </Button>
 
-          {isMobile ? (
+          {onCommitAndPush ? isMobile ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => onCommitAndPush()}
+                  onClick={onCommitAndPush}
                   disabled={!canCommit || isGeneratingMessage || networkOperationBlocked}
                   className="h-7 w-7 p-0"
                   aria-label={t('gitView.commit.pushAria')}
@@ -164,7 +164,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
             <Button
               size="sm"
               variant="default"
-              onClick={() => onCommitAndPush()}
+              onClick={onCommitAndPush}
               disabled={!canCommit || isGeneratingMessage || networkOperationBlocked}
               className="commit-actions__btn"
               aria-label={t('gitView.commit.pushAria')}
@@ -181,7 +181,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
                 </>
               )}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </section>

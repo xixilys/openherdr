@@ -338,6 +338,31 @@ first visit, while hidden reads stop. Git operations retain actual error and
 conflict results. A pending host write uses the same durable mutation record
 as terminal and conversation operations.
 
+Working-tree Changes shares `MobileWorkingChangesView`, `MobileDiffDetail` and
+`CommitSection` with the original mobile application. The list scrolls above a
+pinned multiline commit footer. Working and staged entries open separate diff
+routes; Back returns to their list. The whitespace toggle uses the existing UI
+preference. Missing line statistics are omitted. Generate, push and discard are
+absent because this host controller does not implement them. Branches and History
+remain separate modes with their existing operations.
+
+Changes navigation, commit drafts, mutation feedback and incoming diff actions
+belong to the exact server, machine, pane terminal and canonical root. An incoming
+`WorkspaceDiffRequest` waits for a successful status read and visible owner before
+it is consumed. Changing targets cannot reuse a same-named path. A detected root
+change blocks writes until explicit reload, which starts at the new root's list.
+Menu portals close when hidden or when the owner changes. A deleted path remains
+viewable while it belongs to the relevant Git change group. A successful index
+mutation refreshes the current owner. A late acknowledgement cannot refresh a
+new owner or clear its commit draft. Failed and unknown commits retain text and
+the established durable-delivery behavior.
+
+Local commit acts on the entire current index at execution time. It does not
+auto-stage working contents or pin an immutable reviewed snapshot. Missing Git
+identity and other host refusals remain visible errors. The shared read-only diff
+uses `enableComments={false}` and the explicit selected theme. Session-backed
+comment code loads only for comments-enabled original consumers.
+
 Workspace file requests capture server, machine, pane identity, conversation,
 canonical root, relative path and optional source line. Files consumes a request
 only while visible and after a successful directory read matches its root. An

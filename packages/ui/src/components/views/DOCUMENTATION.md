@@ -21,11 +21,13 @@ so `FilesView` keeps its line-number config's identity across renders.
 File tree ownership and request rules are in `files/DOCUMENTATION.md`.
 
 `PierreDiffViewer` with `enableComments={false}` renders a read-only diff
-without the OpenCode session/comment hooks. This supports independent runtime
+without loading the OpenCode session/comment binding. The original comments-enabled
+branch loads that binding on demand. This supports independent runtime
 entrypoints that do not mount `SyncProvider`. `themeMode` explicitly selects
 light or dark appearance there; `theme` can supply the selected complete theme.
 The original entrypoint retains its optional
-theme context and default comment behavior. Disabling comments does not enable
+theme context and default comment behavior. Missing per-file line statistics stay absent in Git change rows; supplied zero
+counts remain visible. Disabling comments does not enable
 file mutations or replace the caller's source and target validation.
 
 `DiffView` gates repository discovery, comparisons, per-file reads, viewport

@@ -235,6 +235,16 @@ directory were cleaned up. These results are recorded in
 `.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
 and `.tmp/untracked-ssh-acceptance.json`.
 
+Changes uses the original scrolling file groups, phone diff detail, whitespace
+toggle and pinned multiline commit input. Open a working or staged file, return
+to the list, stage or unstage explicit paths, then commit the current index.
+Navigation and commit text belong to the selected machine, pane terminal and
+canonical repository root. Switching targets cannot carry an old diff path into
+the new checkout. Failed commits preserve the message; unknown results stay
+locked for inspection through the existing delivery controls. Generate, Push and
+discard are not available in this host controller. Branches and History keep
+their existing entrypoints. Current validation is recorded in [STATUS.md](STATUS.md).
+
 The first physical-device test copy is `openherdr-test1-726029ba6.apk`, stored
 locally under `packages/mobile/openherdr/build/` so later debug builds cannot
 overwrite it. [Download that first QR-test APK from GitHub](https://github.com/xixilys/openherdr/releases/download/android-test1-726029ba6/openherdr-test1-726029ba6.apk).

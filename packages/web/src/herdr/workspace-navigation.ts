@@ -24,3 +24,14 @@ export function workspaceFilePath(path: string, root: string): string | null {
   const normalized = parts.filter((part) => part !== '.' && part !== '').join('/');
   return normalized || null;
 }
+
+/** A diff request belongs to the existing terminal that produced the action. */
+export type WorkspaceDiffRequest = {
+  id: string;
+  server: string;
+  machine: string;
+  paneId: string;
+  terminalId: string;
+  path: string;
+  staged?: boolean;
+};

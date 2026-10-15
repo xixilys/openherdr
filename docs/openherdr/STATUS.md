@@ -120,3 +120,9 @@ The historical terminal baseline was committed at `9991c6f8d`; its validations
 remain in validation.json. It is not the current full-replication result. The
 default owned bridge remains distinct from the isolated acceptance instance.
 Existing user Herdr panes, agents and unrelated services remain preserved.
+The default bridge now runs the current server code on port 4318. Its renewed
+Cloudflare path passed public health, unauthenticated rejection and an
+authenticated snapshot of the real default Herdr session. This check sent no
+terminal input; its temporary client was revoked. Source review and UI findings
+were reported back to dot with revision `556d2e9be`; receipt of that follow-up
+does not establish a further review.

@@ -97,14 +97,22 @@ in messages `ebcabf84-8e6d-46cf-9b8b-c2d34577e6eb` and
 with the original baseline. The actual reviewer model remains unconfirmed.
 This was source review, with no Android runtime acceptance or overlapping writes.
 
-The integration revision `c1b07b395` is committed locally on `openherdr/main`
+The UI integration revision `556d2e9be` is committed locally on `openherdr/main`
 and verified on public `xixilys/openherdr` main. The original `origin` still
 points at OpenChamber; the public source remote is `openherdr`. Dot received
 the repository/revision and the UI correction in message
 `3ae575c8-b47c-4450-8a30-26ae598642c1`. Dot's returned findings informed the
 shared presentation, request dock and composer-state corrections. Continue the
-current original-presentation integration before
-expanding backend feature families. The owning default runtime uses port 4318;
+remaining original-presentation work before expanding backend feature families.
+The current shared UI has real HTTPS browser validation, a rebuilt Android APK
+and an observed native connection screen. Native connected-chat interaction,
+tool-specific diff/attachment views and the original stepped form flow remain
+unfinished. Dot was sent the new source and validation limits in message
+`d681f1e0-9177-42de-80b4-5903ee7fc2a4`; this follow-up is stored, with reading
+unconfirmed. The owning default bridge was restarted on the current code and
+its new HTTPS path passed health, bearer rejection and an authenticated default
+Herdr snapshot. Only the verification client was revoked afterward.
+The default runtime uses port 4318;
 4310 belongs to QQ. `docs/openherdr/STATUS.md` records runtime validation and
 remaining feature/native limits.
 

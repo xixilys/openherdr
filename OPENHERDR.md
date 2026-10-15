@@ -4,9 +4,42 @@
 
 The user requests an OpenChamber-derived app and native Herdr workflow plugin, with the OpenChamber UI, mobile remote control over Cloudflare, SSH or a suitable direct connection, and Git-based iterations. Work autonomously with dot/Astra. Preserve existing user sessions, agents, services and provider configuration. Repository root is `/Volumes/remote/project/openherdr` on the Mac.
 
+The latest user correction makes the Android app the primary deliverable and
+explicitly requests continued complete feature replication. The existing
+terminal-controller baseline is an intermediate version. Web/PWA supports the
+Android client and development; iOS work is auxiliary. Inventory the original
+OpenChamber features, identify real Herdr/provider-session data, then implement
+and exercise the Android flows. An unsupported-feature table does not complete
+the requested work. Retain factual distinctions between implementation, emulator
+execution and physical-phone execution.
+
 Upstream OpenChamber is MIT licensed, baseline `c5b690df9`. Keep the license and original application. OpenHerdr is an independent entrypoint inside `packages/web`; sharing UI primitives does not require OpenCode to run. Existing OpenCode-specific functions remain part of the upstream application and must not be advertised as supported for arbitrary Herdr agents without an implementation.
 
-Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS.md and the user's global instructions apply. The user explicitly authorizes Git iteration and autonomous implementation. Public release, changes to shared services or credentials, and stopping unrelated agents are outside this task.
+Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS.md and the user's global instructions apply. The user explicitly authorizes Git iteration and autonomous implementation. The user now explicitly authorizes a public source repository. Store/app releases, changes to shared services or credentials, and stopping unrelated agents remain outside this task.
+
+## Current UI correction and source publication
+
+The user supplied an Android OpenChamber screenshot and explicitly noted that
+the current UI differs too much. Visual and interaction fidelity is the current
+priority. Keep functional adapters, but pause expansion into additional backend
+feature families while the original chat, composer, session navigation and
+workspace screens are restored. A shared header or primitive count does not
+establish UI parity.
+
+The reference shows the original compact session header, right-aligned user
+bubbles with long-message expansion, unboxed assistant text, compact inline
+tool summaries and a floating rounded composer containing active-turn status,
+model/agent-mode controls and send/stop actions. Reuse/extract the original
+presentation and maintain real source actions and unknown-state behavior.
+Font appearance follows the app/system font preference; the screenshot's phone
+status bar and unrelated OS overlay are not application controls.
+
+The supplied reference contains private conversation text. Keep it in local
+ignored validation materials and never include it in a public source commit.
+The authorized public repository is `xixilys/openherdr`; verify its creation
+and pushed branch before claiming published source. dot/Astra may review or
+receive disjoint UI work through the already-authorized peer channel. Delivery
+receipts remain separate from substantive agreement and actual dispatch.
 
 ## Architecture
 
@@ -15,7 +48,7 @@ Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS
 - `packages/web/herdr.html` and `vite.herdr.config.ts`: separate web/PWA build, output `packages/web/dist-herdr`.
 - `packages/web/bin/openherdr.js`: CLI lifecycle, pairing, Cloudflare and SSH instructions/transport.
 - `plugins/openherdr/`: native Herdr workflow plugin manifest/actions, following the installed Herdr protocol.
-- Mobile web/PWA is the first runnable app. Reuse the Capacitor shell with a separate app identifier/build when feasible; report native builds separately from real-phone validation.
+- Android is the primary app, using the separate Capacitor application identifier `dev.openherdr.mobile`. Reuse the original Android shell and native behavior where applicable. The browser app is a supporting runtime; existing iOS artifacts remain auxiliary.
 
 ## API contract for parallel implementation
 
@@ -30,6 +63,17 @@ All application data routes use bearer authentication, including loopback. Do no
 - `GET /api/herdr/clients` and `DELETE /api/herdr/clients/:id`: device inspection/revocation. Credentials are never returned by list.
 - Herdr output uses official read-only terminal observation frames rendered by Ghostty, with revisioned bounded text reads as fallback. Observation does not acquire the exclusive terminal controller. Poll only visible active pane, pause hidden views, cancel stale requests on machine/pane change, and back off failures.
 - Main-thread follow-up may add pane-scoped read-only `/api/herdr/files` and `/api/herdr/git`; these must resolve authoritative pane cwd and confine file access to it. UI can add these after the contract is implemented.
+
+The current increment adds `POST /api/herdr/host` with a strict
+`{request,requestId?}` envelope for Files/Git. Mutations require a unique request
+ID, a pinned server-resolved root and the applicable file revision. Local and
+saved SSH hosts use the same typed helper. The original read-only routes remain
+available for older clients. `POST /api/herdr/conversations/*` implements the
+local OpenCode source contract, including independent saved-history reads and
+explicit rebind. Neither route accepts an engine URL, SSH command, credential
+or browser-selected filesystem root. Detailed contracts and current validation
+are in the owning server documentation and
+`docs/openherdr/CONVERSATION_DRIVER.md`.
 
 Pairing issuance uses a private mode-0600 Unix admin socket owned by this server. CLI asks the running server to create the pairing; CLI must not concurrently mutate the upstream JSON stores from a second process. Reuse `client-auth/remote-clients.js` and `pairing.js` with injected state paths. Do not import the full upstream server. Exact allowed origins, no wildcard CORS, no trust in arbitrary forwarded headers. Cloudflare's HTTPS endpoint requires explicit public origin registration before pairing. Enterprise policy applies to network exposure and tunnel creation.
 

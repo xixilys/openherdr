@@ -165,3 +165,128 @@ The coordinator owns actual local/SSH/Cloudflare/browser acceptance.
 `herdr api schema --json` on 2026-10-14. It is protocol reference material;
 `contracts.js` deliberately accepts a narrower set with explicit targets and
 bounded payloads.
+
+
+## Host operations HTTP API
+
+`POST /api/herdr/host` accepts `{request,requestId?}`. The nested request uses
+`host-operations.js` contracts and always names a saved machine or `local`, an
+explicit pane ID and an operation. `/api/herdr/info` advertises the owning
+schema's operation names in `capabilities.hostOperations`.
+
+This route uses the same bearer, exact Origin and current enterprise-policy
+gates as other private routes. It accepts JSON bodies up to 16 MiB. Other
+routes keep their 128 KiB limit. The response is the parsed operation result,
+with no synthesized file, Git or revision data. Failed reads remain errors.
+
+Every host mutation requires a unique requestId. The shared receipt journal
+writes and fsyncs `unknown` before dispatch, using the operation as its method
+and the selected machine as its target. Input content is hashed and is not
+stored in the journal. Confirmed success stores
+`{id:requestId,result:operationResult}` in a complete receipt. Duplicate IDs,
+including IDs used through the Herdr RPC route, return 409 without dispatch.
+
+Only an explicit `confirmedNoEffect` error allows a host mutation receipt to
+become rejected. Other failures, including 4xx errors without this evidence,
+remain unknown and return `outcome_unknown`. Inspect the receipt and actual
+host state before choosing another operation. No host mutation retries
+automatically. A write result whose final receipt cannot be persisted also
+returns an unknown outcome.
+
+Focused HTTP tests use disposable directories and an injected host bridge.
+They check actual file writes, authentication, saved-machine selection,
+pre-dispatch journaling, deduplication, unknown/rejected outcomes, route body
+limits, failed reads and the enterprise gate. Helper confinement and real
+local/SSH operation validation belong to `host-operations.test.js` and the
+coordinator's owned fixtures.
+
+## Conversation HTTP API
+
+The server lazily loads `createConversationService({bridge,stateDir})` on the
+first authenticated conversation request. Starting the bridge or calling its
+health endpoint does not discover or launch an OpenCode coordinator. Tests can
+inject `options.conversations` with the same service methods and lifecycle.
+
+All routes use `POST /api/herdr/conversations/<operation>` with
+`{request,requestId?}`. The nested request is parsed with the exact owning schema
+from `conversations/contracts.js`. Authentication, exact Origin checks and
+current enterprise policy apply before service access. Browser-selected
+machines must be local or saved profiles. The service still enforces its own
+engine, target identity and session ownership rules.
+
+| Route operation | Service method | Receipt |
+| --- | --- | --- |
+| `resolve`, `list`, `read`, `catalog` | Same name | None |
+| `create` | `create` | Required requestId |
+| `act` | `act` | Required requestId |
+| `events` | `events` | None |
+| `history/list` | `historyList` | None |
+| `history/read` | `historyRead` | None |
+| `rebind` | `rebind` | Required requestId |
+
+History requests use their pane-independent schemas. They enumerate only
+sessions recorded by the owning OpenHerdr driver. Rebinding a saved session to
+a live target remains an explicit mutation, with the driver's identity,
+canonical directory and ownership checks. A closed pane is not replaced with a
+guessed current pane.
+
+Only `act` accepts a 16 MiB JSON body for attachments. Create, history and all
+other conversation reads keep the 128 KiB limit. Successful responses preserve
+the service's actual records and action results.
+
+Create, action and rebind receipts are fsynced before dispatch. Their method is
+`conversation.create`, `conversation.<action>` or `conversation.rebind` and
+their machine is the selected target's machine. A complete receipt stores only
+`{id:requestId,result:{protocol,target,sessionId,action}}`. The create session ID
+comes from the actual returned session. Prompt text, inline files, session
+metadata and assistant output are absent from persisted receipt results. The
+request contributes only its hash to the journal. An error after dispatch,
+including a 409, stays unknown unless the service explicitly confirms no
+effect. Input is never replayed automatically.
+
+Events use header-authenticated fetch and `application/x-ndjson`. The route
+awaits the source iterator's first frame before sending HTTP 200, so an initial
+auth/scope failure remains a JSON HTTP error. An empty source returns 502.
+After the first frame, source failure emits a typed `conversation.error` frame
+and ends the response. Each write waits for stream drain before asking the
+source for another frame.
+
+Per-client AbortControllers cancel conversation requests on disconnect,
+revocation and server shutdown. Stream cleanup returns the source iterator.
+Shutdown awaits the conversation service's `close()` once; the service owns
+and closes only its own coordinator child and subscriptions. A discovered user
+coordinator and live Herdr agents remain outside that ownership.
+
+Focused HTTP tests inject domain services and verify authentication, strict
+requests, full response delivery, receipt redaction, unknown outcomes, early
+and late stream failure, backpressure, disconnect/revoke/shutdown cleanup,
+attachment limits, pane-independent history and explicit rebind. They do not
+claim native provider execution or Android acceptance.
+
+## Application preferences and project context
+
+`POST /api/herdr/preferences` accepts the strict read/update requests from
+`preferences.js`. It shares bearer, origin and current network policy checks.
+Profile values are shared across clients of this instance; theme and font size
+keep the original per-surface scope. Device-only settings and credentials are
+excluded. CAS revisions reject concurrent writes. Passive synchronization does
+not clear a settings conflict; the user must explicitly refresh. Server close
+waits for accepted preference writes.
+
+The authenticated info response exposes only `allowRemoteFonts` for the current
+enterprise policy. Missing, loading or failed info disables new remote font
+loads. Stored font selection remains intact while the interface uses system
+fonts. No provider configuration is read or written by the preference route.
+
+`POST /api/herdr/project-context` accepts `{request,requestId?}` with a 1 MiB
+limit for personal plan text. The exact owner, revision and mutation schemas
+are documented in [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md). Mutations require
+a durable request ID. Receipts retain the request hash and returned owner and
+revision, excluding note, Todo and plan contents. A confirmed refusal rejects
+the receipt; an unconfirmed write remains unknown.
+
+The standalone server has no inferred ordinary-workspace project root. Native
+worktrees use Herdr's authoritative repository root. An administrator may
+supply a trusted `resolveWorkspaceRoot` callback that validates native workspace
+lifetime; otherwise an ordinary workspace returns `project_root_unavailable`.
+All context data stays in this instance's private state directory.

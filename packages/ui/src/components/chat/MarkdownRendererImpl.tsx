@@ -10,16 +10,12 @@ import { getDefaultTheme } from '@/lib/theme/themes';
 import type { Theme } from '@/types/theme';
 import { openAppLinkWithConfirmation } from './appLinkConfirmation';
 import { attachAppLinkInteractions } from './appLinkInteractions';
-import { useOpenChatLink } from './useOpenChatLink';
 import { attachFileRefClickGuard, FILE_REFERENCE_LINK_SELECTOR } from './fileRefClickGuard';
 import type { ToolPopupContent } from './message/types';
 import { FadeInOnReveal } from './message/FadeInOnReveal';
 import { useUIStore } from '@/stores/useUIStore';
-import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
-import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type { EditorAPI } from '@/lib/api/types';
-import { isDesktopLocalOriginActive, isDesktopShell, isVSCodeRuntime, openDesktopPath } from '@/lib/desktop';
-import { openSessionLink } from '@/lib/router/openSessionFromRoute';
+import { isDesktopLocalOriginActive, isVSCodeRuntime, openDesktopPath } from '@/lib/desktop';
 import { getRuntimeApiBaseUrl } from '@/lib/runtime-switch';
 import { isMobileSurfaceRuntime } from '@/lib/runtimeSurface';
 import { getDirectoryForFilePath, isFilePathWithinDirectory, toAbsoluteFilePath } from '@/lib/path-utils';
@@ -60,45 +56,32 @@ import { fileReferenceExists, findUniqueFileByName } from './fileReferenceStat';
 import { streamPerfCount, streamPerfObserve } from '@/stores/utils/streamDebug';
 import { detachedMarkdownDomCache, type DetachedMarkdownDomKey } from './markdown/detachedMarkdownDomCache';
 import { applyOpenFencePatch } from './markdown/openFenceIncremental';
-import { getRuntimeKey } from '@/lib/runtime-switch';
+import { MarkdownPresentationContext, type MarkdownPresentationSource } from './MarkdownPresentationContext';
+import { lazyWithChunkRecovery } from '@/lib/chunkLoadRecovery';
 
-const useCurrentMermaidTheme = () => {
+const useCurrentMermaidTheme = (mode?: 'light' | 'dark', theme?: Theme) => {
   const themeSystem = useOptionalThemeSystem();
   const fallbackLight = getDefaultTheme(false);
   const fallbackDark = getDefaultTheme(true);
 
-  return themeSystem?.currentTheme
+  return theme ?? (mode ? mode === 'dark' ? fallbackDark : fallbackLight : undefined)
+    ?? themeSystem?.currentTheme
     ?? (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
       ? fallbackDark
       : fallbackLight);
 };
 
-// Addresses that serve the instance this chat belongs to: the page itself
-// (web), and the instance the app is connected to, which the desktop page,
-// living on its own scheme, does not share an origin with. A link to either
-// opens in place; one to another instance leaves the chat as before.
-const resolveOwnOrigins = (): string[] => {
-  if (typeof window === 'undefined') return [];
-  const origins = [window.location.origin];
-  try {
-    const apiOrigin = new URL(getRuntimeApiBaseUrl() || window.location.href, window.location.href).origin;
-    if (!origins.includes(apiOrigin)) origins.push(apiOrigin);
-  } catch {
-    // An unparseable runtime address adds nothing.
-  }
-  return origins;
-};
+const OpenCodeMarkdownSource = lazyWithChunkRecovery(() => import('./OpenCodeMarkdownSource'));
 
 const useLinkInteractions = ({
   containerRef,
   enabled,
-  directory,
+  source,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   enabled?: boolean;
-  directory: string;
+  source: MarkdownPresentationSource;
 }) => {
-  const openChatLink = useOpenChatLink(directory);
   React.useEffect(() => {
     const container = containerRef.current;
     if (!container) {
@@ -106,17 +89,14 @@ const useLinkInteractions = ({
     }
 
     // VS Code keeps session links inert: its sessions live on its own OpenCode.
-    const opensSessionLinks = !isVSCodeRuntime();
     return attachAppLinkInteractions(container, {
       allowExternalHttp: enabled !== false,
       openAppLink: (href) => void openAppLinkWithConfirmation(href),
-      openExternalHttp: openChatLink,
-      openSessionLink: opensSessionLinks
-        ? (target) => void openSessionLink(target.sessionId, target.messageId)
-        : undefined,
-      ownOrigins: resolveOwnOrigins(),
+      openExternalHttp: source.openExternalLink,
+      openSessionLink: source.openSessionLink,
+      ownOrigins: source.ownOrigins,
     });
-  }, [containerRef, enabled, openChatLink]);
+  }, [containerRef, enabled, source]);
 };
 
 const DEFAULT_MERMAID_CONTROLS: MermaidControlOptions = {
@@ -1363,7 +1343,7 @@ const markdownContentClassName = (variant: MarkdownVariant): string =>
       ? 'markdown-content markdown-reasoning'
       : 'markdown-content leading-relaxed';
 
-const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
+const MarkdownRendererView: React.FC<MarkdownRendererProps & { source: MarkdownPresentationSource }> = ({
   content,
   part,
   messageId,
@@ -1374,20 +1354,15 @@ const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
   variant = 'assistant',
   onShowPopup,
   enableFileReferences = true,
+  source,
 }) => {
   streamPerfCount('ui.markdown_renderer.render');
   if (isStreaming) streamPerfCount('ui.markdown_renderer.render.streaming');
   streamPerfObserve('ui.markdown_renderer.content_len', content.length);
-  const currentTheme = useCurrentMermaidTheme();
-  const { editor, runtime } = useRuntimeAPIs();
+  const currentTheme = useCurrentMermaidTheme(source.themeMode, source.theme);
+  const { editor } = source;
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const effectiveDirectory = useEffectiveDirectory() ?? '';
-  const openContextPreview = useUIStore((state) => state.openContextPreview);
-
-  const handlePreviewLoopback = React.useCallback((url: string) => {
-    if (!effectiveDirectory) return;
-    openContextPreview(effectiveDirectory, url);
-  }, [effectiveDirectory, openContextPreview]);
+  const effectiveDirectory = source.directory;
 
 
   useMermaidInlineInteractions({
@@ -1400,16 +1375,15 @@ const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
     containerRef,
     effectiveDirectory,
     editor,
-    preferRuntimeEditor: runtime.isVSCode,
-    enabled: enableFileReferences && !isStreaming,
+    preferRuntimeEditor: source.isVSCode,
+    enabled: source.fileReferences && enableFileReferences && !isStreaming,
   });
-  useLinkInteractions({ containerRef, directory: effectiveDirectory });
+  useLinkInteractions({ containerRef, source });
 
   const syntaxVars = React.useMemo(() => getMarkdownSyntaxVars(currentTheme), [currentTheme]);
   // With links opening in the browser panel anyway, the preview button next to
   // a local address would only repeat the link.
-  const openLinksInBrowserPanel = useUIStore((state) => state.openLinksInBrowserPanel) && isDesktopShell();
-  const ctx = useDecorateContext(currentTheme, effectiveDirectory && !openLinksInBrowserPanel ? handlePreviewLoopback : undefined, DEFAULT_MERMAID_CONTROLS);
+  const ctx = useDecorateContext(currentTheme, source.previewLoopback, DEFAULT_MERMAID_CONTROLS);
   const { locale } = useI18n();
   // Assistant images render as labels that useInlineMarkdownImages replaces
   // with the pictures once the part settles; tool output and reasoning draw
@@ -1420,7 +1394,7 @@ const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
     && part.time?.end !== undefined
     ? part
     : null;
-  const runtimeKey = getRuntimeKey();
+  const runtimeKey = source.runtimeKey;
   // Memoized on scalar identities, not the part object: sync-store reducers
   // recreate part objects on unrelated updates, and an object-identity dep
   // re-ran the async render pipeline for identical content.
@@ -1456,7 +1430,7 @@ const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
 
   useInlineMarkdownImages({
     containerRef,
-    sessionId: imageMode === 'label' && !isStreaming ? settledSessionID : undefined,
+    sessionId: source.inlineImages && imageMode === 'label' && !isStreaming ? settledSessionID : undefined,
     messageId: settledMessageID,
     directory: effectiveDirectory,
     onShowPopup,
@@ -1479,6 +1453,16 @@ const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
   return markdownContent;
 };
 
+const PendingMarkdownSource = ({ content, variant = 'assistant', className }: Pick<MarkdownRendererProps, 'content' | 'variant' | 'className'>) => isMobileSurfaceRuntime()
+  ? <div className={cn('break-words w-full min-w-0 whitespace-pre-wrap', markdownContentClassName(variant), className)}>{content}</div>
+  : null;
+
+const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = (props) => {
+  const explicitSource = React.useContext(MarkdownPresentationContext);
+  if (explicitSource) return <MarkdownRendererView {...props} source={explicitSource} />;
+  return <React.Suspense fallback={<PendingMarkdownSource content={props.content} variant={props.variant} className={props.className} />}><OpenCodeMarkdownSource>{(source) => <MarkdownRendererView {...props} source={source} />}</OpenCodeMarkdownSource></React.Suspense>;
+};
+
 export const MarkdownRenderer = React.memo(MarkdownRendererImpl, (prev, next) => {
   return prev.content === next.content
     && prev.isStreaming === next.isStreaming
@@ -1492,7 +1476,7 @@ export const MarkdownRenderer = React.memo(MarkdownRendererImpl, (prev, next) =>
     && prev.part?.id === next.part?.id;
 });
 
-const SimpleMarkdownRendererImpl: React.FC<{
+type SimpleMarkdownProps = {
   content: string;
   className?: string;
   variant?: MarkdownVariant;
@@ -1505,7 +1489,8 @@ const SimpleMarkdownRendererImpl: React.FC<{
   enableFileReferences?: boolean;
   /** Render the document's raw HTML through the allowlist; only for documents a user opens to read. */
   allowRawHtml?: boolean;
-}> = ({
+};
+const SimpleMarkdownRendererView: React.FC<SimpleMarkdownProps & { source: MarkdownPresentationSource }> = ({
   content,
   className,
   variant = 'assistant',
@@ -1516,11 +1501,12 @@ const SimpleMarkdownRendererImpl: React.FC<{
   allowMermaidWheelEvents = false,
   enableFileReferences = true,
   allowRawHtml = false,
+  source,
 }) => {
-  const { editor, runtime } = useRuntimeAPIs();
-  const currentTheme = useCurrentMermaidTheme();
+  const { editor } = source;
+  const currentTheme = useCurrentMermaidTheme(source.themeMode, source.theme);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const effectiveDirectory = useEffectiveDirectory() ?? '';
+  const effectiveDirectory = source.directory;
 
   const renderedContent = React.useMemo(
     () => (stripFrontmatter ? stripLeadingFrontmatter(content) : content),
@@ -1538,10 +1524,10 @@ const SimpleMarkdownRendererImpl: React.FC<{
     containerRef,
     effectiveDirectory,
     editor,
-    preferRuntimeEditor: runtime.isVSCode,
-    enabled: enableFileReferences,
+    preferRuntimeEditor: source.isVSCode,
+    enabled: source.fileReferences && enableFileReferences,
   });
-  useLinkInteractions({ containerRef, enabled: !disableLinkSafety, directory: effectiveDirectory });
+  useLinkInteractions({ containerRef, enabled: !disableLinkSafety, source });
 
   const syntaxVars = React.useMemo(() => getMarkdownSyntaxVars(currentTheme), [currentTheme]);
   const ctx = useDecorateContext(currentTheme, undefined, mermaidControls);
@@ -1564,6 +1550,12 @@ const SimpleMarkdownRendererImpl: React.FC<{
       <div className={markdownContentClassName(variant)} data-markdown-content data-markdown-html={allowRawHtml ? '' : undefined} />
     </div>
   );
+};
+
+const SimpleMarkdownRendererImpl: React.FC<SimpleMarkdownProps> = (props) => {
+  const explicitSource = React.useContext(MarkdownPresentationContext);
+  if (explicitSource) return <SimpleMarkdownRendererView {...props} source={explicitSource} />;
+  return <React.Suspense fallback={<PendingMarkdownSource content={props.content} variant={props.variant} className={props.className} />}><OpenCodeMarkdownSource>{(source) => <SimpleMarkdownRendererView {...props} source={source} />}</OpenCodeMarkdownSource></React.Suspense>;
 };
 
 /** @public Consumed as a named export by the lazy Markdown renderer loader. */

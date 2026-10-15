@@ -1,3 +1,18 @@
+# OpenHerdr Android
+
+OpenHerdr adapts the OpenChamber mobile experience to Herdr, with an authenticated
+bridge for local and saved-SSH machines and Cloudflare device pairing.
+Android is the primary app. Complete feature and UI replication is in progress.
+
+[Setup and feature coverage](docs/openherdr/README.md) ·
+[Current validation and limits](docs/openherdr/STATUS.md) ·
+[Android build](packages/mobile/openherdr/README.md)
+
+This repository retains the MIT-licensed OpenChamber source and its original
+entrypoints. The upstream project documentation follows.
+
+---
+
 # <picture><source media="(prefers-color-scheme: dark)" srcset="docs/references/badges/openchamber-logo-dark.svg"><img src="docs/references/badges/openchamber-logo-light.svg" width="32" height="32" align="absmiddle" /></picture> OpenChamber
 
 [![GitHub stars](https://img.shields.io/github/stars/openchamber/openchamber?style=flat&labelColor=100F0F&color=66800B)](https://github.com/openchamber/openchamber/stargazers)

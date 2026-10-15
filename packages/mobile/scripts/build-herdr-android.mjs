@@ -22,6 +22,7 @@ if (!sdkRoot || !existsSync(resolve(sdkRoot, 'platforms'))) {
   throw new Error('Android SDK missing. Set ANDROID_HOME to an installed SDK with platforms and build-tools.');
 }
 run('java', ['-version']);
+run('bun', ['run', '--cwd', resolve(mobileRoot, '../web'), 'build:herdr']);
 run(process.execPath, [resolve(mobileRoot, 'scripts/prepare-herdr.mjs')]);
 if (!existsSync(resolve(appRoot, 'android/gradlew'))) run(process.execPath, [cap, 'add', 'android']);
 run(process.execPath, [cap, 'sync', 'android']);

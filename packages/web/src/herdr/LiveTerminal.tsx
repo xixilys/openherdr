@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Theme } from '@/types/theme';
 import { convertThemeToXterm, toGhosttyTheme } from '@/lib/terminalTheme';
 import type { GhosttyTerminalSurface } from '@/lib/ghostty/surface';
+import { isHerdrForeground } from '@openchamber/ui/lib/herdr-native';
 import { useHerdrText } from './herdr.i18n';
 import type { Connection } from './transport';
 
@@ -27,18 +28,24 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
     let terminal: GhosttyTerminalSurface | undefined;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     let generation = 0;
+    let failures = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     setUnavailable(false);
     const read = async () => {
+      clearTimeout(retryTimer);
       stream?.abort();
-      if (!live || document.hidden || !terminal) return;
+      if (!live || !isHerdrForeground() || navigator.onLine === false || !terminal) return;
       const own = ++generation;
       const controller = new AbortController(); stream = controller;
       const width = Math.max(20, Math.min(300, Math.floor(container.clientWidth / 8)));
       const height = Math.max(5, Math.min(150, Math.floor(container.clientHeight / 18)));
+      let permanentFailure = false;
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
       try {
         const response = await fetch(new URL('/api/herdr/terminal', connection.server), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${connection.token}` }, body: JSON.stringify({ machine, pane_id: paneId, cols: width, rows: height }), signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'error' });
+        permanentFailure = response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status);
         if (!response.ok || !response.body) throw new Error('Observation unavailable');
-        const reader = response.body.getReader();
+        reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = ''; let lastSeq = -1;
         while (live && generation === own) {
@@ -58,17 +65,28 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
             const text = new TextDecoder().decode(bytes);
             if (frame.data.full) terminal.resetAndWrite(text, { cols: frame.data.width, rows: frame.data.height });
             else terminal.write(text);
-            setUnavailable(false);
+            failures = 0; terminal.setVisible(true); setUnavailable(false);
           }
         }
         if (live && generation === own && !controller.signal.aborted) setUnavailable(true);
       } catch {
         if (live && generation === own && !controller.signal.aborted) setUnavailable(true);
+      } finally {
+        const retry = live && generation === own && !controller.signal.aborted;
+        controller.abort();
+        void reader?.cancel().catch(() => undefined);
+        if (retry) {
+          terminal?.setVisible(false);
+          failures += 1;
+          if (isHerdrForeground() && navigator.onLine) retryTimer = setTimeout(() => void read(), permanentFailure ? 30000 : Math.min(15000, 1000 * 2 ** Math.min(failures - 1, 4)));
+        }
       }
     };
     const visibility = () => {
-      terminal?.setVisible(!document.hidden);
-      if (document.hidden) stream?.abort(); else void read();
+      generation += 1; clearTimeout(retryTimer);
+      stream?.abort();
+      terminal?.setVisible(isHerdrForeground());
+      if (isHerdrForeground() && navigator.onLine !== false) void read();
     };
     void import('@/lib/ghostty/surface').then(async ({ GhosttyTerminalSurface: Surface }) => {
       terminal = await Surface.create(container, {
@@ -88,16 +106,18 @@ export function LiveTerminal({ connection, machine, paneId, theme, fallback }: {
       });
       observer.observe(container);
       document.addEventListener('visibilitychange', visibility);
+      for (const event of ['online', 'offline', 'openherdr:resume', 'openherdr:pause']) window.addEventListener(event, visibility);
       void read();
     }).catch(() => { if (live) setUnavailable(true); });
     return () => {
       live = false; generation += 1;
-      clearTimeout(resizeTimer); observer?.disconnect(); stream?.abort();
+      clearTimeout(resizeTimer); clearTimeout(retryTimer); observer?.disconnect(); stream?.abort();
       document.removeEventListener('visibilitychange', visibility);
+      for (const event of ['online', 'offline', 'openherdr:resume', 'openherdr:pause']) window.removeEventListener(event, visibility);
       terminal?.dispose(); surface.current = null;
     };
     // Theme changes update the existing emulator above without restarting its stream.
   }, [connection.server, connection.token, machine, paneId]);
 
-  return <div className="herdr-live-terminal"><div ref={mount} className="herdr-frame-canvas" dir="ltr" style={{ display: unavailable ? 'none' : undefined }} />{unavailable && fallback}</div>;
+  return <div className="herdr-live-terminal"><div ref={mount} className="herdr-frame-canvas" dir="ltr" style={{ visibility: unavailable ? 'hidden' : undefined }} />{unavailable && <div className="herdr-terminal-fallback">{fallback}</div>}</div>;
 }

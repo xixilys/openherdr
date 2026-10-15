@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { ApiError } from './contracts.js';
 import { z } from 'zod';
+import { runHostOperation } from './host-transport.js';
 
 const exec = promisify(execFile);
 const cliErrorBody = z.strictObject({ code: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/), message: z.string().max(65536) });
@@ -200,6 +201,12 @@ export function createHerdrBridge({ session, socketPath, herdrBinary = 'herdr', 
   return {
     socketPath: localSocket,
     machines,
+    async host(request) {
+      if (request.machine === 'local') return runHostOperation({ request, socketPath: localSocket, spawnProcess, sshBinary });
+      const profile = (await profiles()).find((entry) => entry.id === request.machine && entry.enabled !== false);
+      if (!profile) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');
+      return runHostOperation({ request, profile, spawnProcess, sshBinary });
+    },
     async rpc(machine, method, params) {
       if (machine === 'local') return socketRpc(localSocket, method, params, method === 'agent.start' ? (params.timeout_ms || 30000) + 2000 : timeoutMs);
       const profile = (await profiles()).find((entry) => entry.id === machine && entry.enabled !== false);

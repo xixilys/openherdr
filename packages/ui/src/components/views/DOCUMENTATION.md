@@ -19,6 +19,15 @@ happen in one commit, so the editor is never hidden while attached.
 so `FilesView` keeps its line-number config's identity across renders.
 
 File tree ownership and request rules are in `files/DOCUMENTATION.md`.
+
+`PierreDiffViewer` with `enableComments={false}` renders a read-only diff
+without the OpenCode session/comment hooks. This supports independent runtime
+entrypoints that do not mount `SyncProvider`. `themeMode` explicitly selects
+light or dark appearance there; `theme` can supply the selected complete theme.
+The original entrypoint retains its optional
+theme context and default comment behavior. Disabling comments does not enable
+file mutations or replace the caller's source and target validation.
+
 `DiffView` gates repository discovery, comparisons, per-file reads, viewport
 measurement and keyboard navigation on visibility. Hidden refresh hints retain
 only dirty paths scoped to runtime and directory; reopening invalidates those

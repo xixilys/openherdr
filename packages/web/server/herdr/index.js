@@ -5,6 +5,8 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { z } from 'zod';
+import { once } from 'node:events';
 import { createRemoteClientAuthRuntime } from '../lib/client-auth/remote-clients.js';
 import { createClientPairingRuntime } from '../lib/client-auth/pairing.js';
 import { readEnterprisePolicy } from '../lib/enterprise-mode.js';
@@ -12,10 +14,35 @@ import { createHerdrBridge } from './bridge.js';
 import { createReceiptStore } from './receipts.js';
 import { ApiError, adminRequest, isReadMethod, methods, pairingEnvelope, parseRpc, terminalEnvelope } from './contracts.js';
 import { filesRequest, gitRequest, readPaneFiles, readPaneGit } from './content.js';
+import { hostOperations, parseHostRequest, isHostMutation, executeHostOperation } from './host-operations.js';
+import { createHerdrPreferences, preferencesReadRequest, preferencesUpdateRequest } from './preferences.js';
+import { createHerdrProjectContext, parseProjectContextRequest, isProjectContextMutation } from './project-context.js';
+import { conversationTargetSchema, conversationResolveRequest, conversationListRequest, conversationReadRequest, conversationCatalogRequest, conversationCreateRequest, conversationActionRequest, conversationEventsRequest, conversationHistoryListRequest, conversationHistoryReadRequest, conversationRebindRequest } from './conversations/contracts.js';
 
 const APP = { app: 'openherdr', version: '0.1.0' };
 const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
 const NATIVE_ORIGINS = ['capacitor://localhost', 'https://localhost'];
+const mutationRequestId = z.string().min(8).max(128).regex(/^[a-zA-Z0-9_-]+$/);
+const conversationRoutes = {
+  resolve: conversationResolveRequest,
+  list: conversationListRequest,
+  read: conversationReadRequest,
+  catalog: conversationCatalogRequest,
+  create: conversationCreateRequest,
+  act: conversationActionRequest,
+  events: conversationEventsRequest,
+  'history/list': conversationHistoryListRequest,
+  'history/read': conversationHistoryReadRequest,
+  rebind: conversationRebindRequest,
+};
+const sessionReceiptSummary = z.object({ protocol: z.literal('opencode-v2'), target: conversationTargetSchema, session: z.object({ id: z.string().min(1) }) }).transform((value) => ({ protocol: value.protocol, target: value.target, sessionId: value.session.id }));
+const conversationServiceMethods = { 'history/list': 'historyList', 'history/read': 'historyRead' };
+const actionReceiptSummary = z.object({ protocol: z.literal('opencode-v2'), target: conversationTargetSchema, sessionId: z.string().min(1), action: z.string().min(1) });
+
+const hostEnvelope = z.strictObject({
+  request: z.json(),
+  requestId: mutationRequestId.optional(),
+});
 function originValue(value) {
   try {
     const url = new URL(value);
@@ -28,12 +55,14 @@ function send(res, status, value) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' });
   res.end(JSON.stringify(value));
 }
-async function readJson(req) {
+async function readJson(req, maxBytes = 128 * 1024) {
   if (!(req.headers['content-type'] || '').toLowerCase().match(/^application\/json(?:;|$)/)) throw new ApiError(415, 'json_required', 'Use Content-Type application/json');
+  const tooLarge = () => new ApiError(413, 'request_too_large', `Request exceeds ${maxBytes / 1024} KiB`);
+  if (Number(req.headers['content-length']) > maxBytes) { req.resume(); throw tooLarge(); }
   let size = 0; const chunks = [];
-  for await (const chunk of req) {
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
     size += chunk.length;
-    if (size > 128 * 1024) throw new ApiError(413, 'request_too_large', 'Request exceeds 128 KiB');
+    if (size > maxBytes) { req.resume(); throw tooLarge(); }
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new ApiError(400, 'invalid_json', 'Invalid JSON request'); }
@@ -55,6 +84,30 @@ export async function createHerdrServer(options = {}) {
   const nativeOrigins = options.nativeOrigins ?? NATIVE_ORIGINS;
   if (!Array.isArray(nativeOrigins) || nativeOrigins.some((origin) => !NATIVE_ORIGINS.includes(origin))) throw new Error('Unsupported native application origin');
   const streams = new Map();
+  const conversationControllers = new Map();
+  let conversationService = options.conversations ? Promise.resolve(options.conversations) : null;
+  let closePromise;
+  const getConversations = () => {
+    if (closePromise) throw new ApiError(503, 'conversation_closed', 'This conversation service has stopped');
+    conversationService ??= import('./conversations/service.js').then(({ createConversationService }) => createConversationService({ bridge, stateDir, opencodeBinary: options.opencodeBinary }));
+    return conversationService;
+  };
+  const trackConversationRequest = (clientId, req, res) => {
+    const controller = new AbortController();
+    const controllers = conversationControllers.get(clientId) ?? new Set();
+    controllers.add(controller); conversationControllers.set(clientId, controllers);
+    const abort = () => controller.abort();
+    const requestClosed = () => { if (!req.complete) abort(); };
+    req.once('aborted', abort); req.once('close', requestClosed); res.once('close', abort);
+    return {
+      signal: controller.signal,
+      release() {
+        abort(); req.off('aborted', abort); req.off('close', requestClosed); res.off('close', abort);
+        controllers.delete(controller);
+        if (!controllers.size) conversationControllers.delete(clientId);
+      },
+    };
+  };
   const rate = new Map();
   let listening = false;
   let actualPort = port;
@@ -71,6 +124,8 @@ export async function createHerdrServer(options = {}) {
   const remoteAuth = createRemoteClientAuthRuntime({ fsPromises: fs, path, crypto, storePath: path.join(stateDir, 'clients.json') });
   const pairing = createClientPairingRuntime({ fsPromises: fs, path, crypto, remoteClientAuthRuntime: remoteAuth, storePath: path.join(stateDir, 'pairing.json') });
   const receipts = await createReceiptStore(path.join(stateDir, 'receipts.jsonl'));
+  const preferences = createHerdrPreferences({ stateDir });
+  const projectContext = createHerdrProjectContext({ bridge, stateDir, resolveWorkspaceRoot: options.resolveWorkspaceRoot });
   const state = () => ({ ...APP, pid: process.pid, host, port: actualPort, session: options.session ?? null, socketPath: bridge.socketPath ?? options.socketPath ?? null, adminSocketPath, publicOrigins: [...origins], baseUrl: `http://${host.includes(':') ? `[${host}]` : host}:${actualPort}` });
   const writeState = async () => {
     const file = path.join(stateDir, 'server.json');
@@ -117,16 +172,41 @@ export async function createHerdrServer(options = {}) {
       const token = /^Bearer ([A-Za-z0-9_-]+)$/.exec(req.headers.authorization ?? '')?.[1];
       const auth = await remoteAuth.authenticateBearerToken(token);
       if (!auth) throw new ApiError(401, 'unauthorized', 'Pair this device to connect');
-      if (url.pathname === '/api/herdr/info' && req.method === 'GET') return send(res, 200, { ...APP, session: options.session ?? null, capabilities: { methods: Object.keys(methods), terminalObserve: true, mutationReceipts: true } });
+      if (url.pathname === '/api/herdr/info' && req.method === 'GET') return send(res, 200, { ...APP, session: options.session ?? null, allowRemoteFonts: !policy().enterpriseMode, capabilities: { methods: Object.keys(methods), hostOperations, terminalObserve: true, mutationReceipts: true } });
       if (url.pathname === '/api/herdr/machines' && req.method === 'GET') return send(res, 200, { machines: await bridge.machines(), session: options.session ?? null });
       if (url.pathname === '/api/herdr/clients' && req.method === 'GET') return send(res, 200, { clients: await remoteAuth.listClients() });
       if (url.pathname === '/api/herdr/files' && req.method === 'POST') return send(res, 200, await readPaneFiles(bridge, parse(filesRequest, await readJson(req))));
       if (url.pathname === '/api/herdr/git' && req.method === 'POST') return send(res, 200, await readPaneGit(bridge, parse(gitRequest, await readJson(req))));
+      if (url.pathname === '/api/herdr/preferences' && req.method === 'POST') {
+        const request = parse(z.discriminatedUnion('operation', [preferencesReadRequest, preferencesUpdateRequest]), await readJson(req));
+        return send(res, 200, await preferences[request.operation](request));
+      }
+      if (url.pathname === '/api/herdr/project-context' && req.method === 'POST') {
+        const body = parse(hostEnvelope, await readJson(req, 1024 * 1024));
+        const request = parseProjectContextRequest(body.request);
+        if (request.machine !== 'local' && !(await bridge.machines()).some((machine) => machine.id === request.machine)) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');
+        const mutation = isProjectContextMutation(request);
+        if (mutation && !body.requestId) throw new ApiError(400, 'request_id_required', 'Mutations require a unique requestId');
+        const receipt = mutation ? await receipts.begin(auth.clientId, { machine: request.machine, method: request.operation, params: request, requestId: body.requestId }) : null;
+        let result;
+        try {
+          result = await projectContext.execute(request);
+          if (receipt) await receipts.finish(receipt, 'complete', { id: body.requestId, result: { owner: result.owner, revision: result.revision } });
+        } catch (error) {
+          const rejected = error instanceof ApiError && error.confirmedNoEffect === true;
+          if (receipt && rejected) await receipts.finish(receipt, 'rejected');
+          if (receipt && !rejected) throw new ApiError(502, 'outcome_unknown', 'Project context did not confirm this mutation. Check its receipt before trying again.');
+          throw error;
+        }
+        return send(res, 200, result);
+      }
       const clientId = /^\/api\/herdr\/clients\/([a-zA-Z0-9_-]+)$/.exec(url.pathname)?.[1];
       if (clientId && req.method === 'DELETE') {
         const result = await remoteAuth.revokeClient(clientId);
         for (const child of streams.get(clientId) ?? []) child.kill();
         streams.delete(clientId);
+        for (const controller of conversationControllers.get(clientId) ?? []) controller.abort();
+        conversationControllers.delete(clientId);
         return send(res, result.revoked ? 200 : 404, result);
       }
       const receiptId = /^\/api\/herdr\/receipts\/([a-zA-Z0-9_-]+)$/.exec(url.pathname)?.[1];
@@ -134,6 +214,89 @@ export async function createHerdrServer(options = {}) {
         const receipt = receipts.get(auth.clientId, receiptId);
         if (!receipt) throw new ApiError(404, 'receipt_not_found', 'No receipt exists for this request');
         return send(res, 200, { receipt });
+      }
+      const conversationRoute = /^\/api\/herdr\/conversations\/([a-z]+(?:\/[a-z]+)?)$/.exec(url.pathname)?.[1];
+      if (conversationRoute && req.method === 'POST' && Object.hasOwn(conversationRoutes, conversationRoute)) {
+        const body = parse(z.strictObject({ request: conversationRoutes[conversationRoute], requestId: mutationRequestId.optional() }), await readJson(req, conversationRoute === 'act' ? 16 * 1024 * 1024 : 128 * 1024));
+        const request = body.request;
+        const machineId = request.target?.machine ?? request.machine;
+        if (machineId && machineId !== 'local' && !(await bridge.machines()).some((machine) => machine.id === machineId)) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');
+        const mutation = ['create', 'act', 'rebind'].includes(conversationRoute);
+        if (mutation && !body.requestId) throw new ApiError(400, 'request_id_required', 'Mutations require a unique requestId');
+        const capture = trackConversationRequest(auth.clientId, req, res);
+        let iterator;
+        try {
+          if (!await remoteAuth.authenticateBearerToken(token)) throw new ApiError(401, 'unauthorized', 'This device has been revoked');
+          capture.signal.throwIfAborted();
+          const service = await getConversations();
+          capture.signal.throwIfAborted();
+          if (conversationRoute === 'events') {
+            iterator = service.events({ ...request, signal: capture.signal })[Symbol.asyncIterator]();
+            let next = await iterator.next();
+            capture.signal.throwIfAborted();
+            if (next.done) throw new ApiError(502, 'conversation_stream_empty', 'The conversation source ended before returning a frame');
+            res.writeHead(200, { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
+            while (!next.done) {
+              capture.signal.throwIfAborted();
+              if (!res.write(`${JSON.stringify(next.value)}\n`)) await once(res, 'drain', { signal: capture.signal });
+              next = await iterator.next();
+            }
+            res.end();
+            return;
+          }
+          const method = `conversation.${conversationRoute === 'act' ? request.action : conversationRoute}`;
+          const receipt = mutation ? await receipts.begin(auth.clientId, { machine: request.target.machine, method, params: request, requestId: body.requestId }) : null;
+          let result;
+          try {
+            capture.signal.throwIfAborted();
+            result = await service[conversationServiceMethods[conversationRoute] ?? conversationRoute]({ ...request, signal: capture.signal });
+            if (receipt) {
+              const summary = (conversationRoute === 'act' ? actionReceiptSummary : sessionReceiptSummary).safeParse(result);
+              if (!summary.success) throw new ApiError(502, 'invalid_conversation_response', 'The conversation result could not be confirmed');
+              if (conversationRoute !== 'act') summary.data.action = conversationRoute;
+              await receipts.finish(receipt, 'complete', { id: body.requestId, result: summary.data });
+            }
+          } catch (error) {
+            const rejected = error instanceof ApiError && error.confirmedNoEffect === true;
+            if (receipt && rejected) await receipts.finish(receipt, 'rejected');
+            if (receipt && !rejected) throw new ApiError(502, 'outcome_unknown', 'The conversation did not confirm this mutation. Check its receipt and session before trying again.');
+            throw error;
+          }
+          return send(res, 200, result);
+        } catch (error) {
+          if (res.headersSent) {
+            if (!res.destroyed && !res.writableEnded && !capture.signal.aborted) {
+              const body = { protocol: 'opencode-v2', type: 'conversation.error', target: request.target, sessionId: request.sessionId, error: { code: error instanceof ApiError ? error.code : 'conversation_stream_failed', message: error instanceof ApiError ? error.message : 'The conversation stream failed. Refresh the session before reconnecting.' } };
+              if (!res.write(`${JSON.stringify(body)}\n`)) await once(res, 'drain', { signal: capture.signal }).catch(() => undefined);
+            }
+            if (!res.destroyed && !res.writableEnded) res.end();
+            return;
+          }
+          throw error;
+        } finally {
+          capture.release();
+          await iterator?.return?.();
+        }
+      }
+      if (url.pathname === '/api/herdr/host' && req.method === 'POST') {
+        const body = parse(hostEnvelope, await readJson(req, 16 * 1024 * 1024));
+        const request = parseHostRequest(body.request);
+        if (request.machine !== 'local' && !(await bridge.machines()).some((machine) => machine.id === request.machine)) throw new ApiError(400, 'unknown_machine', 'Choose a saved Herdr machine');
+        const mutation = isHostMutation(request);
+        if (mutation && !body.requestId) throw new ApiError(400, 'request_id_required', 'Mutations require a unique requestId');
+        const receipt = mutation ? await receipts.begin(auth.clientId, { machine: request.machine, method: request.operation, params: request, requestId: body.requestId }) : null;
+        let result;
+        try {
+          result = await executeHostOperation(bridge, request);
+          if (receipt) await receipts.finish(receipt, 'complete', { id: body.requestId, result });
+        }
+        catch (error) {
+          const rejected = error instanceof ApiError && error.confirmedNoEffect === true;
+          if (receipt && rejected) await receipts.finish(receipt, 'rejected');
+          if (receipt && !rejected) throw new ApiError(502, 'outcome_unknown', 'The host did not confirm this mutation. Check its receipt and current state before trying again.');
+          throw error;
+        }
+        return send(res, 200, result);
       }
       if (url.pathname === '/api/herdr/rpc' && req.method === 'POST') {
         const request = parseRpc(await readJson(req));
@@ -243,13 +406,20 @@ export async function createHerdrServer(options = {}) {
       return state();
     } catch (error) { await close(); throw error; }
   }
-  async function close() {
-    for (const children of streams.values()) for (const child of children) child.kill();
-    streams.clear();
-    for (const connection of adminConnections) connection.destroy();
-    await Promise.all([server, adminServer].map((instance) => new Promise((resolve) => { if (!instance.listening) return resolve(); instance.close(resolve); instance.closeIdleConnections?.(); })));
-    if (listening) { await fs.rm(path.join(stateDir, 'server.json'), { force: true }); listening = false; }
+  function close() {
+    closePromise ??= (async () => {
+      for (const controllers of conversationControllers.values()) for (const controller of controllers) controller.abort();
+      conversationControllers.clear();
+      const conversationClose = conversationService ? conversationService.then((service) => service.close(), () => undefined) : Promise.resolve();
+      for (const children of streams.values()) for (const child of children) child.kill();
+      streams.clear();
+      for (const connection of adminConnections) connection.destroy();
+      await Promise.all([conversationClose, preferences.close(), ...[server, adminServer].map((instance) => new Promise((resolve) => { if (!instance.listening) return resolve(); instance.close(resolve); instance.closeIdleConnections?.(); }))]);
+      if (listening) { await fs.rm(path.join(stateDir, 'server.json'), { force: true }); listening = false; }
+    })();
+    return closePromise;
   }
+
   return { server, adminServer, adminSocketPath, stateDir, listen, close, setPublicOrigin, address: () => state() };
 }
 

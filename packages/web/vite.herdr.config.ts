@@ -19,6 +19,7 @@ export default defineConfig({
     ],
   },
   define: { 'process.env': {}, global: 'globalThis', __APP_VERSION__: JSON.stringify('0.1.0') },
+  worker: { format: 'es' },
   server: {
     host: '127.0.0.1',
     port: 5180,

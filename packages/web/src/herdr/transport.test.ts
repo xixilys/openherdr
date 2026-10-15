@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { HerdrTransport, normalizeServer, parsePairing, snapshotSchema, TransportError, deliveryReceiptSchema, loadPendingDelivery, storePendingDelivery, clearPendingDelivery } from './transport';
+import { HerdrTransport, normalizeServer, parsePairing, snapshotSchema, TransportError, deliveryReceiptSchema, PendingDeliveryStore, parseNativePairing, type PendingDelivery } from './transport';
 import { order, rows } from './herdr.i18n';
 
 const originalFetch = globalThis.fetch;
@@ -137,19 +137,104 @@ describe('mutation delivery inspection', () => {
     expect((await transport.request('/api/herdr/receipts/request-1', deliveryReceiptSchema)).receipt.status).toBe('unknown');
     expect(calls).toEqual(['GET https://work.example/api/herdr/receipts/request-1']);
   });
-  test('pending IDs survive reload storage without retaining command text or credentials', () => {
-    const previous = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+  test('pending targets survive a native process restart and only captured IDs clear', async () => {
     const values = new Map<string, string>();
-    const storage: Storage = { get length() { return values.size; }, clear() { values.clear(); }, getItem(key) { return values.get(key) ?? null; }, key(index) { return Array.from(values.keys())[index] ?? null; }, removeItem(key) { values.delete(key); }, setItem(key, value) { values.set(key, value); } };
-    Object.defineProperty(globalThis, 'sessionStorage', { value: storage, configurable: true });
-    try {
-      const pending = { requestId: 'request-1', server: 'https://work.example', machine: 'remote', session: null, workspaceId: 'w1', tabId: 'w1:t1', paneId: 'w1:p1', method: 'pane.send_input' };
-      storePendingDelivery(pending);
-      expect(loadPendingDelivery(pending.server)).toEqual(pending);
-      expect(loadPendingDelivery('https://other.example')).toBeNull();
-      expect(Object.keys(JSON.parse(Array.from(values.values())[0])).sort()).toEqual(['machine','method','paneId','requestId','server','session','tabId','workspaceId']);
-      clearPendingDelivery(pending.server);
-      expect(loadPendingDelivery(pending.server)).toBeNull();
-    } finally { if (previous) Object.defineProperty(globalThis, 'sessionStorage', previous); else Reflect.deleteProperty(globalThis, 'sessionStorage'); }
+    const createStore = () => new PendingDeliveryStore(server => ({ kind: 'native', async read() { return values.get(server) ?? null; }, async write(value) { values.set(server, value); } }));
+    const pending = pendingRecord();
+    await createStore().begin(pending);
+    const restarted = createStore();
+    expect(await restarted.load(pending.server)).toEqual(pending);
+    expect(await restarted.load('https://other.example')).toBeNull();
+    expect(Object.keys(JSON.parse(values.get(pending.server) ?? 'null')).sort()).toEqual(['machine','method','paneId','requestId','server','session','tabId','workspaceId']);
+    expect(await restarted.clear(pending.server, 'different-request')).toBe(false);
+    expect(await restarted.load(pending.server)).toEqual(pending);
+    expect(await restarted.clear(pending.server, pending.requestId)).toBe(true);
+    expect(await createStore().load(pending.server)).toBeNull();
+  });
+});
+
+function pendingRecord(requestId = 'request-1'): PendingDelivery {
+  return { requestId, server: 'https://work.example', machine: 'remote', session: 'fixture-session', workspaceId: 'w1', tabId: 'w1:t1', paneId: 'w1:p1', method: 'pane.send_input' };
+}
+
+describe('durable mutation dispatch', () => {
+  test('waits for successful native persistence before dispatch', async () => {
+    let raw: string | null = null;
+    let calls = 0;
+    let release: (() => void) | undefined;
+    let markStarted = () => {};
+    const started = new Promise<void>(resolve => { markStarted = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const store = new PendingDeliveryStore(() => ({ kind: 'native', async read() { return raw; }, async write(value) { markStarted(); await gate; raw = value; } }));
+    // SAFETY: This Response-returning stub covers the transport's fetch call; Bun fetch.preconnect is never used.
+    globalThis.fetch = (async () => { calls += 1; return Response.json({ id: 'r1', result: { type: 'ok' } }); }) as typeof fetch;
+    const transport = new HerdrTransport({ server: 'https://work.example', token: 'device-credential' }, store);
+    const record = pendingRecord();
+    const dispatched = transport.dispatchTrackedMutation(record, { method: 'pane.send_input', params: { pane_id: record.paneId, text: 'private prompt', keys: ['enter'] } });
+    await started;
+    expect(calls).toBe(0);
+    release?.();
+    expect(await dispatched).toEqual({ kind: 'stored', value: { type: 'ok' } });
+    expect(calls).toBe(1);
+    expect(raw).not.toContain('private prompt');
+    expect(raw).not.toContain('device-credential');
+  });
+  test('native read, malformed data and write failures all prevent dispatch', async () => {
+    let calls = 0;
+    // SAFETY: This Response-returning stub covers the transport's fetch call; Bun fetch.preconnect is never used.
+    globalThis.fetch = (async () => { calls += 1; return Response.json({ id: 'r1', result: { type: 'ok' } }); }) as typeof fetch;
+    for (const failure of ['read', 'malformed', 'write']) {
+      const store = new PendingDeliveryStore(() => ({ kind: 'native', async read() { if (failure === 'read') throw new Error('Vault locked'); return failure === 'malformed' ? '{broken' : null; }, async write() { throw new Error('Vault write failed'); } }));
+      const transport = new HerdrTransport({ server: 'https://work.example', token: 'device-credential' }, store);
+      await expect(transport.dispatchTrackedMutation(pendingRecord(), { method: 'pane.send_input', params: { pane_id: 'w1:p1', text: 'private prompt', keys: ['enter'] } })).rejects.toThrow('deliveryStorage');
+    }
+    expect(calls).toBe(0);
+  });
+  test('unknown outcomes block another dispatch after reopening the native store', async () => {
+    let raw: string | null = null;
+    let calls = 0;
+    const createStore = () => new PendingDeliveryStore(() => ({ kind: 'native', async read() { return raw; }, async write(value) { raw = value; } }));
+    // SAFETY: This rejecting stub covers the transport's fetch call; Bun fetch.preconnect is never used.
+    globalThis.fetch = (async () => { calls += 1; throw new Error('Network disappeared after dispatch'); }) as typeof fetch;
+    const connection = { server: 'https://work.example', token: 'device-credential' };
+    const mutation = { method: 'pane.send_input', params: { pane_id: 'w1:p1', text: 'private prompt', keys: ['enter'] } } as const;
+    const first = new HerdrTransport(connection, createStore());
+    await expect(first.dispatchTrackedMutation(pendingRecord(), { ...mutation, params: { ...mutation.params, keys: ['enter'] } })).rejects.toThrow();
+    const restartedStore = createStore();
+    const restarted = new HerdrTransport(connection, restartedStore);
+    expect(await restarted.dispatchTrackedMutation(pendingRecord('request-2'), { ...mutation, params: { ...mutation.params, keys: ['enter'] } })).toEqual({ kind: 'pending', record: pendingRecord() });
+    expect(calls).toBe(1);
+    expect(await restartedStore.clear(connection.server, 'request-2')).toBe(false);
+    expect(await restartedStore.load(connection.server)).toEqual(pendingRecord());
+  });
+  test('a failed clear preserves the pending record and concurrent begins serialize', async () => {
+    let raw: string | null = null;
+    let rejectClear = false;
+    const store = new PendingDeliveryStore(() => ({ kind: 'native', async read() { return raw; }, async write(value) { if (rejectClear && value === 'null') throw new Error('Vault locked'); raw = value; } }));
+    const results = await Promise.all([store.begin(pendingRecord()), store.begin(pendingRecord('request-2'))]);
+    expect(results[0]).toEqual({ kind: 'stored' });
+    expect(results[1]).toEqual({ kind: 'pending', record: pendingRecord() });
+    rejectClear = true;
+    await expect(store.clear('https://work.example', 'request-1')).rejects.toThrow('Vault locked');
+    expect(await store.load('https://work.example')).toEqual(pendingRecord());
+  });
+});
+
+describe('native pairing and session provenance', () => {
+  test('native links contain a validated HTTPS server and never redeem by parsing', () => {
+    const value = { pairingId: 'pair-1', secret: 'one-use', server: 'https://work.example' };
+    const encoded = Buffer.from(JSON.stringify(value)).toString('base64url');
+    expect(parseNativePairing(`openherdr://connect#pairing=${encoded}`)).toEqual(value);
+    for (const link of [`openherdr://other#pairing=${encoded}`, `https://connect#pairing=${encoded}`, `openherdr://connect?token=secret#pairing=${encoded}`]) expect(() => parseNativePairing(link)).toThrow();
+    const insecure = Buffer.from(JSON.stringify({ ...value, server: 'http://work.example' })).toString('base64url');
+    expect(() => parseNativePairing(`openherdr://connect#pairing=${insecure}`)).toThrow('invalidServer');
+  });
+  test('snapshot retains real native session references without adding transcript data', () => {
+    const reference = { source: 'herdr:codex', agent: 'codex', kind: 'id', value: 'native-session-id' };
+    const pane = { pane_id: 'w1:p1', workspace_id: 'w1', tab_id: 'w1:t1', terminal_id: 'terminal-1', focused: false, revision: 1, agent_status: 'idle', agent_session: reference };
+    const result = snapshotSchema.parse({ type: 'session_snapshot', snapshot: { version: '0.9.3', protocol: 22, workspaces: [], tabs: [], panes: [pane], agents: [pane] } });
+    expect(result.snapshot.panes[0].agent_session).toEqual(reference);
+    expect(result.snapshot.agents[0].agent_session).toEqual(reference);
+    expect(result.snapshot.panes[0]).not.toHaveProperty('messages');
   });
 });

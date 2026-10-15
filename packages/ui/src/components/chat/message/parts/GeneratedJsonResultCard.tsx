@@ -3,15 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon/Icon';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { useI18n } from '@/lib/i18n';
-import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
-import { useRepositoryReferenceProvider } from '@/components/references/referenceSources';
 import { changeRequestCopy } from '@/lib/source-control/changeRequestCopy';
+import type { SourceControlProvider } from '@/lib/api/types';
+import { MarkdownPresentationContext } from '../../MarkdownPresentationContext';
 import type { GeneratedResult } from './generatedJsonResult';
+import { lazyWithChunkRecovery } from '@/lib/chunkLoadRecovery';
+
+const OpenCodeGeneratedJsonResultCard = lazyWithChunkRecovery(() => import('./OpenCodeGeneratedJsonResultCard'));
 
 export const GeneratedJsonResultCard: React.FC<{ result: GeneratedResult }> = ({ result }) => {
+  const source = React.useContext(MarkdownPresentationContext);
+  return source
+    ? <GeneratedJsonResultPresentation result={result} repositoryProvider={null} />
+    : <React.Suspense fallback={<GeneratedJsonResultPresentation result={result} repositoryProvider={null} />}><OpenCodeGeneratedJsonResultCard result={result} /></React.Suspense>;
+};
+
+export const GeneratedJsonResultPresentation: React.FC<{ result: GeneratedResult; repositoryProvider: SourceControlProvider | null }> = ({ result, repositoryProvider }) => {
   const { t } = useI18n();
-  // The result carries no provider; the session's repository says what it is called.
-  const repositoryProvider = useRepositoryReferenceProvider(useEffectiveDirectory() ?? null);
   const [copied, setCopied] = React.useState(false);
   const copiedResetTimerRef = React.useRef<number | null>(null);
 

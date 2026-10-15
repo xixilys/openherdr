@@ -5,7 +5,7 @@
 .herdr-muted,.herdr-fine { color:var(--surface-muted-foreground); }
 .herdr-fine { font-size:11px; line-height:1.6; }
 .herdr-spacer { flex:1; }
-.herdr-sidebar { width:256px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface-muted); border-inline-end:1px solid var(--interactive-border); padding-block-start:env(safe-area-inset-top); }
+.herdr-sidebar { width:256px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface-muted); border-inline-end:1px solid var(--interactive-border); padding-block-start:var(--oc-safe-area-top, env(safe-area-inset-top)); }
 .herdr-sidebar-header { padding:18px 16px; min-height:62px; display:flex; justify-content:space-between; align-items:center; }
 .herdr-machine { display:flex; align-items:center; gap:8px; padding:2px 16px 16px; color:var(--surface-muted-foreground); }
 .herdr-machine select { min-width:0; width:100%; }
@@ -21,10 +21,10 @@
 .herdr-workspace { width:100%; gap:9px; justify-content:flex-start; margin-block-end:4px; font-weight:400; }
 .herdr-workspace>span { text-align:start; overflow:hidden; text-overflow:ellipsis; flex:1; }
 .herdr-workspace.is-selected,.herdr-view-tabs button[aria-pressed=true],.herdr-terminal-tabs button[aria-pressed=true],.herdr-sidebar-footer button[aria-pressed=true] { background:var(--interactive-selection); color:var(--interactive-selection-foreground); }
-.herdr-sidebar-footer { border-top:1px solid var(--interactive-border); margin:8px 12px 0; padding:12px 0 max(12px,env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:9px; }
+.herdr-sidebar-footer { border-top:1px solid var(--interactive-border); margin:8px 12px 0; padding:12px 0 max(12px,var(--oc-safe-area-bottom, env(safe-area-inset-bottom))); display:flex; flex-direction:column; gap:9px; }
 .herdr-sidebar-footer>button { justify-content:flex-start; }
 .herdr-sidebar-footer .herdr-row select { min-width:0; flex:1; }
-.herdr-main { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; padding-block-start:env(safe-area-inset-top); }
+.herdr-main { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; padding-block-start:var(--oc-safe-area-top, env(safe-area-inset-top)); }
 .herdr-topbar { height:58px; flex-shrink:0; display:flex; justify-content:space-between; align-items:center; gap:12px; padding:0 24px; border-bottom:1px solid var(--interactive-border); }
 .herdr-breadcrumb { display:flex; align-items:center; gap:12px; min-width:0; }
 .herdr-breadcrumb>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -53,7 +53,7 @@
 .herdr-terminal-status { display:flex; gap:10px; align-items:center; padding:4px 20px; border-top:1px solid var(--interactive-border); font-size:10px; color:var(--surface-muted-foreground); }
 .herdr-terminal-status>span:first-child { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .herdr-truncated { margin:0; padding:3px 24px; font-size:10px; color:var(--surface-muted-foreground); }
-.herdr-composer-area { padding:10px 24px max(20px,env(safe-area-inset-bottom)); width:100%; max-width:1000px; margin-inline:auto; }
+.herdr-composer-area { padding:10px 24px max(20px,var(--oc-safe-area-bottom, env(safe-area-inset-bottom))); width:100%; max-width:1000px; margin-inline:auto; }
 .herdr-target { color:var(--surface-muted-foreground); font-family:var(--font-family-mono); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-block-end:10px; }
 .herdr-keybar { display:flex; gap:5px; align-items:center; overflow-x:auto; margin-block-end:10px; }
 .herdr-keybar button { font-size:11px; }
@@ -71,7 +71,7 @@
 .herdr-detail-card p,.herdr-detail-card code { color:var(--surface-muted-foreground); font-size:11px; overflow-wrap:anywhere; margin-block-start:6px; }
 .herdr-dialog form { display:flex; flex-direction:column; gap:20px; }
 .herdr-dialog label,.herdr-connect-card label { display:flex; flex-direction:column; gap:9px; font-size:12px; }
-.herdr-connect { overflow:auto; padding-block-start:env(safe-area-inset-top); padding-block-end:env(safe-area-inset-bottom); padding-inline-start:env(safe-area-inset-left); padding-inline-end:env(safe-area-inset-right); }
+.herdr-connect { overflow:auto; padding-block-start:var(--oc-safe-area-top, env(safe-area-inset-top)); padding-block-end:var(--oc-safe-area-bottom, env(safe-area-inset-bottom)); padding-inline-start:var(--oc-safe-area-left, env(safe-area-inset-left)); padding-inline-end:var(--oc-safe-area-right, env(safe-area-inset-right)); }
 .herdr-connect>header { padding:24px 32px; display:flex; justify-content:space-between; gap:16px; }
 .herdr-connect-card { margin:7vh auto 40px; width:min(420px,calc(100% - 40px)); display:flex; flex-direction:column; gap:20px; padding:28px; background:var(--surface-elevated); border:1px solid var(--interactive-border); border-radius:16px; }
 .herdr-connect-card h1 { font-size:24px; letter-spacing:-.03em; font-weight:550; }
@@ -95,7 +95,7 @@
   .herdr-pane-toolbar select { max-width:180px; }
   .herdr-output { padding:12px; font-size:11px; }
   .herdr-terminal-status { padding-inline:12px; }
-  .herdr-composer-area { padding:8px 12px max(12px,env(safe-area-inset-bottom)); }
+  .herdr-composer-area { padding:8px 12px max(12px,var(--oc-safe-area-bottom, env(safe-area-inset-bottom))); }
   .herdr-composer { padding:10px; }
   .herdr-composer textarea { font-size:16px; min-height:40px; }
   .herdr-composer-footer span { font-size:9px; }
@@ -124,3 +124,15 @@
   .herdr-file-content { padding:12px; font-size:11px; }
   .herdr-content-root { padding-inline:12px; }
 }
+
+.herdr-terminal-fallback { position:absolute; inset:0; display:flex; flex-direction:column; }
+.herdr-connect-dialog-form { display:flex; flex-direction:column; gap:18px; overflow:auto; max-height:70dvh; }
+.herdr-connect-dialog-form label { display:flex; flex-direction:column; gap:8px; }
+.herdr-sidebar-body { display:flex; flex-direction:column; flex:1; min-height:0; }
+.herdr-session-group { padding-inline-start:12px; }
+.herdr-wrap { flex-wrap:wrap; }
+.herdr-panel-body,.herdr-chat-body { display:flex; flex:1; flex-direction:column; height:100%; min-height:0; overflow:hidden; }
+.herdr-desktop-content { display:flex; flex:1; min-height:0; overflow:hidden; }
+.herdr-mobile-footer { display:flex; flex-direction:column; gap:8px; width:100%; }
+.herdr-mobile-footer .herdr-row select { min-width:0; flex:1; }
+.herdr-panel-body[hidden],.herdr-chat-body[hidden] { display:none; }

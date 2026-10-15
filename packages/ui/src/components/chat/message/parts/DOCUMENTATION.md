@@ -314,6 +314,16 @@ Why: only navigation tools use the compact static path; all other tools need obs
 ## Quick map of files in this folder
 
 - Text: `AssistantTextPart.tsx`, `UserTextPart.tsx`
+- `GeneratedJsonResultCard.tsx` keeps recognized commit and change-request JSON
+  in the shared card presentation. With `MarkdownPresentationContext`, it uses
+  generic change-request wording without session or repository hooks. The
+  OpenCode container resolves provider wording from its session repository and
+  loads only when the explicit presentation source is absent.
+- `../../OpenCodeMarkdownSource.tsx` owns the original Markdown session,
+  runtime and link capabilities. The renderer loads that container only without
+  `MarkdownPresentationContext`, so standalone Markdown imports do not initialize
+  OpenCode session, directory or repository stores. Both paths use the same
+  Markdown, code, link and diagram presentation.
 - Attachment citations: the composer writes `[name.png]` into the text for each
   pasted or picked file. `UserTextPart` gets the message's file names and draws
   each citation of one of them as an inline chip with its file-type icon. The

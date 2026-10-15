@@ -34,6 +34,9 @@ export const methods = {
   'agent.prompt': z.strictObject({ target: pane, text }),
   'agent.rename': z.strictObject({ target: pane, name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/).nullable() }),
   'worktree.list': z.strictObject({ workspace_id: workspace }),
+  'worktree.create': z.strictObject({ workspace_id: workspace, branch: z.string().min(1).max(240).regex(/^[A-Za-z0-9][A-Za-z0-9_./-]*$/), base: z.string().min(1).max(240).regex(/^[A-Za-z0-9][A-Za-z0-9_./-]*$/).optional(), label: label.optional(), focus: z.boolean().optional() }),
+  'worktree.open': z.strictObject({ workspace_id: workspace, branch: z.string().min(1).max(240).regex(/^[A-Za-z0-9][A-Za-z0-9_./-]*$/), label: label.optional(), focus: z.boolean().optional() }),
+  'worktree.remove': z.strictObject({ workspace_id: workspace, force: z.literal(false).optional() }),
 };
 const rpcEnvelope = z.strictObject({ machine: id, method: z.string().min(1).max(80), params: z.unknown(), requestId: z.string().min(8).max(128).regex(/^[a-zA-Z0-9_-]+$/).optional() });
 export const pairingEnvelope = z.strictObject({ pairingId: z.string().min(1).max(160), secret: z.string().min(1).max(160), deviceName: z.string().max(80).optional() });

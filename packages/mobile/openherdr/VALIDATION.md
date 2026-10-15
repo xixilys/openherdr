@@ -1,5 +1,41 @@
 # Native build validation
 
+## Android-first integration
+
+The current web build and Android debug APK include the integrated host,
+conversation, application preferences and project-context modules. The build
+command rebuilds web source before copying assets and synchronizing Capacitor.
+The current build completed successfully with Java 21, SDK 36 and Gradle 8.14.3.
+The owned `OpenHerdr_API36` emulator at `emulator-5580` installed and launched
+versionCode 2 / versionName 0.1.0.
+
+An actual connection-screen capture confirmed the new native server field is
+blank and the native-vault notice appears. The first capture was taken during
+startup and showed an empty loading frame; it is not accepted as the final UI.
+An Android 15+ app-local StatusBar adapter paints the native backdrop using the
+current web theme and restores system-bar contrast after resume/config changes.
+Source review found the adapter registers after generated plugins. After the
+latest APK was installed, an actual dark-theme startup capture showed dark
+status/navigation backdrops and visible white system icons. Light theme,
+rotation, resume and keyboard interaction still require native checks.
+
+Capacitor bridge logging is disabled, including debug packages, because its
+default verbose calls include secure-storage method data.
+
+Computer Use cannot select this emulator's standalone Qt process. A separate
+attempt through the official Android Studio device view did not expose it.
+Only task-created IDE processes were stopped; the AVD and user instances were
+preserved. Pairing, native storage write/relaunch, Back, keyboard, rotation,
+share and offline recovery have not passed this route. No physical phone was
+connected. The local/public HTTPS checks in STATUS.md prove their HTTP paths,
+not Android interaction.
+
+The human's supplied OpenChamber screenshot is a private local visual reference.
+Current standalone chat/composer fidelity remains incomplete and is the next
+implementation priority. iOS below records the older terminal baseline.
+
+## Previously validated terminal baseline
+
 The final OpenHerdr web payload was copied and both native apps rebuilt on the
 Mac on 2026-10-14. These checks cover build artifacts and an iOS connection screen.
 
@@ -29,8 +65,8 @@ to the external repository path fail with `EPERM`.
 
 ## Remaining validation
 
-Native pairing, remote input/output, background/reconnect behavior, Android
-emulator/device execution and physical iPhone execution have not been checked.
+Native pairing, remote input/output, background/reconnect behavior, interactive Android
+flows and physical iPhone execution have not been checked.
 The final native client uses the secure-storage plugin, awaits persistence and
 refuses a browser-storage fallback. Empty-vault startup succeeded; a credential
 write/relaunch roundtrip has not been exercised. The browser and server control

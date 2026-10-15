@@ -1,8 +1,10 @@
 # OpenHerdr
 
-OpenHerdr adds a phone-sized Herdr controller to this OpenChamber checkout. It
-shares OpenChamber's components, typography, authored themes and Ghostty terminal
-renderer. The original OpenChamber application remains available.
+OpenHerdr adds an Android application and authenticated Herdr bridge to this
+OpenChamber checkout. It reuses the original mobile header, drawers, editors,
+Markdown, diff presentation, typography and themes. The original OpenChamber
+application remains available. Current Android validation is recorded in
+[STATUS.md](STATUS.md); source implementation and runtime checks are separate.
 
 ## Start and pair
 
@@ -76,27 +78,45 @@ sending and never guesses another session.
 | Terminal output | Official read-only frames in Ghostty, text snapshot fallback |
 | Agents | Start supported installed CLI agents and prompt a named agent in its pane |
 | Machines | Local session and enabled saved SSH profiles |
-| Files | Read-only current-pane directory browser and text preview on the bridge host |
-| Git | Read-only local branch, status, working diff and staged diff |
-| Worktrees | Inspect Herdr's workspace worktrees |
+| Conversations | Real local OpenCode history, message paging, live events, prompt/abort, model/agent selection, permissions, forms and inline attachments |
+| Files | Local/saved-SSH browsing, search, manual editing, create/rename/delete, upload/download, revision conflicts and image/binary preview |
+| Git | Local/saved-SSH status, diff, stage/unstage, commit, history and branch/checkout |
+| Worktrees | Native Herdr list/create/open/remove, with dirty-removal refusal |
 | Device access | One-use pairing, saved servers, client list and revocation |
-| Appearance | OpenChamber components, light/dark themes and 15 shared locales |
+| Appearance | Original Settings layout, built-in themes/system appearance, fonts/font size, shared profile and per-surface preferences, 15 locales |
+| Project context | Notes, Todo and personal plans with persisted edits and conflicts, for native worktrees or an administrator-verified project root |
 | Native mobile | Separate Capacitor iOS/Android app with secure credential storage |
 
-Remote file/Git browsing currently returns an explicit unsupported response.
-File editing, Git writes, worktree creation, push notifications and a camera
-scanner are absent. A phone's system camera can open the browser pairing link.
+File changes are confined to the selected pane's server-resolved directory.
+Manual Save compares the loaded revision. A changed file or directory refuses
+the write and preserves edits. Directory removal is empty-only. Git requires
+the repository root, rejects executable filters and does not provide network
+operations, stash, merge/rebase or hunk mutations in the current increment.
 
-OpenCode's structured chat, reasoning/tool cards, model and provider settings,
-session history, schedules, extension panels and code review remain in the
-original OpenChamber app. Herdr's terminal protocol does not provide these as
-provider-independent chat data. OpenHerdr does not claim complete feature parity
-for arbitrary CLI agents. Electron and VS Code keep their original application;
-the dedicated Herdr entrypoint runs in the browser or mobile shell.
+Existing native OpenCode sessions are read-only when their identity can be
+verified. Writable OpenHerdr conversations have their own native ownership
+marker and never take over an existing TUI. Their saved history survives pane
+closure; controlling it from a new matching directory requires explicit rebind.
+Remote structured conversations and Codex/Claude transcript adapters remain
+unfinished. Other CLI agents retain real terminal control. Native reasoning,
+tool results and usage are shown only when supplied by the selected source.
+
+Ordinary workspaces need a trusted project-root registration before project context
+is available. Pane cwd changes never choose another notes owner. Worktrees of
+one repository on the same machine share context; another machine stays separate.
+See [the project context contract](../../packages/web/server/herdr/PROJECT_CONTEXT.md).
+
+Provider/MCP/plugin configuration, schedules, agent memory, notifications,
+voice, multirun, isolated spaces, extension panels and source-control review
+remain in the complete-replication scope in [the plan](ANDROID_PARITY_PLAN.md).
+They are not completed by this increment. Android pairing intake accepts a
+precise `openherdr://connect` link and still requires confirmation in the app.
+A camera scanner and closed-app push delivery are not configured.
 
 If input delivery is uncertain, the app keeps the draft and blocks further
 mutations. Check delivery inspects the saved receipt without resending. Inspect
-the terminal before acknowledging an unknown result. If a target disappears,
+the affected terminal, files, repository or conversation before acknowledging
+an unknown result. If a target disappears,
 the app disables sending until another target is chosen explicitly.
 
 ## Native builds

@@ -1,9 +1,29 @@
 {
   "appId": "dev.openherdr.mobile",
   "appName": "OpenHerdr",
+  "loggingBehavior": "none",
   "webDir": "dist",
-  "includePlugins": ["@aparajita/capacitor-secure-storage"],
+  "includePlugins": [
+    "@aparajita/capacitor-secure-storage",
+    "@capacitor/app",
+    "@capacitor/keyboard",
+    "@capacitor/status-bar"
+  ],
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "none",
+      "resizeOnFullScreen": true,
+      "autoBackdropColor": "dom"
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DEFAULT"
+    },
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
   }
 }

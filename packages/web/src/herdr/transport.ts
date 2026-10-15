@@ -3,14 +3,15 @@ import { getHerdrNativeVault } from '@openchamber/ui/lib/herdr-credentials';
 
 const id = z.string().min(1).max(256);
 const status = z.enum(['idle', 'working', 'blocked', 'done', 'unknown']);
-const pane = z.object({ pane_id: id, workspace_id: id, tab_id: id, terminal_id: id, focused: z.boolean(), revision: z.number().int().nonnegative(), agent_status: status, label: z.string().nullable().optional(), title: z.string().nullable().optional(), terminal_title_stripped: z.string().nullable().optional(), cwd: z.string().nullable().optional(), foreground_cwd: z.string().nullable().optional(), agent: z.string().nullable().optional(), display_agent: z.string().nullable().optional() });
+const agentSessionSchema = z.object({ source: z.string(), agent: z.string(), kind: z.enum(['id', 'path']), value: z.string() });
+const pane = z.object({ agent_session: agentSessionSchema.nullable().optional(), pane_id: id, workspace_id: id, tab_id: id, terminal_id: id, focused: z.boolean(), revision: z.number().int().nonnegative(), agent_status: status, label: z.string().nullable().optional(), title: z.string().nullable().optional(), terminal_title_stripped: z.string().nullable().optional(), cwd: z.string().nullable().optional(), foreground_cwd: z.string().nullable().optional(), agent: z.string().nullable().optional(), display_agent: z.string().nullable().optional() });
 const workspace = z.object({ workspace_id: id, label: z.string(), focused: z.boolean(), active_tab_id: id, agent_status: status, pane_count: z.number(), tab_count: z.number() });
 const tab = z.object({ tab_id: id, workspace_id: id, label: z.string(), focused: z.boolean(), agent_status: status, pane_count: z.number() });
 const agent = pane.extend({ name: z.string().nullable().optional(), interactive_ready: z.boolean().optional(), launch_pending: z.boolean().optional() });
 export const snapshotSchema = z.object({ type: z.literal('session_snapshot'), snapshot: z.object({ version: z.string(), protocol: z.number(), workspaces: z.array(workspace).max(10000), tabs: z.array(tab).max(20000), panes: z.array(pane).max(20000), agents: z.array(agent).max(20000) }) });
 export const readSchema = z.object({ type: z.literal('pane_read'), read: z.object({ pane_id: id, workspace_id: id, tab_id: id, source: z.string(), format: z.literal('text'), text: z.string().max(2_000_000), revision: z.number().int().nonnegative(), truncated: z.boolean() }) });
 export const machinesSchema = z.object({ machines: z.array(z.object({ id, label: z.string() })), session: z.string().nullable() });
-export const infoSchema = z.object({ app: z.literal('openherdr'), version: z.string(), session: z.string().nullable() });
+export const infoSchema = z.object({ app: z.literal('openherdr'), version: z.string(), session: z.string().nullable(), allowRemoteFonts: z.boolean().default(false) });
 export const worktreesSchema = z.object({ type: z.literal('worktree_list'), worktrees: z.array(z.object({ path: z.string(), label: z.string(), branch: z.string().nullable().optional(), is_detached: z.boolean(), is_bare: z.boolean(), is_prunable: z.boolean(), is_linked_worktree: z.boolean() })) });
 export const clientsSchema = z.object({ clients: z.array(z.object({ id, deviceName: z.string().nullable().optional(), label: z.string().nullable().optional(), revokedAt: z.string().nullable().optional(), createdAt: z.number().or(z.string()).optional(), lastUsedAt: z.number().or(z.string()).nullable().optional() })) });
 export type Connection = { server: string; token: string };
@@ -32,6 +33,14 @@ export function parsePairing(value: string): Pairing {
   try {
     return pairingSchema.parse(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')), char => char.charCodeAt(0)))));
   } catch { throw new Error('invalidPairing'); }
+}
+
+export function parseNativePairing(value: string): Pairing {
+  const url = new URL(value);
+  if (url.protocol !== 'openherdr:' || url.hostname !== 'connect' || (url.pathname !== '' && url.pathname !== '/') || url.username || url.password || url.port || url.search) throw new Error('invalidPairing');
+  const pairing = parsePairing(url.hash);
+  if (!pairing.server || new URL(normalizeServer(pairing.server)).protocol !== 'https:') throw new Error('invalidServer');
+  return { ...pairing, server: normalizeServer(pairing.server) };
 }
 
 export function takeInitialPairing(): Pairing | null {
@@ -135,7 +144,10 @@ export type Mutation =
   | { method: 'pane.send_input'; params: { pane_id: string; text: string; keys: string[] } }
   | { method: 'pane.send_keys'; params: { pane_id: string; keys: string[] } }
   | { method: 'agent.start'; params: { pane_id: string; name: string; kind: string } }
-  | { method: 'agent.prompt'; params: { target: string; text: string } };
+  | { method: 'agent.prompt'; params: { target: string; text: string } }
+  | { method: 'worktree.create'; params: { workspace_id: string; branch: string; base?: string; label?: string; focus?: boolean } }
+  | { method: 'worktree.open'; params: { workspace_id: string; branch: string; label?: string; focus?: boolean } }
+  | { method: 'worktree.remove'; params: { workspace_id: string; force?: false } };
 
 type ReadMethodParameters = {
   'session.snapshot': { workspace_id?: never; pane_id?: never };
@@ -143,9 +155,30 @@ type ReadMethodParameters = {
   'worktree.list': { workspace_id: string };
 };
 
+export type HerdrJsonValue = z.infer<ReturnType<typeof z.json>>;
+
+type TrackedRequest =
+  | { machine: string; pane_id: string; operation: string }
+  | { target: { machine: string; paneId: string }; title?: string }
+  | { target: { machine: string; paneId: string }; sessionId: string }
+  | { target: { machine: string; paneId: string }; sessionId: string; action: string; input: HerdrJsonValue };
+
+const nativeWorkspaceId = z.string().regex(/^w[A-Za-z0-9]+$/);
+const nativeTabId = z.string().regex(/^w[A-Za-z0-9]+:t[A-Za-z0-9]+$/);
+const nativePaneId = z.string().regex(/^w[A-Za-z0-9]+:p[A-Za-z0-9]+$/);
+const nativeWorkspace = workspace.extend({ workspace_id: nativeWorkspaceId, active_tab_id: nativeTabId });
+const nativeTab = tab.extend({ tab_id: nativeTabId, workspace_id: nativeWorkspaceId });
+const nativePane = pane.extend({ pane_id: nativePaneId, workspace_id: nativeWorkspaceId, tab_id: nativeTabId });
+const nativeMutationSchema = z.object({ type: z.string(), workspace: nativeWorkspace.optional(), tab: nativeTab.optional(), root_pane: nativePane.optional(), workspace_id: nativeWorkspaceId.optional(), path: z.string().optional(), forced: z.boolean().optional(), already_open: z.boolean().optional() });
+const worktreeCreated = z.object({ type: z.literal('worktree_created'), workspace: nativeWorkspace, tab: nativeTab, root_pane: nativePane });
+const worktreeOpened = z.object({ type: z.literal('worktree_opened'), workspace: nativeWorkspace, tab: nativeTab, root_pane: nativePane, already_open: z.boolean() });
+const linkedSelection = (result: Pick<z.infer<typeof worktreeCreated>, 'workspace' | 'tab' | 'root_pane'>) => result.workspace.workspace_id === result.tab.workspace_id && result.workspace.workspace_id === result.root_pane.workspace_id && result.tab.tab_id === result.root_pane.tab_id && result.workspace.active_tab_id === result.tab.tab_id && result.tab.tab_id.startsWith(result.workspace.workspace_id + ':') && result.root_pane.pane_id.startsWith(result.workspace.workspace_id + ':');
+export type NativeMutationResult = z.infer<typeof nativeMutationSchema>;
+type NativeDispatchResult = { kind: 'pending'; record: PendingDelivery } | { kind: 'stored'; value: NativeMutationResult };
+
 export class HerdrTransport {
-  constructor(readonly connection: Connection) {}
-  async request<T>(path: string, schema: z.ZodType<T>, options: RequestInit = {}, mutation = false): Promise<T> {
+  constructor(readonly connection: Connection, private deliveries = pendingDeliveries) {}
+  private async response(path: string, options: RequestInit, mutation: boolean): Promise<Response> {
     let response: Response;
     try {
       response = await fetch(new URL(path, this.connection.server), { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.connection.token}`, ...options.headers }, signal: options.signal ?? AbortSignal.timeout(20000), cache: 'no-store', credentials: 'omit', redirect: 'error' });
@@ -153,14 +186,27 @@ export class HerdrTransport {
       if (options.signal?.aborted) throw error;
       throw new TransportError(mutation ? 'OUTCOME_UNKNOWN' : 'DISCONNECTED', 'Connection failed', mutation);
     }
-    const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
       const parsed = errorSchema.safeParse(body);
       throw new TransportError(parsed.success ? parsed.data.error.code : `HTTP_${response.status}`, parsed.success ? parsed.data.error.message : `HTTP ${response.status}`, mutation && (response.status >= 500 || (parsed.success && ['outcome_unknown', 'request_already_recorded'].includes(parsed.data.error.code))));
     }
+    return response;
+  }
+  async request<T>(path: string, schema: z.ZodType<T>, options: RequestInit = {}, mutation = false): Promise<T> {
+    const response = await this.response(path, options, mutation);
+    const body: unknown = await response.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new TransportError('INVALID_RESPONSE', 'Invalid server response', mutation);
     return parsed.data;
+  }
+  async streamResponse(path: string, options: RequestInit & { signal: AbortSignal }): Promise<Response> {
+    const response = await this.response(path, options, false);
+    if (response.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !== 'application/x-ndjson' || !response.body) {
+      await response.body?.cancel();
+      throw new TransportError('INVALID_RESPONSE', 'Invalid server stream');
+    }
+    return response;
   }
   async rpc<T, Method extends keyof ReadMethodParameters>(machine: string, method: Method, params: ReadMethodParameters[Method], schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
     const response = await this.request('/api/herdr/rpc', envelopeSchema, { method: 'POST', body: JSON.stringify({ machine, method, params }), signal });
@@ -168,11 +214,52 @@ export class HerdrTransport {
     if (!parsed.success) throw new TransportError('INVALID_RESPONSE', 'Invalid Herdr response');
     return parsed.data;
   }
-  async mutate(machine: string, mutation: Mutation, requestId: string = crypto.randomUUID()): Promise<void> {
+  async dispatchTrackedMutation(record: PendingDelivery, mutation: Mutation): Promise<NativeDispatchResult> {
+    const params = mutation.params;
+    const targetMatches = (!('pane_id' in params) || params.pane_id === record.paneId)
+      && (!('target_pane_id' in params) || params.target_pane_id === record.paneId)
+      && (!('target' in params) || params.target === record.paneId)
+      && (!('workspace_id' in params) || params.workspace_id === record.workspaceId)
+      && (!('tab_id' in params) || params.tab_id === record.tabId);
+    if (!targetMatches || record.server !== this.connection.server || record.method !== mutation.method) throw new TransportError('DELIVERY_STORAGE', 'deliveryStorage', false, record.requestId);
+    let result: DeliveryBeginResult;
+    try { result = await this.deliveries.begin(record); }
+    catch { throw new TransportError('DELIVERY_STORAGE', 'deliveryStorage', false, record.requestId); }
+    if (result.kind === 'pending') return result;
+    const value = await this.mutate(record.machine, mutation, record.requestId);
+    return { kind: 'stored', value };
+  }
+  async trackedRequest<T>(record: PendingDelivery, path: string, request: TrackedRequest, schema: z.ZodType<T>): Promise<{ kind: 'pending'; record: PendingDelivery } | { kind: 'complete'; value: T }> {
+    let matches = false;
+    if ((path === '/api/herdr/host' || path === '/api/herdr/project-context') && 'machine' in request) {
+      matches = record.machine === request.machine && record.paneId === request.pane_id && record.method === request.operation;
+    } else if ('target' in request) {
+      const action = path === '/api/herdr/conversations/create' ? 'create' : path === '/api/herdr/conversations/rebind' && 'sessionId' in request ? 'rebind' : path === '/api/herdr/conversations/act' && 'action' in request ? request.action : null;
+      matches = action !== null && record.machine === request.target.machine && record.paneId === request.target.paneId && record.method === `conversation.${action}`;
+    }
+    if (!matches || record.server !== this.connection.server) throw new TransportError('DELIVERY_STORAGE', 'deliveryStorage', false, record.requestId);
+    let stored: DeliveryBeginResult;
+    try { stored = await this.deliveries.begin(record); }
+    catch { throw new TransportError('DELIVERY_STORAGE', 'deliveryStorage', false, record.requestId); }
+    if (stored.kind === 'pending') return stored;
+    try {
+      const value = await this.request(path, schema, { method: 'POST', body: JSON.stringify({ request, requestId: record.requestId }), signal: AbortSignal.timeout(60000) }, true);
+      return { kind: 'complete', value };
+    } catch (error) {
+      if (error instanceof TransportError) throw new TransportError(error.code, error.message, error.uncertain, record.requestId);
+      throw new TransportError('OUTCOME_UNKNOWN', 'The host did not confirm this request', true, record.requestId);
+    }
+  }
+  async mutate(machine: string, mutation: Mutation, requestId: string = crypto.randomUUID()): Promise<NativeMutationResult> {
     try {
       const result = await this.request('/api/herdr/rpc', envelopeSchema, { method: 'POST', body: JSON.stringify({ machine, ...mutation, requestId }), signal: AbortSignal.timeout(60000) }, true);
-      const parsed = z.object({ type: z.string() }).safeParse(result.result);
+      const schema = mutation.method === 'worktree.create' ? worktreeCreated.refine(linkedSelection)
+        : mutation.method === 'worktree.open' ? worktreeOpened.refine(linkedSelection)
+        : mutation.method === 'worktree.remove' ? z.object({ type: z.literal('worktree_removed'), workspace_id: nativeWorkspaceId, path: z.string(), forced: z.literal(false) }).refine((value) => value.workspace_id === mutation.params.workspace_id)
+        : nativeMutationSchema;
+      const parsed = schema.safeParse(result.result);
       if (!parsed.success) throw new TransportError('INVALID_RESPONSE', 'Invalid mutation response', true);
+      return parsed.data;
     } catch (error) {
       if (error instanceof TransportError) throw new TransportError(error.code, error.message, error.uncertain, requestId);
       throw new TransportError('OUTCOME_UNKNOWN', 'Herdr did not confirm delivery', true, requestId);
@@ -184,19 +271,86 @@ export const deliveryReceiptSchema = z.object({ receipt: z.object({ requestId: z
 const pendingDeliverySchema = z.object({ requestId: z.string().min(8).max(128), server: z.string(), machine: z.string(), session: z.string().nullable(), workspaceId: z.string(), tabId: z.string(), paneId: z.string(), method: z.string() });
 export type PendingDelivery = z.infer<typeof pendingDeliverySchema>;
 const deliveryKey = (server: string) => `openherdr.pending.v1:${server}`;
-export function loadPendingDelivery(server: string): PendingDelivery | null {
-  const raw = sessionStorage.getItem(deliveryKey(server));
-  if (raw === null) return null;
-  try {
-    const value = pendingDeliverySchema.parse(JSON.parse(raw));
-    if (value.server !== server) throw new Error('deliveryStorage');
-    return value;
-  } catch { throw new Error('deliveryStorage'); }
+export type DeliveryBeginResult = { kind: 'stored' } | { kind: 'pending'; record: PendingDelivery };
+
+type DeliveryLock = { request<T>(name: string, operation: () => Promise<T>): Promise<T> };
+
+export class PendingDeliveryStore {
+  private queues = new Map<string, Promise<void>>();
+  constructor(private storageForServer: (server: string) => ConnectionStorage, private lock?: DeliveryLock | null) {}
+  private serialized<T>(server: string, operation: (storage: ConnectionStorage) => Promise<T>): Promise<T> {
+    const previous = this.queues.get(server) ?? Promise.resolve();
+    const next = previous.then(() => {
+      const storage = this.storageForServer(server);
+      const lock = this.lock === undefined ? globalThis.navigator?.locks : this.lock;
+      // The lock spans read, optional legacy migration, compare and write across tabs.
+      if (lock) return lock.request(`openherdr.pending:${server}`, () => operation(storage));
+      if (storage.kind === 'browser') throw new Error('deliveryStorage');
+      return operation(storage);
+    });
+    this.queues.set(server, next.then(() => undefined, () => undefined));
+    return next;
+  }
+  private async read(storage: ConnectionStorage, server: string): Promise<PendingDelivery | null> {
+    const raw = await storage.read();
+    if (raw === null) return null;
+    try {
+      const value = pendingDeliverySchema.nullable().parse(JSON.parse(raw));
+      if (value && value.server !== server) throw new Error('deliveryStorage');
+      return value;
+    } catch { throw new Error('deliveryStorage'); }
+  }
+  load(server: string): Promise<PendingDelivery | null> {
+    return this.serialized(server, storage => this.read(storage, server));
+  }
+  begin(record: PendingDelivery): Promise<DeliveryBeginResult> {
+    const pending = pendingDeliverySchema.parse(record);
+    return this.serialized<DeliveryBeginResult>(pending.server, async storage => {
+      const existing = await this.read(storage, pending.server);
+      if (existing) return { kind: 'pending', record: existing };
+      await storage.write(JSON.stringify(pending));
+      return { kind: 'stored' };
+    });
+  }
+  clear(server: string, requestId: string): Promise<boolean> {
+    return this.serialized(server, async storage => {
+      const existing = await this.read(storage, server);
+      if (!existing) return true;
+      if (existing.requestId !== requestId) return false;
+      await storage.write('null');
+      return true;
+    });
+  }
 }
-export function storePendingDelivery(pending: PendingDelivery): void {
-  sessionStorage.setItem(deliveryKey(pending.server), JSON.stringify(pendingDeliverySchema.parse(pending)));
-}
-export function clearPendingDelivery(server: string): void { sessionStorage.removeItem(deliveryKey(server)); }
+
+const pendingDeliveries = new PendingDeliveryStore(server => {
+  const key = deliveryKey(server);
+  const vault = getHerdrNativeVault({ pendingServer: server });
+  return {
+    kind: vault ? 'native' : 'browser',
+    async read() {
+      const raw = vault ? await vault.read() : localStorage.getItem(key);
+      if (raw !== null) return raw;
+      // Preserve a still-open browser tab's pending mutation when upgrading
+      // from the earlier session-only journal. Native migration writes the
+      // vault before removing the old metadata.
+      const legacy = sessionStorage.getItem(key);
+      if (legacy === null) return null;
+      const record = pendingDeliverySchema.parse(JSON.parse(legacy));
+      if (record.server !== server) throw new Error('deliveryStorage');
+      if (vault) await vault.write(JSON.stringify(record));
+      else localStorage.setItem(key, JSON.stringify(record));
+      sessionStorage.removeItem(key);
+      return JSON.stringify(record);
+    },
+    async write(value) {
+      if (vault) await vault.write(value);
+      else localStorage.setItem(key, value);
+    },
+  };
+});
+export function loadPendingDelivery(server: string): Promise<PendingDelivery | null> { return pendingDeliveries.load(server); }
+export function clearPendingDelivery(server: string, requestId: string): Promise<boolean> { return pendingDeliveries.clear(server, requestId); }
 
 export async function redeem(server: string, pairing: Pairing): Promise<Connection> {
   const response = await fetch(new URL('/api/pairing/redeem', server), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pairingId: pairing.pairingId, secret: pairing.secret, deviceName: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'OpenHerdr Mobile' : 'OpenHerdr Browser' }), signal: AbortSignal.timeout(20000), credentials: 'omit', redirect: 'error' });

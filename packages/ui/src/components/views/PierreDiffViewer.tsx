@@ -30,6 +30,7 @@ import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { useWorkerPool } from '@/contexts/DiffWorkerProvider';
 import { ensurePierreThemeRegistered, getResolvedShikiTheme } from '@/lib/shiki/appThemeRegistry';
 import { getDefaultTheme } from '@/lib/theme/themes';
+import type { Theme } from '@/types/theme';
 
 import { useDeviceInfo } from '@/lib/device';
 import { useI18n } from '@/lib/i18n';
@@ -80,6 +81,9 @@ interface PierreDiffViewerProps {
   wrapLines?: boolean;
   layout?: 'fill' | 'inline';
   enableComments?: boolean;
+  /** Explicit appearance for independent entries without a theme provider. */
+  themeMode?: 'light' | 'dark';
+  theme?: Theme;
   /**
    * Shows lines that changed only by whitespace as unchanged. Hunk actions are
    * dropped meanwhile: they act on the whole hunk, whitespace included.
@@ -759,48 +763,22 @@ export const PierreDiffViewer: React.FC<PierreDiffViewerProps> = ({ hideWhitespa
     );
   }
 
-  return (
-    <PierreDiffViewerBody
-      {...props}
-      fileDiff={visibleDiff}
-      hunkActions={hideWhitespace ? undefined : props.hunkActions}
-    />
-  );
+  const bodyProps = { ...props, fileDiff: visibleDiff, hunkActions: hideWhitespace ? undefined : props.hunkActions };
+  return props.enableComments === false
+    ? <PierreDiffViewerBody {...bodyProps} />
+    : <PierreDiffViewerWithComments {...bodyProps} />;
 };
 
-const PierreDiffViewerBody: React.FC<Omit<PierreDiffViewerProps, 'hideWhitespace'>> = ({
-  original,
-  modified,
-  fileDiff: incomingFileDiff,
-  language,
-  fileName,
-  renderSideBySide,
-  wrapLines,
-  layout = 'fill',
-  enableComments = true,
-  hunkActions,
-  onExpandContextRequest,
-  pendingContextExpansion = null,
-  contextLoading = false,
-}) => {
-  const themeContext = useOptionalThemeSystem();
-  const { t } = useI18n();
-  const showLinesBelowLabel = t('diffView.actions.showLinesBelow');
-  const requestTrailingExpansionRef = useRef<() => void>(() => {});
+type DiffCommentController = Pick<ReturnType<typeof useInlineCommentController<SelectedLineRange>>,
+  'drafts' | 'selection' | 'setSelection' | 'commentText' | 'setCommentText' | 'editingDraftId' | 'saveComment' | 'cancel' | 'startEdit' | 'deleteDraft'>;
+type DiffBodyProps = Omit<PierreDiffViewerProps, 'hideWhitespace'> & { comments?: DiffCommentController };
+const EMPTY_COMMENT_DRAFTS: DiffCommentController['drafts'] = [];
+const ignoreCommentChange = () => {};
 
-  const isDark = themeContext?.currentTheme.metadata.variant === 'dark';
-  const lightTheme = themeContext?.availableThemes.find(t => t.metadata.id === themeContext.lightThemeId) ?? getDefaultTheme(false);
-  const darkTheme = themeContext?.availableThemes.find(t => t.metadata.id === themeContext.darkThemeId) ?? getDefaultTheme(true);
-
-  const { isMobile } = useDeviceInfo();
-  const hunkAnchors = hunkActions?.anchors ?? EMPTY_HUNK_ANCHORS;
-  const [hunkTargets, setHunkTargets] = React.useState<{
-    fileDiff: FileDiffMetadata | undefined;
-    anchors: readonly PatchHunkAnchor[];
-    targets: ReadonlyMap<number, HTMLElement>;
-  }>(() => ({ fileDiff: undefined, anchors: EMPTY_HUNK_ANCHORS, targets: new Map() }));
-
-  const diffCommentController = useInlineCommentController<SelectedLineRange>({
+// Only this branch binds comments to the selected OpenCode session.
+const PierreDiffViewerWithComments: React.FC<Omit<PierreDiffViewerProps, 'hideWhitespace'>> = (props) => {
+  const { original, modified, fileDiff: incomingFileDiff, fileName, language } = props;
+  const comments = useInlineCommentController<SelectedLineRange>({
     source: 'diff',
     fileLabel: fileName || 'unknown',
     language,
@@ -816,20 +794,54 @@ const PierreDiffViewerBody: React.FC<Omit<PierreDiffViewerProps, 'hideWhitespace
       side: draft.side === 'original' ? 'deletions' : 'additions',
     }),
   });
+  return <PierreDiffViewerBody {...props} comments={comments} />;
+};
 
-  const {
-    drafts: fileDrafts,
-    selection,
-    setSelection,
-    commentText,
-    setCommentText,
-    editingDraftId,
-    saveComment,
-    cancel,
-    startEdit,
-    deleteDraft,
-  } = diffCommentController;
+const PierreDiffViewerBody: React.FC<DiffBodyProps> = ({
+  original,
+  modified,
+  fileDiff: incomingFileDiff,
+  language,
+  fileName,
+  renderSideBySide,
+  wrapLines,
+  layout = 'fill',
+  enableComments = true,
+  themeMode,
+  theme,
+  comments,
+  hunkActions,
+  onExpandContextRequest,
+  pendingContextExpansion = null,
+  contextLoading = false,
+}) => {
+  const themeContext = useOptionalThemeSystem();
+  const { t } = useI18n();
+  const showLinesBelowLabel = t('diffView.actions.showLinesBelow');
+  const requestTrailingExpansionRef = useRef<() => void>(() => {});
 
+  const isDark = (theme?.metadata.variant ?? themeMode ?? themeContext?.currentTheme.metadata.variant) === 'dark';
+  const lightTheme = theme?.metadata.variant === 'light' ? theme : themeContext?.availableThemes.find(t => t.metadata.id === themeContext.lightThemeId) ?? getDefaultTheme(false);
+  const darkTheme = theme?.metadata.variant === 'dark' ? theme : themeContext?.availableThemes.find(t => t.metadata.id === themeContext.darkThemeId) ?? getDefaultTheme(true);
+
+  const { isMobile } = useDeviceInfo();
+  const hunkAnchors = hunkActions?.anchors ?? EMPTY_HUNK_ANCHORS;
+  const [hunkTargets, setHunkTargets] = React.useState<{
+    fileDiff: FileDiffMetadata | undefined;
+    anchors: readonly PatchHunkAnchor[];
+    targets: ReadonlyMap<number, HTMLElement>;
+  }>(() => ({ fileDiff: undefined, anchors: EMPTY_HUNK_ANCHORS, targets: new Map() }));
+
+  const fileDrafts = comments?.drafts ?? EMPTY_COMMENT_DRAFTS;
+  const selection = comments?.selection ?? null;
+  const commentText = comments?.commentText ?? '';
+  const editingDraftId = comments?.editingDraftId ?? null;
+  const setSelection = comments?.setSelection ?? ignoreCommentChange;
+  const setCommentText = comments?.setCommentText ?? ignoreCommentChange;
+  const saveComment = comments?.saveComment ?? ignoreCommentChange;
+  const cancel = comments?.cancel ?? ignoreCommentChange;
+  const startEdit = comments?.startEdit ?? ignoreCommentChange;
+  const deleteDraft = comments?.deleteDraft ?? ignoreCommentChange;
   const selectionRef = useRef<SelectedLineRange | null>(null);
   const editingDraftIdRef = useRef<string | null>(null);
   const commentTextRef = useRef('');

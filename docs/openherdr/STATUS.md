@@ -30,7 +30,62 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current cold-window restoration increment
+## Current managed Cloudflare lifecycle increment
+
+The host CLI now supports the original explicit `managed-remote` and
+`managed-local` modes alongside the unchanged Quick default. Named modes use
+an HTTPS `--server` and an explicit token-file or config path. Operator inputs
+stay read-only; there is no new profile store, secret copy, default credential
+discovery, DNS change or phone transport. Original Electron and VS Code remain
+unchanged. Browser, hosted mobile and Capacitor use the existing exact-origin
+pairing/bearer contract. Operator commands are in [README.md](README.md#fixed-cloudflare-origin).
+
+Startup waits for cloudflared's fresh first-connection PID file, matches the
+owned child/serve launch and keeps configured origins separate from readiness.
+Arbitrary output or a registered address cannot confirm startup. Status records
+connector initialization separately from public routing. Startup cancellation
+and stop join only their exact process handles. The CLI retains its admin
+ownership until the connector and its receipt retire, including a pending
+startup. An optional server stop callback keeps that ordering without importing
+Cloudflare logic into the server. Existing server consumers keep their default
+close behavior. Old running instances remain readable as unconfirmed and are
+not restarted or adopted from a disk PID.
+
+Helper tests pass 24/24 and independent real-CLI subprocess tests pass 21/21.
+They cover all modes, strict flags/enterprise refusal, PID/output mismatches,
+redaction, original file preservation, legacy instances, same-state restart,
+retained/revoked pairing credentials and exact cleanup. Independent tests found
+an early parent exit during cancellation; independent source review found an
+overlapping stop/start receipt race. Both are corrected and the final source
+review has no remaining P1/P2. Ready and pre-receipt overlap scenarios pass.
+The original CLI suite passes 112/112 and the existing Herdr HTTP suite passes
+37/37. The final combined type/lint/Knip/anti-slop gate passes in
+`.tmp/check-managed-cf-final.log`. Logs are `.tmp/managed-cf-helper-v1.log`,
+`.tmp/managed-cf-tests/vitest-final-v3.log`,
+`.tmp/managed-cf-original-cli.log` and `.tmp/managed-cf-server-regression.log`.
+The actual CLI 30-second timeout was source-reviewed; shorter helper deadlines
+were executed. Controlled child fixtures do not establish Cloudflare routing.
+
+The final source also ran a real installed cloudflared Quick connector in one
+isolated bridge/state directory. Its new public HTTPS path returned health 200,
+private-route rejection 401, successful one-use pairing and authenticated info
+and read-only native snapshot 200. The exact temporary client was revoked and
+then rejected with 401. Official stop confirmed the isolated bridge stopped;
+the native process check found no process with its unique state path. No
+terminal input, agent start or conversation creation occurred. The preexisting
+default bridge remained PID 94594 on port 4318 with the same CF origin, whose
+public health still returned 200. Receipts stay private in
+`.tmp/managed-cf-quick-live.json`. No existing service was restarted.
+
+Real managed-domain account/DNS/ingress and a phone using that deployment remain
+unverified. No current CF credential/config was read or changed. Client/native
+assets were unchanged, so this host-only increment did not rebuild or install
+an APK. The ATkpLUV8 APK and fixed D8G2xhGi first phone-test copy remain available.
+Android process death, KeyStore, camera and full original-feature parity remain
+unfinished. Named profile storage and a tunnel Settings interface remain later
+work.
+
+## Previous cold-window restoration increment
 
 Monitor remembers the last verified machine, workspace, tab, pane and terminal
 for each server origin. It reads that hint before choosing a default machine,

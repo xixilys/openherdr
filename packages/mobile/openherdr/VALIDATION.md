@@ -359,3 +359,13 @@ Android's installed `apksigner` verifies the fixed APK. Package inspection repor
 SDK 36, with CAMERA and arm64-v8a/armeabi-v7a/x86/x86_64 libraries. This establishes
 package/signature properties, not installation or a successful camera scan.
 No physical-device result has been received.
+
+At the human's explicit request, the same first-test file is published in the
+[GitHub test prerelease](https://github.com/xixilys/openherdr/releases/tag/android-test1-726029ba6),
+targeting source commit `726029ba615f56b92bc86bbf74c1515e796ef437`.
+The uploaded APK is 40,701,131 bytes with SHA-256
+`35d24d1f368cce6ace11f9941bfac1dbc7ee20a851aa92e4d5d82e5fb0da8bf4`,
+matching the local file and GitHub's asset digest. Its unauthenticated download
+returns 200 with that byte count. This is artifact delivery evidence; device
+installation and a successful camera scan remain unverified. Pairing codes and
+QR images are issued privately and are not included in the release.

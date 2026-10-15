@@ -14,3 +14,10 @@ herdr plugin pane open --plugin openherdr --entrypoint connect --placement overl
 `stop` stops only OpenHerdr and its tunnel. It preserves Herdr, its workspaces and running agents. `herdr plugin unlink openherdr` removes the plugin link.
 
 The bridge uses one Herdr session per running instance. Use separate `--state-dir` and `--port` values from the CLI when several sessions need simultaneous mobile access. Saved SSH machines are selected inside the app.
+
+The Start action keeps the Quick Tunnel default. To configure a fixed HTTPS
+origin, use the explicit managed-mode CLI instructions in
+[the connection guide](../../docs/openherdr/README.md#fixed-cloudflare-origin).
+The plugin does not discover or copy Cloudflare credentials. Connect, status
+and stop address the existing bridge; changing a running tunnel's mode requires
+an explicit lifecycle operation through the CLI.

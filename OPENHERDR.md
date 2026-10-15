@@ -33,7 +33,21 @@ public HTTPS path. The current Quick Tunnel address changes after a tunnel
 restart; persistent named-tunnel support from the original application remains
 part of broader parity work.
 
-The current increment restores the original Welcome connection presentation for
+The active host-connection unit maps the original explicit Cloudflare managed
+modes into the OpenHerdr CLI. `--cf` keeps its Quick default; `--cf-mode` selects
+`quick`, `managed-remote` or `managed-local`. Named modes use the existing
+`--server` HTTPS origin plus an explicit `--cf-token-file` or `--cf-config`.
+The CLI owns only its new connector process, awaits startup/exit and distinguishes
+connector initialization from verified public routing. This unit adds no
+profile store, secret copy, default credential discovery or client transport.
+The implementation and owned-process tests pass. An isolated real Quick Tunnel
+also passed public health, bearer rejection, pairing, an authenticated read-only
+snapshot, client revocation and confirmed cleanup. The existing default bridge
+and CF address stayed live. No real named-domain configuration was activated;
+user credentials, DNS and ingress remain untouched. Named-domain activation
+needs a separately authorized operator setup. STATUS.md records current evidence.
+
+The connection increment restores the original Welcome connection presentation for
 OpenHerdr, with saved server selection, manual one-use pairing and Android QR
 intake. Pairing remains explicit and uses the existing authenticated CF origin.
 The controller must preserve a confirmed credential across a failed vault write,
@@ -43,7 +57,7 @@ camera, Back and secure-vault runtime acceptance remain separate from source and
 browser checks. iOS scanner packaging stays unsupported if the existing plugin
 cannot be registered without a package-manager migration.
 
-The active follow-up restores the original expired-device recovery through that
+The credential-recovery increment restores expired-device recovery through that
 Welcome view. Only an HTTP 401 carrying OpenHerdr's `unauthorized` code rejects
 the current credential. The app pauses private views, requires explicit pairing
 or a different saved connection, and saves the replacement before activation.
@@ -54,7 +68,7 @@ Capacitor app share this flow. Original Electron and VS Code keep their existing
 application and authentication behavior. Android secure-storage and system Back
 acceptance remain separate from DOM fixtures and browser execution.
 
-The current increment restores the last viewed Monitor window on a cold launch,
+The cold-window increment restores the last viewed Monitor window on a cold launch,
 matching the original mobile app's per-runtime session restoration. Save only
 the origin-scoped machine/workspace/tab/pane and terminal identity. A successful
 current machine list and snapshot must confirm the complete target before output
@@ -74,6 +88,13 @@ The human requested the first APK for a physical camera test. Keep
 future debug builds change. It is the supplied 726029ba6/D8G2xhGi build, not an
 additional native acceptance result. No phone result has been received yet.
 
+The human explicitly requested a corresponding GitHub APK download and a fresh
+pairing code for scanning. The fixed first APK is now the public prerelease
+`android-test1-726029ba6`, pinned to source 726029ba6. Its remote size and SHA-256
+match the preserved file and the unauthenticated download returns 200. Pairing
+codes/QR images remain private and expire after 10 minutes; they are never
+release assets or repository content.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and
@@ -85,7 +106,7 @@ enterprise network policy continue to enforce the same exposure boundary.
 
 Upstream OpenChamber is MIT licensed, baseline `c5b690df9`. Keep the license and original application. OpenHerdr is an independent entrypoint inside `packages/web`; sharing UI primitives does not require OpenCode to run. Existing OpenCode-specific functions remain part of the upstream application and must not be advertised as supported for arbitrary Herdr agents without an implementation.
 
-Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS.md and the user's global instructions apply. The user explicitly authorizes Git iteration and autonomous implementation. The user now explicitly authorizes a public source repository. Store/app releases, changes to shared services or credentials, and stopping unrelated agents remain outside this task.
+Before resuming work, read this file and `docs/openherdr/STATUS.md`. Root AGENTS.md and the user's global instructions apply. The user explicitly authorizes Git iteration and autonomous implementation. The user now explicitly authorizes a public source repository and the requested GitHub first-test APK prerelease. Store/stable app releases, changes to shared services or credentials, and stopping unrelated agents remain outside this task.
 
 ## Current UI correction and source publication
 

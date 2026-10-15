@@ -388,7 +388,12 @@ export async function createHerdrServer(options = {}) {
         } else if (request.command === 'stop') {
           result = { stopping: true };
           connection.end(`${JSON.stringify({ id, result })}\n`);
-          setImmediate(() => close()); return;
+          // A lifecycle owner may need to retire its children before releasing
+          // this instance's socket. The owner reports failures at its own exit.
+          setImmediate(() => {
+            Promise.resolve().then(() => options.onStopRequested ? options.onStopRequested() : close()).catch(() => {});
+          });
+          return;
         } else throw new ApiError(400, 'unknown_command', 'Unknown admin command');
         connection.end(`${JSON.stringify({ id, result })}\n`);
       } catch (error) { connection.end(`${JSON.stringify({ id, error: { code: error.code ?? 'admin_error', message: error.message } })}\n`); }

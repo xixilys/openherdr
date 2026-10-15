@@ -47,6 +47,47 @@ Stop closes this bridge and its tunnel. Herdr and its agents keep running.
 Separate Herdr sessions need separate `--state-dir` and `--port` values. The CLI
 refuses to reuse a running bridge for a different session or inherited socket.
 
+## Fixed Cloudflare origin
+
+Use a managed tunnel when the phone should keep the same HTTPS address after
+an owned bridge/tunnel restart. The hostname and its ingress must already route
+to this bridge's loopback address and port. Configure the account's tunnel,
+DNS and ingress separately.
+
+For a remotely managed tunnel, supply its token through an explicit file:
+
+```sh
+node packages/web/bin/openherdr.js start --cf --cf-mode managed-remote \
+  --server https://herdr.example.com --cf-token-file /private/path/to/tunnel-token
+```
+
+For a locally managed tunnel, supply its existing configuration explicitly:
+
+```sh
+node packages/web/bin/openherdr.js start --cf --cf-mode managed-local \
+  --server https://herdr.example.com --cf-config /private/path/to/cloudflared.yml
+```
+
+These modes read the selected files through cloudflared. They do not copy
+secrets into an OpenHerdr profile, inspect default Cloudflare/OpenChamber
+credentials or modify the input files. `--server` selects the exact HTTPS
+origin for pairing; it does not choose or rewrite an ingress rule. Use the same
+state directory and named-mode arguments when restarting this instance. Choose
+a different `--state-dir` and `--port` to leave an existing bridge running.
+
+`--cf` alone still starts a Quick Tunnel. The original mobile pairing, saved
+connection and Monitor flows use either mode's HTTPS origin. The plugin's
+Start action retains the Quick default; managed modes are configured through
+the CLI in this increment. Named profiles and a tunnel Settings page remain
+unfinished.
+
+A successful start confirms the connector's first connection and process
+ownership. `status` reports that separately from public routing, which remains
+`unverified` in its metadata. Verify the configured HTTPS origin from the phone.
+The current process tests cover stable-origin restart and retained/revoked
+credentials. Real public Quick access has also passed; actual managed-domain
+DNS/ingress and Android use remain unverified in [STATUS.md](STATUS.md).
+
 ## Herdr plugin
 
 ```sh
@@ -185,7 +226,8 @@ and `.tmp/untracked-ssh-acceptance.json`.
 
 The first physical-device test copy is `openherdr-test1-726029ba6.apk`, stored
 locally under `packages/mobile/openherdr/build/` so later debug builds cannot
-overwrite it. The human has requested it for scanning; installation and a camera
+overwrite it. [Download that first QR-test APK from GitHub](https://github.com/xixilys/openherdr/releases/download/android-test1-726029ba6/openherdr-test1-726029ba6.apk).
+The human has requested it for scanning; installation and a camera
 result have not been confirmed. [Native validation](../../packages/mobile/openherdr/VALIDATION.md)
 records package properties, the latest builds and the separate earlier native
 observations. Complete editor/Git behavior, connected native interaction and

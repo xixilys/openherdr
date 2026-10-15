@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
-import { mkdir, open, writeFile, chmod, unlink, access } from 'node:fs/promises';
+import { mkdir, open, chmod, access } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import { readEnterprisePolicy } from '../server/lib/enterprise-mode.js';
+import { tunnelOptions, validateTunnelInput, startTunnel, tunnelStatus } from './lib/openherdr-tunnel.js';
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const executable = fileURLToPath(import.meta.url);
@@ -33,7 +32,10 @@ Options:
   --state-dir PATH    Separate bridge state and credentials
   --server URL        Reachable public/LAN/SSH URL for pairing
   --public-origin URL Allow an exact browser origin (repeatable)
-  --cf                Start an owned Cloudflare Quick Tunnel with the bridge
+  --cf                Start an owned Cloudflare tunnel with the bridge
+  --cf-mode MODE      quick (default), managed-remote or managed-local
+  --cf-token-file PATH Explicit token file for managed-remote
+  --cf-config PATH    Explicit configuration file for managed-local
   --qr                Show the one-time pairing QR code
   --open              Open the pairing link in this computer's browser
   --label NAME        Device name for pairing
@@ -48,7 +50,9 @@ Examples:
   openherdr serve --session work --server https://herdr.example.com
   openherdr ssh --target workstation --port 4318
 
-Cloudflare URLs are temporary. Stop only affects this OpenHerdr bridge.
+Quick Tunnel URLs are temporary. Managed modes require an HTTPS --server.
+A connected connector does not confirm public DNS or ingress routing.
+Stop only affects this OpenHerdr bridge.
 The underlying Herdr server and its agents keep running.
 `;
 
@@ -123,71 +127,9 @@ async function waitForStopped(stateDir, pid) {
   throw new Error('Shutdown was requested but process exit is not confirmed. Check openherdr status.');
 }
 
-async function startCloudflare(origin, stateDir) {
-  if (readEnterprisePolicy().enterpriseMode) throw new Error('Cloudflare tunnels are disabled in enterprise mode');
-  const configFile = path.join(stateDir, 'cloudflared-empty.yml');
-  await writeFile(configFile, '# OpenHerdr owns this Quick Tunnel configuration.\n', { mode: 0o600 });
-  const child = spawn('cloudflared', ['tunnel', '--config', configFile, '--no-autoupdate', '--protocol', 'http2', '--url', origin], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const log = createWriteStream(path.join(stateDir, 'cloudflare.log'), { flags: 'a', mode: 0o600 });
-  child.stdout.pipe(log, { end: false });
-  child.stderr.pipe(log, { end: false });
-  try {
-    const publicOrigin = await new Promise((resolve, reject) => {
-      let buffer = '';
-      const timer = setTimeout(() => finish(new Error('Cloudflare did not return a URL within 30 seconds')), 30000);
-      function inspect(chunk) {
-        buffer = (buffer + chunk.toString()).slice(-16384);
-        const match = buffer.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-        if (match) finish(null, match[0]);
-      }
-      function fail(error) { finish(error); }
-      function exited(code) { finish(new Error(`Cloudflare exited during startup (${code ?? 'signal'})`)); }
-      function finish(error, value) {
-        clearTimeout(timer);
-        child.stdout.off('data', inspect);
-        child.stderr.off('data', inspect);
-        child.off('error', fail);
-        child.off('exit', exited);
-        if (error) reject(error); else resolve(value);
-      }
-      child.stdout.on('data', inspect);
-      child.stderr.on('data', inspect);
-      child.once('error', fail);
-      child.once('exit', exited);
-    });
-    await writeFile(path.join(stateDir, 'tunnel.json'), JSON.stringify({ pid: child.pid, publicOrigin, startedAt: new Date().toISOString() }), { mode: 0o600 });
-    let stopping;
-    return {
-      publicOrigin,
-      stop() {
-        stopping ??= (async () => {
-          if (child.exitCode === null && child.signalCode === null) {
-            await new Promise((resolve, reject) => {
-              const force = setTimeout(() => child.kill('SIGKILL'), 3000);
-              const timeout = setTimeout(() => { cleanup(); reject(new Error('Cloudflare process exit is not confirmed')); }, 6000);
-              const done = () => { cleanup(); resolve(); };
-              const cleanup = () => { clearTimeout(force); clearTimeout(timeout); child.off('exit', done); };
-              child.once('exit', done); child.kill('SIGTERM');
-            });
-          }
-          log.end();
-          await unlink(path.join(stateDir, 'tunnel.json')).catch(() => {});
-        })();
-        return stopping;
-      },
-    };
-  } catch (error) {
-    child.kill('SIGTERM');
-    log.end();
-    throw error;
-  }
-}
-
 function show(value, options) {
   if (options.json) console.log(JSON.stringify(value));
-  else if (options.quiet) console.log(value.url || value.publicOrigin || value.baseUrl || value.status || JSON.stringify(value));
+  else if (options.quiet) console.log(value.url || value.publicOrigin || value.tunnel?.publicOrigin || value.baseUrl || value.status || JSON.stringify(value));
   else console.log(JSON.stringify(value, null, 2));
 }
 
@@ -216,6 +158,7 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
       session: { type: 'string' }, socket: { type: 'string' }, port: { type: 'string', default: '4318' },
       host: { type: 'string', default: '127.0.0.1' }, 'state-dir': { type: 'string', default: defaultStateDir },
       server: { type: 'string' }, 'public-origin': { type: 'string', multiple: true, default: [] },
+      'cf-mode': { type: 'string' }, 'cf-token-file': { type: 'string' }, 'cf-config': { type: 'string' },
       cf: { type: 'boolean', default: false }, qr: { type: 'boolean' }, open: { type: 'boolean' },
       json: { type: 'boolean' }, quiet: { type: 'boolean' }, label: { type: 'string' },
       target: { type: 'string' }, 'remote-port': { type: 'string', default: '4318' },
@@ -229,6 +172,8 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
     const port = portNumber(values.port, 'port');
     const origins = values['public-origin'].map(serverOrigin);
     const suppliedServer = values.server ? serverOrigin(values.server) : null;
+    const cloudflare = tunnelOptions(values, command, suppliedServer);
+    await validateTunnelInput(cloudflare);
     if (suppliedServer && !origins.includes(suppliedServer)) origins.push(suppliedServer);
     if (values.socket && values.session) throw new Error('Choose either --session or --socket');
     const selectedSocket = values.socket || (values.session ? undefined : process.env.HERDR_SOCKET_PATH);
@@ -237,7 +182,7 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
 
     if (command === 'status') {
       const status = await runningStatus(stateDir);
-      show(status ? { status: 'running', ...status } : { status: 'stopped', stateDir }, values);
+      show(status ? { status: 'running', ...status, tunnel: await tunnelStatus(stateDir, status.pid) } : { status: 'stopped', stateDir }, values);
       return 0;
     }
     if (command === 'stop') {
@@ -271,8 +216,11 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
       if (expectedSocket && expectedSocket !== current.socketPath) {
         throw new Error('This state directory already serves a different Herdr target. Choose another --state-dir and --port.');
       }
-      if (values.cf && !current.publicOrigins?.some((origin) => origin.endsWith('.trycloudflare.com'))) throw new Error('Bridge is already running without a Cloudflare tunnel. Stop it, then start --cf.');
-      show({ status: 'running', ...current }, values);
+      const currentTunnel = await tunnelStatus(stateDir, current.pid, cloudflare);
+      if (cloudflare && !(cloudflare.mode === 'quick' && currentTunnel?.mode === null) && currentTunnel?.connector !== 'first-connected') {
+        throw new Error('The running bridge does not confirm this Cloudflare configuration. Stop it first or choose another --state-dir and --port.');
+      }
+      show({ status: 'running', ...current, tunnel: currentTunnel }, values);
       return 0;
     }
     await mkdir(stateDir, { recursive: true, mode: 0o700 });
@@ -283,48 +231,102 @@ export async function runOpenHerdr(argv = process.argv.slice(2)) {
       if (socketPath) args.push('--socket', socketPath);
       if (session) args.push('--session', session);
       for (const origin of origins) args.push('--public-origin', origin);
-      if (values.cf) args.push('--cf');
-      const child = spawn(process.execPath, args, { stdio: ['ignore', log.fd, log.fd], detached: true });
+      const launchId = randomUUID();
+      if (cloudflare) {
+        args.push('--cf', '--cf-mode', cloudflare.mode);
+        if (suppliedServer) args.push('--server', suppliedServer);
+        if (cloudflare.tokenFile) args.push('--cf-token-file', cloudflare.tokenFile);
+        if (cloudflare.configFile) args.push('--cf-config', cloudflare.configFile);
+      }
+      const child = spawn(process.execPath, args, { env: { ...process.env, OPENHERDR_TUNNEL_LAUNCH_ID: launchId }, stdio: ['ignore', log.fd, log.fd], detached: true, windowsHide: true });
+      let childExited = false;
+      let childError = false;
+      let cancelled = false;
+      const cancelStart = () => { cancelled = true; };
+      process.once('SIGTERM', cancelStart);
+      process.once('SIGINT', cancelStart);
+      child.once('error', () => { childError = true; childExited = true; });
+      child.once('exit', () => { childExited = true; });
       child.unref();
       await log.close();
-      const deadline = Date.now() + (values.cf ? 40000 : 12000);
+      const deadline = Date.now() + (cloudflare ? 40000 : 12000);
       let status;
-      while (Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        status = await runningStatus(stateDir);
-        if (status && (!values.cf || status.publicOrigins?.some((origin) => origin.endsWith('.trycloudflare.com')))) break;
+      let connector;
+      let ready = false;
+      try {
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          if (cancelled) throw new Error('Bridge startup was cancelled');
+          if (childExited) throw new Error(childError ? 'Bridge process could not start' : 'Bridge exited before startup completed');
+          status = await runningStatus(stateDir);
+          if (status?.pid !== child.pid) continue;
+          connector = await tunnelStatus(stateDir, child.pid, cloudflare ? { ...cloudflare, launchId } : undefined);
+          if (!cloudflare || connector?.connector === 'first-connected') { ready = true; break; }
+        }
+        if (!ready || childExited) throw new Error(`Bridge startup did not finish. Inspect ${path.join(stateDir, 'server.log')}`);
+      } catch (error) {
+        // Only the child handle created by this invocation authorizes termination.
+        if (!childExited) {
+          child.ref();
+          const exit = new Promise((resolve) => child.once('exit', resolve));
+          child.kill('SIGTERM');
+          await exit;
+        }
+        throw error;
+      } finally {
+        process.off('SIGTERM', cancelStart);
+        process.off('SIGINT', cancelStart);
       }
-      if (!status || (values.cf && !status.publicOrigins?.some((origin) => origin.endsWith('.trycloudflare.com')))) {
-        throw new Error(`Bridge startup did not finish. Inspect ${path.join(stateDir, 'server.log')}`);
-      }
-      show({ status: 'running', ...status }, values);
+      show({ status: 'running', ...status, tunnel: connector }, values);
       return 0;
     }
 
-    const { startHerdrServer } = await import('../server/herdr/index.js');
-    const app = await startHerdrServer({ host: values.host, port, session, socketPath, stateDir, publicOrigins: origins, staticDir: path.join(webRoot, 'dist-herdr') });
+    const controller = new AbortController();
+    let app;
     let tunnel;
-    const closed = new Promise((resolve) => app.server.once('close', resolve));
+    let tunnelStartup = Promise.resolve(null);
     let shuttingDown;
     const shutdown = () => {
-      shuttingDown ??= (async () => { try { await tunnel?.stop(); } finally { await app.close(); } })();
+      controller.abort();
+      shuttingDown ??= (async () => {
+        const ownedTunnel = await tunnelStartup.catch(() => null);
+        try { await ownedTunnel?.stop(); } finally { await app?.close(); }
+      })();
       return shuttingDown;
     };
-    process.once('SIGTERM', shutdown);
-    process.once('SIGINT', shutdown);
+    const signalStop = () => { shutdown().catch(() => {}); };
+    // Signals can arrive while imports or tunnel startup are still pending.
+    process.once('SIGTERM', signalStop);
+    process.once('SIGINT', signalStop);
     try {
-      if (values.cf) {
-        tunnel = await startCloudflare(`http://127.0.0.1:${port}`, stateDir);
+      const { startHerdrServer } = await import('../server/herdr/index.js');
+      controller.signal.throwIfAborted();
+      app = await startHerdrServer({ host: values.host, port, session, socketPath, stateDir, publicOrigins: origins, staticDir: path.join(webRoot, 'dist-herdr'), onStopRequested: shutdown });
+      const closed = new Promise((resolve) => app.server.once('close', () => { controller.abort(); resolve(); }));
+      controller.signal.throwIfAborted();
+      if (cloudflare) {
+        tunnelStartup = startTunnel({ origin: `http://127.0.0.1:${port}`, stateDir, options: cloudflare, signal: controller.signal, launchId: process.env.OPENHERDR_TUNNEL_LAUNCH_ID || randomUUID() });
+        tunnel = await tunnelStartup;
+        controller.signal.throwIfAborted();
         await adminRequest(stateDir, 'origin.add', { origin: tunnel.publicOrigin });
       }
+      controller.signal.throwIfAborted();
       const status = await adminRequest(stateDir, 'status');
-      show({ status: 'running', ...status }, values);
+      show({ status: 'running', ...status, tunnel: await tunnelStatus(stateDir, status.pid) }, values);
       if (values.qr || values.open) await showPairing(await adminRequest(stateDir, 'pair', { label: values.label, server: suppliedServer || tunnel?.publicOrigin }), values);
       await closed;
     } finally {
-      await shutdown();
-      process.off('SIGTERM', shutdown);
-      process.off('SIGINT', shutdown);
+      controller.abort();
+      // A signal during an earlier await may have closed the partial app before
+      // the tunnel handle became available. Join both final owners here.
+      try {
+        const ownedTunnel = await tunnelStartup.catch(() => null);
+        try { await ownedTunnel?.stop(); } finally { await app?.close(); }
+        await shuttingDown;
+      } finally {
+        process.off('SIGTERM', signalStop);
+        process.off('SIGINT', signalStop);
+      }
     }
     return 0;
   } catch (error) {

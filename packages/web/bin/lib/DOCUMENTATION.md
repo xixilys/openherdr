@@ -70,6 +70,59 @@ Command modules implement user-facing commands and preserve output contracts acr
 
 These modules hold reusable, non-presentational logic for commands.
 
+- `openherdr-tunnel.js`
+  - Owns the independent `../openherdr.js` Cloudflare option validation,
+    explicit read-only operator input files, child lifecycle and connection
+    receipts. The original OpenChamber CLI and tunnel profiles are unchanged.
+  - `--cf` keeps Quick Tunnel behavior. `--cf-mode managed-remote` requires
+    an HTTPS `--server` and `--cf-token-file`; `managed-local` requires the
+    HTTPS origin and `--cf-config`. Mode/file flags apply only to start/serve
+    and require `--cf`. Conflicting or irrelevant flags fail before launch.
+    No raw token argument, stdin token, profile store or credential discovery
+    is supported. Explicit inputs remain operator-owned and are never copied.
+  - Quick and managed-remote use an owned empty configuration to disable
+    default cloudflared config discovery. All inherited `TUNNEL_*` variables
+    are removed before spawn, while normal proxy environment remains intact.
+    Managed output is consumed without logging or including it in errors.
+    Quick output is inspected only for the temporary public HTTPS origin.
+  - Each launch has a private directory and a cloudflared `--pidfile` path
+    that did not exist before spawn. Startup requires that file to contain
+    the exact child PID after cloudflared's first successful connection.
+    Quick also requires its generated URL. The private receipt stores the
+    launch identity, owning serve PID, child PID, mode, origin and explicit
+    file paths, with no credential contents. Background start verifies its
+    newly spawned serve PID and launch identity, the requested configuration,
+    the first-connection file and the live child's parent PID. Existing admin
+    status, arbitrary output or registered origins cannot finish startup.
+  - `status`, `start` and `serve` add `tunnel`, either null or
+    `{mode, publicOrigin, connector, publicRouting}`. `connector` is
+    `first-connected`, `unconfirmed` or `exited`; an exited connector includes
+    a generic reason. `publicRouting` is always `unverified`. First connection
+    plus process liveness does not establish current DNS, ingress or external
+    reachability. `publicOrigins` remains the server's registration list.
+    A legacy three-field `tunnel.json` remains readable with a null mode and
+    unconfirmed connector. Legacy status/connect do not restart anything.
+  - Reusing a running instance with a different mode, stable origin or input
+    file path is refused. Legacy Quick reuse remains explicitly unconfirmed.
+    In Quick mode, `serve --qr/--open --server` and `connect --server` select
+    their explicit pairing origin separately from the owned Quick URL. A later
+    `connect` without `--server` selects the last registered origin, normally
+    the Quick URL. `start` reports status without automatic pairing output.
+    Quiet start/status prefer the tunnel origin.
+  - Stop and startup cancellation signal only the exact spawned child handle,
+    join its exit and escalate that child to SIGKILL after the grace period.
+    Repeated stop shares the same operation. Cleanup removes only the owned
+    launch directory and matching receipt; a disk PID never authorizes a
+    signal. Parent startup cancellation also joins its spawned serve process.
+    The CLI's shared signal/admin-stop owner aborts and joins tunnel startup,
+    retires the connector and its receipt, then closes the bridge. Its admin
+    socket remains owned during cleanup, so a concurrent start cannot replace
+    the receipt before the previous connector retires.
+    Enterprise mode refuses all modes before server or connector creation.
+  - Host CLI owns this behavior. Browser/PWA, hosted mobile and OpenHerdr
+    Capacitor keep their existing exact-origin HTTPS bearer and one-use
+    pairing contract. Original Electron and VS Code are unchanged.
+
 - `cli-args.js`
   - Argument parsing, defaults, help text, completion script generation, and typo suggestions.
   - `COMMAND_OWNED_FLAGS` lists flags only one family of commands reads (schedule, session, tunnel, logs). Such a flag on any other command is an `Unknown option for <command>` error in every output mode instead of being ignored; global and shared flags are not listed and stay accepted everywhere. Add a new command-specific flag there.

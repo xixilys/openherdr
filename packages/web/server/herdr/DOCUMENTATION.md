@@ -29,6 +29,7 @@ Options:
 | `herdrBinary` | Installed Herdr executable, default `herdr`. |
 | `timeoutMs` | Default RPC timeout, 15000 ms. Agent startup uses its startup timeout. |
 | `bridge`, `readPolicy` | Dependency injection for focused integration tests. |
+| `onStopRequested` | Optional async lifecycle-owner callback for the admin `stop` command. Replaces the default close; the owner retires its children, then calls this runtime's `close()`. |
 
 The direct module entrypoint uses `OPENHERDR_SESSION`, default `default`, and
 `OPENHERDR_PORT`, default `4318`. The owning CLI should pass explicit options.
@@ -47,7 +48,16 @@ have `{id,result}` or `{id,error:{code,message}}`.
 | `status` | `{}` | App/version, PID, host/port, session, baseUrl, publicOrigins, adminSocketPath |
 | `origin.add` | `{origin}` | Updated status metadata |
 | `pair` | `{label?,server?}` | pairingId, secret, server, expiresAt, fingerprint, url |
-| `stop` | `{}` | `{stopping:true}`, then this server closes |
+| `stop` | `{}` | `{stopping:true}`, then the owner callback runs, or the server closes when no callback is supplied |
+
+The optional stop callback lets the CLI retain its admin socket and state while
+it aborts and joins a pending tunnel launch or stops an established connector.
+Only after that cleanup does the CLI close this runtime. A concurrent start
+therefore still sees the owning server until its children and receipts retire.
+The server module imports no Cloudflare lifecycle code. Direct consumers without
+the callback keep the existing close behavior. The callback owns error reporting;
+the admin handler catches synchronous and async failures without logging raw
+errors. `{stopping:true}` acknowledges the request; callers still verify exit.
 
 Pairing URLs use `/#pairing=<base64url JSON>` with
 `{pairingId,secret,server}`. The browser removes the fragment before redeeming.

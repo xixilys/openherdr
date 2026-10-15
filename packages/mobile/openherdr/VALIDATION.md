@@ -1,6 +1,29 @@
 # Native build validation
 
-## Latest cold-window restoration artifact
+## Latest saved connection management artifact
+
+The debug APK is 40,701,131 bytes and packages `herdr-CpTmNVqs.js`. Its HTML and
+entry match the Herdr web build exactly in `.tmp/instances-apk.json`; scanner
+registration and 12 native libraries remain packaged. The fixed first phone-test
+D8G2xhGi APK and public prerelease have not been replaced.
+
+Herdr and original Web builds, native asset preparation, Android sync and Gradle
+assembleDebug pass. Gradle used the existing task-owned cache and NDK 27.1 init
+script and completed in 10 seconds, with 245 tasks, 27 executed and 218 up-to-date.
+Logs are `.tmp/build-herdr-instances-final.log`,
+`.tmp/build-web-instances-final.log` and `.tmp/build-instances-android.log`.
+
+The real 412x915 default CF browser exercised optional-name persistence through
+reload, original fullscreen instance rows/editing, read-only saved origin,
+cancelled removal, saved selection, Add through Welcome and Arabic RTL. Temporary
+name and locale changes were restored. The same Kansas worker window returned
+with actual read-only output; the default bridge/tunnel stayed running.
+Focused controller/store/view/App tests and the combined static gate pass as
+recorded in STATUS.md. These checks do not establish Android secure-vault,
+camera, keyboard, system Back or process-death behavior. This new APK has not
+been installed or interactively tested, and physical-phone feedback is pending.
+
+## Previous cold-window restoration artifact
 
 The debug APK is 40,701,131 bytes and packages `herdr-ATkpLUV8.js`. Its HTML and
 entry match the web build exactly in `.tmp/cold-monitor-apk.json`. The scanner

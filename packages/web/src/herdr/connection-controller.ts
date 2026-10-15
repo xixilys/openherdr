@@ -5,9 +5,12 @@ type ConnectionOperations = {
   list: () => Connection[];
   redeem: (server: string, pairing: Pairing) => Promise<Connection>;
   save: (connection: Connection) => Promise<void>;
+  probe: (connection: Connection) => Promise<'ready' | 'unauthorized'>;
+  rename: (server: string, label: string) => Promise<void>;
+  forget: (server: string) => Promise<void>;
 };
 type PairingIntent = { pairing: Pairing; server: string } | { error: string };
-type ConnectionPhase = 'editing' | 'checking-storage' | 'redeeming' | 'saving' | 'save-failed';
+type ConnectionPhase = 'editing' | 'checking-storage' | 'redeeming' | 'saving' | 'save-failed' | 'probing' | 'renaming' | 'removing';
 type ConnectionState = {
   server: string;
   pairingText: string;
@@ -50,6 +53,11 @@ export class HerdrConnectionController {
     } else this.update({ authRequiredServer: connection.server });
   }
   setServer(server: string): void { if (!this.locked) this.update({ server, error: null }); }
+  startPairing(server = ''): boolean {
+    if (this.locked) return false;
+    this.update({ server, pairing: null, pairingText: '', error: null, intakeRevision: this.state.intakeRevision + 1 });
+    return true;
+  }
   setPairingText(pairingText: string): void {
     if (this.locked) return;
     let server = this.state.server;
@@ -119,8 +127,22 @@ export class HerdrConnectionController {
     const connection = this.operations.list().find(item => item.server === server);
     if (!connection || this.isRejected(connection)) return;
     this.inFlight = true;
-    this.update({ phase: 'saving', error: null, savingSaved: server });
+    this.update({ phase: 'probing', error: null, savingSaved: server });
     try {
+      const result = await this.operations.probe(connection);
+      if (result === 'unauthorized') {
+        this.rejected.set(server, connection.token);
+        this.update({ phase: 'editing', savingSaved: null, server, pairing: null, pairingText: '', authRequiredServer: server });
+        if (this.queuedIntent) { const next = this.queuedIntent; this.queuedIntent = null; this.applyIntent(next); }
+        return;
+      }
+      // A new pairing intent supersedes this switch before it can change MRU.
+      if (this.queuedIntent || !this.active || this.isRejected(connection)) {
+        this.update({ phase: 'editing', savingSaved: null });
+        if (this.queuedIntent) { const next = this.queuedIntent; this.queuedIntent = null; this.applyIntent(next); }
+        return;
+      }
+      this.update({ phase: 'saving' });
       await this.operations.save(connection);
       if (this.isRejected(connection)) {
         this.update({ phase: 'editing', savingSaved: null });
@@ -133,10 +155,42 @@ export class HerdrConnectionController {
       if (next) this.applyIntent(next);
       else if (this.active) this.onConnected(connection);
     } catch {
-      this.update({ phase: 'editing', error: 'credentialStorage', savingSaved: null });
+      this.update({ phase: 'editing', error: this.state.phase === 'probing' ? 'connectionUnavailable' : 'credentialStorage', savingSaved: null });
       if (this.queuedIntent) { const next = this.queuedIntent; this.queuedIntent = null; this.applyIntent(next); }
     }
     finally { this.inFlight = false; }
+  }
+  async renameSaved(server: string, label: string): Promise<boolean> {
+    if (this.locked || !this.operations.list().some(item => item.server === server)) return false;
+    this.inFlight = true;
+    this.update({ phase: 'renaming', error: null });
+    try {
+      await this.operations.rename(server, label);
+      this.update({ saved: this.operations.list() });
+      return true;
+    } catch { this.update({ error: 'credentialStorage' }); return false; }
+    finally {
+      this.inFlight = false;
+      this.update({ phase: 'editing' });
+      if (this.queuedIntent) { const next = this.queuedIntent; this.queuedIntent = null; this.applyIntent(next); }
+    }
+  }
+  async removeSaved(server: string): Promise<Connection | null> {
+    if (this.locked) return null;
+    const connection = this.operations.list().find(item => item.server === server);
+    if (!connection) return null;
+    this.inFlight = true;
+    this.update({ phase: 'removing', error: null });
+    try {
+      await this.operations.forget(server);
+      this.update({ saved: this.operations.list(), authRequiredServer: this.state.authRequiredServer === server ? null : this.state.authRequiredServer });
+      return connection;
+    } catch { this.update({ error: 'credentialStorage' }); return null; }
+    finally {
+      this.inFlight = false;
+      this.update({ phase: 'editing' });
+      if (this.queuedIntent) { const next = this.queuedIntent; this.queuedIntent = null; this.applyIntent(next); }
+    }
   }
   refreshSaved(): void { this.update({ saved: this.operations.list() }); }
 }

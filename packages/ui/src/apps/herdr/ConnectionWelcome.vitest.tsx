@@ -30,6 +30,7 @@ beforeEach(async () => {
   redemptions = []; activations = []; finishBarcode = () => undefined;
   controller = new HerdrConnectionController({ async initialize() {}, list() { return []; },
     async redeem(server) { redemptions.push(server); return { server, token: 'fixture-device' }; }, async save() {},
+    async probe() { return 'ready'; }, async rename() {}, async forget() {},
   }, connection => activations.push(connection), { server: '', pairing: null, error: null });
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });

@@ -12,6 +12,7 @@ import { MobileConnectionDebugPanel } from './MobileConnectionDebugPanel';
 import { isQrScanSupported, scanConnectionQr } from './mobileQrScan';
 import { mobileConnectionInputClass, mobileInputKeyboardProps } from './mobileConnectionUi';
 import { MobileQrConnectionLoading, MobileQrScannerOverlay } from './MobileQrScannerOverlay';
+import { MobileInstancesListView } from './MobileInstancesListView';
 
 export const MobileInstancesSurface: React.FC<{
   onConnect: () => void;
@@ -199,105 +200,40 @@ export const MobileInstancesSurface: React.FC<{
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <div className="space-y-6">
-          {connections.length > 0 ? (
-            <div {...debugLongPress} className="overflow-hidden rounded-[18px] border border-border/70 bg-surface-elevated">
-              {connections.map((connection) => {
-                const confirming = confirmingDeleteId === connection.id;
-                const isActive = isActiveRuntimeConnection(connection);
-                const isConnectingRow = connectingId === connection.id;
-                // Status line: the active instance says HOW it is connected right
-                // now (direct vs relay); others show their address.
-                const statusText = isConnectingRow
-                  ? t('mobile.connect.connecting')
-                  : isActive
-                    ? (isRelayModeActive() ? t('mobile.instances.status.connectedRelay') : t('mobile.instances.status.connectedDirect'))
-                    : connection.candidates.some((c) => c.kind === 'direct') ? connectionDisplayUrl(connection) : t('mobile.connect.relay.badge');
-                return (
-                  <div
-                    key={connection.id}
-                    className={cn(
-                      'flex items-center border-b border-border/70 transition-colors last:border-b-0',
-                      confirming && 'bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)]',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-3 px-3.5 py-3 text-start transition-colors active:bg-interactive-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60"
-                      onClick={() => {
-                        if (isActive) return;
-                        setConnectingId(connection.id);
-                        void connect({ id: connection.id, candidates: connection.candidates, clientToken: connection.clientToken, label: connection.label })
-                          .finally(() => setConnectingId(null));
-                      }}
-                      disabled={(isBusy && !isConnectingRow) || confirming}
-                    >
-                      <span className="relative flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-interactive-hover text-foreground">
-                        <Icon name="server" className="size-[18px]" />
-                        {isActive ? (
-                          <span className="absolute -inset-e-0.5 -top-0.5 size-2.5 rounded-full border-2 border-[var(--surface-elevated)] bg-[var(--status-success)]" aria-hidden />
-                        ) : null}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate typography-ui-label text-foreground">{connection.label}</span>
-                        <span className={cn(
-                          'block truncate typography-small',
-                          isActive && !isConnectingRow ? 'text-[var(--status-success)]' : 'text-muted-foreground',
-                        )}>
-                          {statusText}
-                        </span>
-                      </span>
-                      {isConnectingRow ? <Icon name="loader-4" className="size-5 shrink-0 animate-spin text-muted-foreground" /> : null}
-                    </button>
-                    <div className="flex items-center gap-0.5 pe-2">
-                      {confirming ? (
-                        <button
-                          type="button"
-                          aria-label={t('mobile.instances.confirmDeleteAria', { label: connection.label })}
-                          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-destructive px-3 text-destructive-foreground transition-opacity active:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
-                          onClick={() => confirmDelete(connection.id)}
-                          style={{ touchAction: 'manipulation' }}
-                        >
-                          <Icon name="delete-bin" className="size-[18px]" />
-                          <span className="typography-ui-label">{t('mobile.instances.delete')}</span>
-                        </button>
-                      ) : !connection.candidates.some((c) => c.kind === 'direct') ? null : (
-                        <button
-                          type="button"
-                          aria-label={t('mobile.instances.edit')}
-                          className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-interactive-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => {
-                            setEditingId(connection.id);
-                            setUrl(connectionDisplayUrl(connection));
-                            setLabel(connection.label);
-                            setClientToken(connection.clientToken || '');
-                            setError(null);
-                          }}
-                          style={{ touchAction: 'manipulation' }}
-                        >
-                          <Icon name="edit" className="size-[18px]" />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        aria-label={confirming
-                          ? t('mobile.instances.cancelDeleteAria', { label: connection.label })
-                          : t('mobile.instances.deleteAria', { label: connection.label })}
-                        className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-interactive-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => toggleConfirmDelete(connection.id)}
-                        style={{ touchAction: 'manipulation' }}
-                      >
-                        <Icon name={confirming ? 'close' : 'delete-bin'} className="size-[18px]" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p {...debugLongPress} className="rounded-[18px] border border-dashed border-border/70 px-4 py-6 text-center typography-small text-muted-foreground">
-              {t('mobile.connect.saved.empty')}
-            </p>
-          )}
+          <MobileInstancesListView
+            {...debugLongPress}
+            rows={connections.map((connection) => {
+              const active = isActiveRuntimeConnection(connection);
+              const connecting = connectingId === connection.id;
+              // The active instance reports its live transport; other rows show their address.
+              const status = connecting
+                ? t('mobile.connect.connecting')
+                : active
+                  ? (isRelayModeActive() ? t('mobile.instances.status.connectedRelay') : t('mobile.instances.status.connectedDirect'))
+                  : connection.candidates.some((candidate) => candidate.kind === 'direct') ? connectionDisplayUrl(connection) : t('mobile.connect.relay.badge');
+              return { id: connection.id, label: connection.label, status, active, connecting, canEdit: connection.candidates.some((candidate) => candidate.kind === 'direct') };
+            })}
+            busy={isBusy}
+            confirmingDeleteId={confirmingDeleteId}
+            onSelect={(id) => {
+              const connection = connections.find((item) => item.id === id);
+              if (!connection || isActiveRuntimeConnection(connection)) return;
+              setConnectingId(id);
+              void connect({ id, candidates: connection.candidates, clientToken: connection.clientToken, label: connection.label })
+                .finally(() => setConnectingId(null));
+            }}
+            onEdit={(id) => {
+              const connection = connections.find((item) => item.id === id);
+              if (!connection) return;
+              setEditingId(id);
+              setUrl(connectionDisplayUrl(connection));
+              setLabel(connection.label);
+              setClientToken(connection.clientToken || '');
+              setError(null);
+            }}
+            onToggleDelete={toggleConfirmDelete}
+            onConfirmDelete={confirmDelete}
+          />
 
           {/* Add actions: QR pairing is the primary path; the manual form stays
               hidden until asked for (or until a row's edit button opens it). */}

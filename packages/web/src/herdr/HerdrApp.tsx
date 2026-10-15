@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { z } from 'zod';
 import { isCapacitorApp } from '@/lib/platform';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,9 @@ import darkDefinition from '@/lib/theme/themes/openchamber-dark.json';
 import { useHerdrText } from './herdr.i18n';
 import { usePolling } from './usePolling';
 import { isHerdrForeground, useHerdrNative } from '@openchamber/ui/lib/herdr-native';
-import { closeTopmostBackLayer } from '@/lib/mobileBackLayers';
+import { closeTopmostBackLayer, registerBackLayer } from '@/lib/mobileBackLayers';
 import { shouldSubmitEnter } from '@/components/chat/composer/keyboardPolicy';
-import { useDeviceInfo } from '@/lib/device';
+import { useDeviceInfo, useTabletLayout } from '@/lib/device';
 import { FilesPanel, ChangesPanel } from './ContentPanel';
 import { LiveTerminal } from './LiveTerminal';
 import { PaneMonitor } from './PaneMonitor';
@@ -28,10 +28,12 @@ import { useHerdrPreferences } from './useHerdrPreferences';
 import { applyHerdrPreferencesAppearance, resolveHerdrTheme } from './preferences-appearance';
 import { HerdrConnectionController } from './connection-controller';
 import { ConnectionWelcome } from './ConnectionWelcome';
+import { ConnectionInstances } from './ConnectionInstances';
+import { MobileFullscreenSurface } from '@/apps/MobileFullscreenSurface';
 import { clearLastTarget, matchesLastTarget, readLastTarget, rememberLastTarget, type LastTarget } from './last-target';
 import { HerdrMobileShell } from '@openchamber/ui/apps/herdr/HerdrMobileShell';
 import { MobileWorkspaceDrawerView, type MobileWorkspacePanel } from '@/apps/MobileWorkspaceDrawerView';
-import { HerdrTransport, TransportError, clearPendingDelivery, deliveryReceiptSchema, loadPendingDelivery, clientsSchema, credentialStorageKind, forgetConnection, infoSchema, machinesSchema, initializeConnections, readSchema, redeem, savedConnections, saveConnection, snapshotSchema, worktreesSchema, type Connection, type Mutation, type Pairing, type PendingDelivery, type NativeMutationResult } from './transport';
+import { HerdrTransport, TransportError, clearPendingDelivery, deliveryReceiptSchema, loadPendingDelivery, clientsSchema, credentialStorageKind, forgetConnection, infoSchema, machinesSchema, initializeConnections, probeConnection, readSchema, redeem, renameConnection, savedConnections, saveConnection, snapshotSchema, worktreesSchema, type Connection, type Mutation, type Pairing, type PendingDelivery, type NativeMutationResult } from './transport';
 import './herdr.css';
 
 type Panel = 'terminal' | 'worktrees' | 'devices' | 'files' | 'changes' | 'context';
@@ -45,11 +47,13 @@ export function HerdrApp({ initialPairing, initialError }: { initialPairing: Pai
   const { t, locale, locales, label, setLocale } = useI18n();
   const [connection, setConnection] = useState<Connection | null>(() => initialError ? null : savedConnections()[0] ?? null);
   const [connectOpen, setConnectOpen] = useState(!!initialPairing || !!initialError);
+  const [instancesOpen, setInstancesOpen] = useState(false);
+  const { enabled: tabletLayout } = useTabletLayout();
   const currentConnection = useRef(connection);
   currentConnection.current = connection;
-  const [flow] = useState(() => new HerdrConnectionController({ initialize: initializeConnections, list: savedConnections, redeem, save: saveConnection }, result => {
+  const [flow] = useState(() => new HerdrConnectionController({ initialize: initializeConnections, list: savedConnections, redeem, save: saveConnection, probe: probeConnection, rename: renameConnection, forget: forgetConnection }, result => {
     currentConnection.current = result;
-    setConnection(result); setConnectOpen(false);
+    setConnection(result); setConnectOpen(false); setInstancesOpen(false);
   }, {
     server: initialPairing?.server ?? (!isCapacitorApp() && /^https?:$/.test(window.location.protocol) ? window.location.origin : ''),
     pairing: initialPairing, error: initialError,
@@ -64,6 +68,16 @@ export function HerdrApp({ initialPairing, initialError }: { initialPairing: Pai
     if (currentConnection.current && flow.isRejected(currentConnection.current)) return;
     if (['editing', 'save-failed'].includes(flow.getSnapshot().phase)) { connectionPage.current.open = false; setConnectOpen(false); }
   }, [flow]);
+  const closeInstances = useCallback(() => {
+    if (flow.getSnapshot().phase === 'editing') {
+      if (currentConnection.current && flow.isRejected(currentConnection.current)) setConnectOpen(true);
+      setInstancesOpen(false);
+    }
+  }, [flow]);
+  useLayoutEffect(() => {
+    if (!instancesOpen) return;
+    return registerBackLayer(closeInstances);
+  }, [instancesOpen, closeInstances]);
   const nativeBack = useCallback(() => {
     if (closeTopmostBackLayer()) return true;
     if (connectionPage.current.open) {
@@ -78,21 +92,41 @@ export function HerdrApp({ initialPairing, initialError }: { initialPairing: Pai
     if (!current || current.server !== rejected.server || current.token !== rejected.token) return;
     flow.requireAuthentication(rejected, connectionPage.current.open);
     connectionPage.current.open = true;
-    setConnectOpen(true);
+    setConnectOpen(true); setInstancesOpen(false);
   }, [flow]);
-  const nativePairing = useCallback((url: string) => { connectionPage.current.open = true; flow.acceptLink(url); setConnectOpen(true); }, [flow]);
+  const nativePairing = useCallback((url: string) => { connectionPage.current.open = true; flow.acceptLink(url); setConnectOpen(true); setInstancesOpen(false); }, [flow]);
   useHerdrNative(nativeBack, nativePairing);
   const [dark, setDark] = useState(() => localStorage.getItem('openherdr.theme') !== 'light');
   useEffect(() => { if (connection) return; new CSSVariableGenerator().apply(dark ? darkTheme : lightTheme); localStorage.setItem('openherdr.theme', dark ? 'dark' : 'light'); }, [dark, connection]);
   const languageControls = <select className={dropdownTriggerVariants()} value={locale} onChange={event => { const next = locales.find(item => item === event.target.value); if (next) void setLocale(next); }} aria-label={t('settings.appearance.language.label')}>{locales.map(item => <option key={item} value={item}>{label(item)}</option>)}</select>;
   const commonControls = <><Button variant="ghost" size="icon" aria-label={t(dark ? 'contextPanel.browser.device.schemeLight' : 'contextPanel.browser.device.schemeDark')} onClick={() => setDark(!dark)}><Icon name={dark ? 'lightbulb' : 'flashlight'} className="size-4" /></Button>{languageControls}</>;
 
-  const welcome = <ConnectionWelcome controller={flow} toolbar={connection ? languageControls : commonControls} onClose={connection && !flow.isRejected(connection) ? closeConnection : null} />;
-  if (!connection) return welcome;
-  return <><div hidden={connectOpen}><ConnectedApp visible={!connectOpen} installBackHandler={installBackHandler} key={connection.server} connection={connection} onAuthenticationRequired={requireAuthentication} languageControls={languageControls} disconnect={async () => { await forgetConnection(connection.server); flow.refreshSaved(); currentConnection.current = null; setConnection(null); }} changeServer={() => { connectionPage.current.open = true; flow.refreshSaved(); setConnectOpen(true); }} /></div>{connectOpen && welcome}</>;
+  const openInstances = () => {
+    flow.refreshSaved();
+    setConnectOpen(!!currentConnection.current && flow.isRejected(currentConnection.current));
+    setInstancesOpen(true);
+  };
+  const openPairing = (server?: string) => {
+    if (!flow.startPairing(server)) return;
+    setInstancesOpen(false); connectionPage.current.open = true; setConnectOpen(true);
+  };
+  const welcome = <ConnectionWelcome controller={flow} toolbar={connection ? languageControls : commonControls} onManage={openInstances} onClose={connection && !flow.isRejected(connection) ? closeConnection : null} />;
+  const recovering = !!connection && flow.isRejected(connection);
+  const hidden = connectOpen || instancesOpen || recovering;
+  return <>
+    {connection ? <div hidden={hidden}><ConnectedApp visible={!hidden} installBackHandler={installBackHandler} key={connection.server} connection={connection} onAuthenticationRequired={requireAuthentication} languageControls={languageControls} manageConnections={openInstances} changeServer={() => { connectionPage.current.open = true; flow.refreshSaved(); setConnectOpen(true); }} /></div> : null}
+    {(!connection || connectOpen || recovering) && <div hidden={instancesOpen}>{welcome}</div>}
+    <MobileFullscreenSurface open={instancesOpen} variant={tabletLayout ? 'dialog' : 'fullscreen'} dialogAlign="app" title={t('mobile.menu.instances')} ariaLabel={t('mobile.menu.instances')} onClose={closeInstances}>
+      <ConnectionInstances controller={flow} activeConnection={connection} onAdd={openPairing} onRemoved={removed => {
+        const active = currentConnection.current;
+        if (active?.server !== removed.server || active.token !== removed.token) return;
+        currentConnection.current = null; setConnection(null); setInstancesOpen(false); setConnectOpen(true);
+      }} />
+    </MobileFullscreenSurface>
+  </>;
 }
 
-function ConnectedApp({ visible, installBackHandler, connection, onAuthenticationRequired, languageControls, disconnect, changeServer }: { visible: boolean; installBackHandler: (handler: (() => boolean) | null) => void; connection: Connection; onAuthenticationRequired: (connection: Connection) => void; languageControls: React.ReactNode; disconnect: () => Promise<void>; changeServer: () => void }) {
+function ConnectedApp({ visible, installBackHandler, connection, onAuthenticationRequired, languageControls, manageConnections, changeServer }: { visible: boolean; installBackHandler: (handler: (() => boolean) | null) => void; connection: Connection; onAuthenticationRequired: (connection: Connection) => void; languageControls: React.ReactNode; manageConnections: () => void; changeServer: () => void }) {
   const { t } = useI18n();
   const h = useHerdrText();
   const transport = useMemo(() => new HerdrTransport(connection, undefined, onAuthenticationRequired), [connection, onAuthenticationRequired]);
@@ -407,7 +441,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
     {delivery.kind !== 'clear' && <div className="herdr-banner herdr-warning" role="alert"><div><p>{busy || delivery.kind === 'loading' ? t('common.loading') : delivery.kind === 'storageError' ? h('deliveryStorage') : h(hostPending ? 'hostUnknown' : 'outcomeUnknown')}</p>{delivery.kind === 'pending' && <p className="herdr-fine" dir="ltr">{delivery.record.machine} · {delivery.record.session ?? t('common.unavailable')} · {delivery.record.workspaceId} · {delivery.record.tabId} · {delivery.record.paneId} · {delivery.record.method} · {delivery.record.requestId}</p>}<div className="herdr-row herdr-wrap">{delivery.kind === 'pending' && <Button size="sm" variant="outline" onClick={inspectPending}>{delivery.record.method.startsWith('files.') ? t('layout.mainTab.files') : delivery.record.method.startsWith('git.') ? t('mobile.nav.changes') : delivery.record.method.startsWith('conversation.') ? h('conversations') : delivery.record.method.startsWith('context.') ? t('layout.rightSidebar.context') : t('layout.mainTab.terminal')}</Button>}{delivery.kind !== 'loading' && <Button size="sm" variant="outline" disabled={busy || checkingDelivery} onClick={() => void checkDelivery()}>{checkingDelivery ? t('common.loading') : h('checkDelivery')}</Button>}{delivery.kind === 'pending' && <Button size="sm" variant="outline" disabled={busy || checkingDelivery} onClick={() => { const record = delivery.record; setCheckingDelivery(true); void resolveDelivery(record).then(cleared => { if (cleared) setNotice(null); }).finally(() => setCheckingDelivery(false)); }}>{h(hostPending ? 'hostChecked' : 'reviewTerminal')}</Button>}</div></div></div>}
     {notice && <div className={`herdr-banner ${notice.uncertain ? 'herdr-warning' : 'herdr-error'}`} role="alert">{notice.uncertain ? h(hostPending ? 'hostUnknown' : 'outcomeUnknown') : notice.text}<Button variant="ghost" size="xs" onClick={() => setNotice(null)} aria-label={t('mobile.surface.closeAria')}><Icon name="close" className="size-4" /></Button></div>}
   </>;
-  const footer = <><Button variant="ghost" aria-pressed={settingsOpen} onClick={() => { setSettingsOpen(value => !value); setDrawer(false); setWorkspaceOpen(false); }}><Icon name="settings-3" className="size-4" />{t('mobile.settings.placeholder.title')}</Button><Button variant="ghost" aria-pressed={panel === 'devices' && workspaceOpen} onClick={() => openWorkspacePanel('devices')}><Icon name="shield-check" className="size-4" />{h('devices')}</Button><div className="herdr-row">{commonControls}</div><Button variant="ghost" size="sm" onClick={changeServer}>{h('server')}</Button><Button variant="ghost" size="sm" onClick={() => { void disconnect().catch(() => setNotice({ text: h('credentialStorage'), uncertain: false })); }}>{h('disconnected')}</Button></>;
+  const footer = <><Button variant="ghost" aria-pressed={settingsOpen} onClick={() => { setSettingsOpen(value => !value); setDrawer(false); setWorkspaceOpen(false); }}><Icon name="settings-3" className="size-4" />{t('mobile.settings.placeholder.title')}</Button><Button variant="ghost" aria-pressed={panel === 'devices' && workspaceOpen} onClick={() => openWorkspacePanel('devices')}><Icon name="shield-check" className="size-4" />{h('devices')}</Button><div className="herdr-row">{commonControls}</div><Button variant="ghost" size="sm" onClick={changeServer}>{h('server')}</Button><Button variant="ghost" size="sm" onClick={manageConnections}>{t('mobile.menu.instances')}</Button></>;
   const machineLabel = machines.data?.machines.find(item => item.id === machine)?.label ?? machine;
   const snapshotStale = !!snapshot.data && (!!snapshot.error || !foreground);
   const selectedTitle = <span className="flex min-w-0 flex-col"><span dir="auto" className="truncate">{tab?.label ?? pane?.label ?? pane?.title ?? workspace?.label ?? t('herdr.monitor.title')}</span><span dir="auto" className="truncate typography-micro text-muted-foreground">{machineLabel}{workspace ? ` · ${workspace.label}` : ''}</span></span>;

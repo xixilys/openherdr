@@ -24,11 +24,22 @@ private. Generate a fresh link for each device.
 The Android app also has an in-app QR scanner. Scanning or opening an
 `openherdr://connect` link previews the server and still requires Connect.
 The connection screen shares OpenChamber's original Welcome layout and saved
-connection rows. Open Server URL from the window drawer to switch to a saved
-origin or pair another server; Cancel returns to the monitor. A failed device
+connection rows. Open Instances from the window drawer or Welcome toolbar to
+name, switch or remove saved servers. A name edit keeps the current server and
+list order. Switching checks that server with its saved credential before
+activation; a failed check keeps the current connection. Delete requires a
+second confirmation and removes only the local saved entry. Removing the active
+entry returns to Welcome; pending delivery records remain available for a later
+reconnection. It does not revoke the device on the server.
+
+Open Server URL or Add instance to pair another origin; Cancel returns to the
+monitor while the current credential is valid. A saved address is read-only,
+and a different address requires its own pairing. A failed device
 credential save retains that confirmed connection in memory for a save-only
 retry. Android camera and secure-vault relaunch acceptance remain unverified.
 The current OpenHerdr iOS SwiftPM project does not include the scanner.
+
+![Original instance list with a temporary local display name](assets/connection-instances.png)
 
 ![Shared connection page in the actual mobile-width browser](assets/connection-welcome.jpg)
 

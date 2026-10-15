@@ -115,7 +115,7 @@ system Back and native lifecycle acceptance require their own runtime checks.
 ## Transport and credentials
 
 `ConnectionWelcome` uses the original `MobileConnectionWelcomeView`. Its saved
-rows contain origins only. The original OpenChamber wrapper retains its own
+rows show the optional local name and exact origin. The original OpenChamber wrapper retains its own
 connection/password controller and protocol. Herdr returns to the same monitor
 when the connection page closes; hidden shell portals and content reads are
 disabled while it is open. Camera intake uses the shared raw `scanQrText`
@@ -127,9 +127,37 @@ dispatch, captured server/payload and credential persistence. It checks storage
 initialization before consuming a code. A confirmed credential stays in memory
 when saving fails; confirmation then retries only the save. A newer app/QR
 intent waits for the captured operation, remains a preview and suppresses old
-navigation. Saved selection persists its order before activation and does not
-redeem. Unmount prevents a late navigation callback while the captured save can
+navigation. Saved selection checks the selected origin's authenticated info
+before persisting its order and activating; it does not redeem. Only the
+transport's precise HTTP 401 with OpenHerdr's `unauthorized` code rejects that
+candidate. Offline, invalid-response and other HTTP failures retain the active
+connection and saved order. A new pairing intent or unmount before the check
+finishes prevents the old selection from persisting or activating. Unmount
+prevents a late navigation callback while an already captured save can
 finish. New OS events supersede a delayed cold-launch URL.
+
+`ConnectionInstances` reuses the original `MobileInstancesListView` inside the
+original phone fullscreen or larger-screen dialog. The sessions footer and
+Welcome toolbar expose Instances. Opening it pauses the connected view through
+the same visibility owner as Welcome. Local edit changes only the name; the
+paired origin is read-only. Add instance and expired-access recovery open the
+existing explicit pairing form. No original relay/password/token controller is
+imported. A candidate's rejection does not expire another active connection.
+Closing Instances while the active credential is rejected returns to Welcome;
+the connected view also derives its visibility directly from that rejection.
+
+Names are optional trimmed strings of at most 128 characters, stored with the
+existing `{server,token}` array in the browser or native vault. Old entries load
+without conversion. Rename uses the existing serialized writes and preserves
+order, origin and token. Re-pairing the same origin retains its name. A failed
+write leaves the prior list/current connection intact and the edit available.
+The two-step delete removes only that local saved entry after persistence.
+Removing the active connection returns to Welcome and never selects another
+entry automatically. Removal sends no device revocation and preserves target
+hints and origin-scoped pending-delivery records. Edit, delete and selection
+share the controller's synchronous busy guard. Android Back unwinds a local
+edit/delete confirmation before the surface; device execution remains separate
+from the DOM checks.
 
 Camera and OS intake accept the CLI's HTTPS root `#pairing=` link and precise
 `openherdr://connect` form. The outer origin and payload origin must agree.

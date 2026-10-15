@@ -149,3 +149,16 @@ The original wrapper leaves it unset. Herdr uses it for a credential the server
 has rejected; the controller also rejects that activation. The notice reuses the
 original localized expired-device message. Same-origin token replacement keeps
 the Herdr shell owner and its existing window/chat state.
+
+`../MobileInstancesListView.tsx` owns the original instance card, active marker,
+connecting state, edit action, two-step delete and empty presentation. Its rows
+carry only ID, display name, status text and explicit activity/availability
+flags. It receives selection/edit/delete callbacks and the original diagnostic
+pointer handlers. It imports no connection store, bearer, runtime, relay or
+scanner. The original `MobileInstancesSurface` still calculates its own status
+and keeps its connection, password, form, persistence and long-press behavior.
+Herdr supplies exact-origin rows and its independent persistence/probe actions.
+The shared view disables rejected-row selection without preventing local
+removal; each owner enforces its mutation locks. The focused view test covers
+both this presentation and original wrapper editing/removal/long-press without
+network bootstrap.

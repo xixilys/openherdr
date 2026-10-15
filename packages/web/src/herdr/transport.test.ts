@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { HerdrTransport, normalizeServer, parsePairing, snapshotSchema, TransportError, deliveryReceiptSchema, PendingDeliveryStore, parseNativePairing, type PendingDelivery } from './transport';
+import { HerdrTransport, normalizeServer, parsePairing, snapshotSchema, TransportError, deliveryReceiptSchema, PendingDeliveryStore, parseNativePairing, ConnectionStore, probeConnection, renameConnection, saveConnection, forgetConnection, savedConnections, type PendingDelivery } from './transport';
 import { order, rows } from './herdr.i18n';
 
 const originalFetch = globalThis.fetch;
@@ -101,6 +101,126 @@ describe('authenticated Herdr requests', () => {
 });
 
 describe('credential persistence', () => {
+  test('legacy credentials load without rewriting and optional saved labels normalize on read', async () => {
+    const raw = JSON.stringify([{ server: 'https://one.example', token: 'device-one' }, { server: 'https://two.example', token: 'device-two', label: '  Work Mac  ' }]);
+    let writes = 0;
+    const store = new ConnectionStore({ kind: 'native', async read() { return raw; }, async write() { writes += 1; } });
+    await store.initialize();
+    expect(store.list()).toEqual([{ server: 'https://one.example', token: 'device-one' }, { server: 'https://two.example', token: 'device-two', label: 'Work Mac' }]);
+    expect(writes).toBe(0);
+  });
+  test('rename waits for durable storage and preserves origin, token and saved order', async () => {
+    const initial = [{ server: 'https://one.example', token: 'device-one' }, { server: 'https://two.example', token: 'device-two', label: 'Other' }];
+    let raw = JSON.stringify(initial);
+    const started = deferred<void>();
+    const gate = deferred<void>();
+    const storage = { kind: 'native' as const, async read() { return raw; }, async write(value: string) { started.resolve(); await gate.promise; raw = value; } };
+    const store = new ConnectionStore(storage);
+    await store.initialize();
+    const renaming = store.rename('https://two.example', '  Desk  ');
+    await started.promise;
+    expect(store.list()).toEqual(initial);
+    expect(JSON.parse(raw)).toEqual(initial);
+    gate.resolve();
+    await renaming;
+    const expected = [initial[0], { ...initial[1], label: 'Desk' }];
+    expect(store.list()).toEqual(expected);
+    const reopened = new ConnectionStore(storage);
+    await reopened.initialize();
+    expect(reopened.list()).toEqual(expected);
+  });
+  test('failed rename leaves both copies unchanged and later writes can recover', async () => {
+    const initial = [{ server: 'https://one.example', token: 'device-one', label: 'Original' }];
+    let raw = JSON.stringify(initial);
+    let rejectWrite = true;
+    const store = new ConnectionStore({ kind: 'native', async read() { return raw; }, async write(value) { if (rejectWrite) throw new Error('Vault locked'); raw = value; } });
+    await store.initialize();
+    await expect(store.rename('https://one.example', 'Replacement')).rejects.toThrow('Vault locked');
+    expect(store.list()).toEqual(initial);
+    expect(JSON.parse(raw)).toEqual(initial);
+    rejectWrite = false;
+    await store.rename('https://one.example', 'Replacement');
+    expect(store.list()[0]).toEqual({ ...initial[0], label: 'Replacement' });
+  });
+  test('re-pairing preserves an omitted label and an explicit empty name restores origin fallback', async () => {
+    let raw: string | null = null;
+    const store = new ConnectionStore({ kind: 'native', async read() { return raw; }, async write(value) { raw = value; } });
+    await store.save({ server: 'https://one.example', token: 'old-device', label: '  Workstation  ' });
+    await store.save({ server: 'https://two.example', token: 'other-device' });
+    await store.save({ server: 'https://one.example', token: 'replacement-device' });
+    expect(store.list()).toEqual([{ server: 'https://one.example', token: 'replacement-device', label: 'Workstation' }, { server: 'https://two.example', token: 'other-device' }]);
+    await store.rename('https://one.example', '   ');
+    expect(store.list()[0].label).toBeUndefined();
+    expect(JSON.parse(raw ?? '[]')[0]).toEqual({ server: 'https://one.example', token: 'replacement-device' });
+    await store.save({ server: 'https://one.example', token: 'next-device', label: 'New label' });
+    await store.save({ server: 'https://one.example', token: 'last-device', label: '' });
+    expect(store.list()[0].label).toBeUndefined();
+    expect(store.list()[0].token).toBe('last-device');
+  });
+  test('bounded label validation rejects invalid updates without poisoning the write queue', async () => {
+    let raw: string | null = null;
+    let writes = 0;
+    const store = new ConnectionStore({ kind: 'native', async read() { return raw; }, async write(value) { writes += 1; raw = value; } });
+    await expect(store.save({ server: 'https://one.example', token: 'device-one', label: 'x'.repeat(129) })).rejects.toThrow();
+    expect(writes).toBe(0);
+    await store.save({ server: 'https://one.example', token: 'device-one', label: `  ${'x'.repeat(128)}  ` });
+    const before = raw;
+    await expect(store.rename('https://one.example', 'x'.repeat(129))).rejects.toThrow();
+    expect(raw).toBe(before);
+    expect(store.list()[0].label).toHaveLength(128);
+    await store.rename('https://missing.example', 'Unrelated');
+    expect(store.list()).toHaveLength(1);
+    expect(store.list()[0].server).toBe('https://one.example');
+  });
+  test('rename, save and forget share the same persistence order through a pending write', async () => {
+    const first = { server: 'https://one.example', token: 'device-one', label: 'Original' };
+    const second = { server: 'https://two.example', token: 'device-two' };
+    let raw = JSON.stringify([first, second]);
+    const started = deferred<void>();
+    const gate = deferred<void>();
+    const writes: string[] = [];
+    const store = new ConnectionStore({ kind: 'native', async read() { return raw; }, async write(value) { writes.push(value); if (writes.length === 1) { started.resolve(); await gate.promise; } raw = value; } });
+    await store.initialize();
+    const rename = store.rename(first.server, 'Renamed');
+    const rePair = store.save({ server: first.server, token: 'new-device' });
+    const forget = store.forget(second.server);
+    await started.promise;
+    expect(writes).toHaveLength(1);
+    expect(store.list()).toEqual([first, second]);
+    gate.resolve();
+    await Promise.all([rename, rePair, forget]);
+    expect(writes.map(value => JSON.parse(value))).toEqual([
+      [{ ...first, label: 'Renamed' }, second],
+      [{ ...first, token: 'new-device', label: 'Renamed' }, second],
+      [{ ...first, token: 'new-device', label: 'Renamed' }],
+    ]);
+    expect(store.list()).toEqual(JSON.parse(raw));
+  });
+  test('exported rename reports storage failure and forgetting credentials preserves pending delivery metadata', async () => {
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const values = new Map<string, string>();
+    let failWrite = false;
+    const storage: Storage = { get length() { return values.size; }, clear() { values.clear(); }, key(index) { return Array.from(values.keys())[index] ?? null; }, getItem(key) { return values.get(key) ?? null; }, removeItem(key) { values.delete(key); }, setItem(key, value) { if (failWrite) throw new Error('Storage blocked'); values.set(key, value); } };
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+    try {
+      const server = 'https://wrapper.example';
+      const pending = JSON.stringify({ ...pendingRecord(), server });
+      values.set(`openherdr.pending.v1:${server}`, pending);
+      await saveConnection({ server, token: 'fixture-device' });
+      await renameConnection(server, '  Work  ');
+      expect(savedConnections()).toEqual([{ server, token: 'fixture-device', label: 'Work' }]);
+      failWrite = true;
+      await expect(renameConnection(server, 'Blocked')).rejects.toThrow('credentialStorage');
+      expect(savedConnections()[0].label).toBe('Work');
+      failWrite = false;
+      await forgetConnection(server);
+      expect(savedConnections()).toEqual([]);
+      expect(values.get(`openherdr.pending.v1:${server}`)).toBe(pending);
+    } finally {
+      if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+      else Reflect.deleteProperty(globalThis, 'localStorage');
+    }
+  });
   test('native saves wait for the vault and keep failed writes out of memory', async () => {
     const { ConnectionStore } = await import('./transport');
     let raw: string | null = null;
@@ -145,6 +265,87 @@ describe('credential persistence', () => {
     expect(reopened.list()).toHaveLength(2);
     await reopened.forget('https://one.example');
     expect(reopened.list()).toEqual([{ server: 'https://two.example', token: 'device-two' }]);
+  });
+});
+
+function deferred<T>() {
+  let resolve = (_value: T | PromiseLike<T>) => {};
+  const promise = new Promise<T>(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+describe('saved connection activation probe', () => {
+  const connection = { server: 'https://probe.example', token: 'fixture-credential', label: 'Desk' };
+  test('ready requires one authenticated read-only OpenHerdr info response with normal transport policy', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    // SAFETY: Only fetch's callable request interface is used; this fixture never performs network I/O.
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(input), init });
+      return Response.json({ app: 'openherdr', version: '0.1.0', session: 'fixture' });
+    }) as typeof fetch;
+    expect(await probeConnection(connection)).toBe('ready');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://probe.example/api/herdr/info');
+    expect(calls[0].init?.method ?? 'GET').toBe('GET');
+    expect(calls[0].init?.body).toBeUndefined();
+    expect(new Headers(calls[0].init?.headers).get('Authorization')).toBe('Bearer fixture-credential');
+    expect(calls[0].init?.credentials).toBe('omit');
+    expect(calls[0].init?.cache).toBe('no-store');
+    expect(calls[0].init?.redirect).toBe('error');
+    expect(calls[0].init?.signal).toBeInstanceOf(AbortSignal);
+  });
+  test('only parsed OpenHerdr HTTP 401 unauthorized returns the rejection result', async () => {
+    let calls = 0;
+    // SAFETY: The request-only fixture returns a real Response without opening a network connection.
+    globalThis.fetch = (async () => { calls += 1; return Response.json({ error: { code: 'unauthorized', message: 'Device revoked' } }, { status: 401 }); }) as typeof fetch;
+    expect(await probeConnection(connection)).toBe('unauthorized');
+    expect(calls).toBe(1);
+  });
+  test('other status codes, error codes and invalid successful payloads remain failures without fallback', async () => {
+    const responses = [
+      Response.json({ error: { code: 'unauthorized', message: 'Forbidden' } }, { status: 403 }),
+      Response.json({ error: { code: 'conversation_request_refused', message: 'Upstream auth' } }, { status: 401 }),
+      Response.json({ error: { code: 'unauthorized' } }, { status: 401 }),
+      new Response('<html>Unauthorized</html>', { status: 401 }),
+      Response.json({ app: 'openchamber', version: '0.1.0', session: null }),
+      Response.json({ app: 'openherdr', version: '0.1.0' }),
+      new Response('not JSON', { status: 200 }),
+      Response.json({ error: { code: 'unavailable', message: 'Offline' } }, { status: 503 }),
+    ];
+    for (const response of responses) {
+      let calls = 0;
+      // SAFETY: The callable fetch fixture returns one controlled real HTTP Response.
+      globalThis.fetch = (async () => { calls += 1; return response; }) as typeof fetch;
+      await expect(probeConnection(connection)).rejects.toBeInstanceOf(TransportError);
+      expect(calls).toBe(1);
+    }
+  });
+  test('offline and network rejection cannot activate or reject the saved credential', async () => {
+    let calls = 0;
+    // SAFETY: This request-only fixture rejects locally; no network connection or fetch.preconnect is used.
+    globalThis.fetch = (async () => { calls += 1; throw new TypeError('Offline'); }) as typeof fetch;
+    let code: string | null = null;
+    try { await probeConnection(connection); }
+    catch (error) { if (error instanceof TransportError) code = error.code; }
+    expect(code).toBe('DISCONNECTED');
+    expect(calls).toBe(1);
+  });
+  test('the existing 20-second transport deadline still rejects a timed-out probe', async () => {
+    const originalTimeout = AbortSignal.timeout;
+    const timeouts: number[] = [];
+    AbortSignal.timeout = milliseconds => { timeouts.push(milliseconds); return AbortSignal.abort(new DOMException('Fixture timeout', 'TimeoutError')); };
+    try {
+      // SAFETY: This callable fixture models fetch rejecting its supplied aborted signal without real waiting or I/O.
+      globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+        if (!init?.signal?.aborted) throw new Error('Expected the transport deadline');
+        throw init.signal.reason;
+      }) as typeof fetch;
+      let code: string | null = null;
+      try { await probeConnection(connection); }
+      catch (error) { if (error instanceof TransportError) code = error.code; }
+      expect(code).toBe('DISCONNECTED');
+      expect(timeouts).toEqual([20000]);
+    } finally { AbortSignal.timeout = originalTimeout; }
   });
 });
 

@@ -14,10 +14,12 @@ export const machinesSchema = z.object({ machines: z.array(z.object({ id, label:
 export const infoSchema = z.object({ app: z.literal('openherdr'), version: z.string(), session: z.string().nullable(), allowRemoteFonts: z.boolean().default(false) });
 export const worktreesSchema = z.object({ type: z.literal('worktree_list'), worktrees: z.array(z.object({ path: z.string(), label: z.string(), branch: z.string().nullable().optional(), is_detached: z.boolean(), is_bare: z.boolean(), is_prunable: z.boolean(), is_linked_worktree: z.boolean() })) });
 export const clientsSchema = z.object({ clients: z.array(z.object({ id, deviceName: z.string().nullable().optional(), label: z.string().nullable().optional(), revokedAt: z.string().nullable().optional(), createdAt: z.number().or(z.string()).optional(), lastUsedAt: z.number().or(z.string()).nullable().optional() })) });
-export type Connection = { server: string; token: string };
+export type Connection = { server: string; token: string; label?: string };
 const pairingSchema = z.object({ pairingId: id, secret: z.string().min(1).max(4096), server: z.string().optional() });
 export type Pairing = z.infer<typeof pairingSchema>;
-const connectionsSchema = z.array(z.object({ server: z.string(), token: z.string().min(1) })).max(50);
+const connectionLabelSchema = z.string().trim().max(128).transform(value => value || undefined);
+const connectionSchema = z.object({ server: z.string(), token: z.string().min(1), label: connectionLabelSchema.optional() });
+const connectionsSchema = z.array(connectionSchema).max(50);
 const storageKey = 'openherdr.connections.v1';
 
 export function normalizeServer(value: string): string {
@@ -104,7 +106,18 @@ export class ConnectionStore {
     return operation;
   }
   save(connection: Connection): Promise<void> {
-    return this.update(previous => [connection, ...previous.filter(item => item.server !== connection.server)]);
+    return this.update(previous => {
+      const next = connectionSchema.parse(connection);
+      const existing = previous.find(item => item.server === next.server);
+      if (connection.label === undefined && existing?.label !== undefined) next.label = existing.label;
+      return [next, ...previous.filter(item => item.server !== next.server)];
+    });
+  }
+  rename(server: string, label: string): Promise<void> {
+    return this.update(previous => {
+      const nextLabel = connectionLabelSchema.parse(label);
+      return previous.map(connection => connection.server === server ? { ...connection, label: nextLabel } : connection);
+    });
   }
   forget(server: string): Promise<void> {
     return this.update(previous => previous.filter(item => item.server !== server));
@@ -137,6 +150,13 @@ export async function forgetConnection(server: string): Promise<void> {
     await initializeConnections();
     if (!connectionStore) throw new Error('credentialStorage');
     await connectionStore.forget(server);
+  } catch { throw new Error('credentialStorage'); }
+}
+export async function renameConnection(server: string, label: string): Promise<void> {
+  try {
+    await initializeConnections();
+    if (!connectionStore) throw new Error('credentialStorage');
+    await connectionStore.rename(server, label);
   } catch { throw new Error('credentialStorage'); }
 }
 
@@ -283,6 +303,17 @@ export class HerdrTransport {
     }
   }
 
+}
+export async function probeConnection(connection: Connection): Promise<'ready' | 'unauthorized'> {
+  let unauthorized = false;
+  const transport = new HerdrTransport(connection, undefined, () => { unauthorized = true; });
+  try {
+    await transport.request('/api/herdr/info', infoSchema);
+    return 'ready';
+  } catch (error) {
+    if (unauthorized) return 'unauthorized';
+    throw error;
+  }
 }
 export const deliveryReceiptSchema = z.object({ receipt: z.object({ requestId: z.string(), status: z.enum(['unknown', 'complete', 'rejected']) }) });
 const pendingDeliverySchema = z.object({ requestId: z.string().min(8).max(128), server: z.string(), machine: z.string(), session: z.string().nullable(), workspaceId: z.string(), tabId: z.string(), paneId: z.string(), method: z.string() });

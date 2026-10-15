@@ -95,6 +95,20 @@ match the preserved file and the unauthenticated download returns 200. Pairing
 codes/QR images remain private and expire after 10 minutes; they are never
 release assets or repository content.
 
+The connection-management increment restores the original saved-instance
+list, local names, two-step local removal and explicit switching. A saved
+connection must pass an authenticated read before its durable selection and
+activation. Herdr credentials remain bound to their exact origin, so editing
+changes only the local name; a different address uses the existing pairing
+flow. Rename preserves list order. Removal preserves pending delivery records
+and sends no server revocation. The existing default bridge, CF address and
+fixed first test APK stay available while physical-phone testing is pending.
+Focused and regression tests, independent source review and the combined static
+gate pass. The actual CF browser exercised naming/reload, cancelled removal,
+saved selection and return to the same Kansas window. The rebuilt Android APK
+packages this flow; device execution remains unverified. STATUS.md and the native
+validation document record the artifact and remaining limits.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and

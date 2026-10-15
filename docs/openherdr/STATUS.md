@@ -30,7 +30,65 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current managed Cloudflare lifecycle increment
+## Current saved connection management increment
+
+Instances now uses the original mobile list, edit framing, two-step local
+removal and fullscreen/dialog presentation. Saved entries have optional local
+names; old origin/token entries still load. Rename waits for durable storage,
+keeps list order and leaves the origin/token unchanged. A replacement pairing
+on the same origin retains the name. The saved address is read-only; Add instance
+and expired-access recovery use the existing explicit pairing Welcome.
+
+Switching checks only the selected saved origin with its captured bearer and
+the authenticated info schema before saving MRU and activating. An exact parsed
+OpenHerdr 401 rejects only that candidate credential. Other HTTP/network/schema
+failures retain the previous active connection and saved order. Queued pairing
+intents supersede old probe results. Delete waits for the local store, then
+removing the active entry returns to Welcome without selecting another server.
+It sends no revocation and preserves pending deliveries and target hints.
+
+Independent source review found and root corrected a recovery bypass through
+Instances. A rejected active credential now directly gates private visibility,
+including after closing the manager. The actual-app regression checks this.
+Browser validation also found a narrow-screen dialog mismatch; the manager now
+uses the original short-side tablet rule for phone/rotated-phone fullscreen and
+tablet dialog.
+
+The focused result is 77 passing cases: transport 34, controller 21, shared/original
+list 5 and independent actual-app/owner integration 17. The 43 retained Welcome,
+auth-recovery and monitor/restoration cases pass. The initial static gate found
+two unsupported test assertion typings; equivalent error-code checks pass the
+final gate, including type-check, lint, Knip and no new anti-slop findings.
+Logs are `.tmp/saved-connection-transport-final.log`,
+`.tmp/saved-connection-controller-final.log`, `.tmp/mobile-instances-view-v1.log`,
+`.tmp/connection-instances-dom-release.log`,
+`.tmp/instances-connection-regressions-v2.log` and
+`.tmp/check-instances-release.log`.
+
+The real 412x915 browser through the existing default CF origin saved a temporary
+name, retained it after reload, restored the original name, cancelled local
+removal and explicitly selected the saved connection through the new probe.
+It returned to the same Kansas worker window `w2:p4` with real read-only output.
+Add instance opened the existing blank pairing form without redeeming anything.
+Arabic RTL and local-editor Escape were checked; the original English locale was
+restored. Browser captures and the DOM record stay under
+`.tmp/saved-connections-browser/`. Only the safe instance-list capture is copied
+to the public documentation. No terminal input, new pairing, agent start,
+conversation creation, device revocation or actual saved-entry deletion occurred
+in that live flow.
+
+Original Web, Herdr and Android debug builds pass. The APK is 40,701,131 bytes,
+packages `herdr-CpTmNVqs.js`, and its HTML/entry bytes match the web build in
+`.tmp/instances-apk.json`. Gradle took 10 seconds with the existing task-owned
+cache and NDK 27.1 selection. The fixed first phone-test APK and its public
+prerelease remain unchanged. The default bridge remains PID 94594 on port 4318
+with the same CF origin; public health returns 200 and unauthenticated private
+access returns 401. No service was restarted. This new APK has not been installed
+or interactively tested. Native camera, KeyStore, process-death and system Back,
+real managed-domain routing and complete original-feature parity remain
+unfinished.
+
+## Previous managed Cloudflare lifecycle increment
 
 The host CLI now supports the original explicit `managed-remote` and
 `managed-local` modes alongside the unchanged Quick default. Named modes use

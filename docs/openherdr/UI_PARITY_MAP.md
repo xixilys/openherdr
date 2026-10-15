@@ -52,6 +52,17 @@ its own protocol. Android OpenHerdr registers the existing MLKit plugin and
 camera permission. iOS remains scanner-unsupported in its current SwiftPM
 package. Native camera/vault/Back acceptance is still pending.
 
+`MobileInstancesListView` now owns the original saved-instance card, current
+marker, per-row connecting state, edit action and two-step delete presentation.
+The original wrapper retains its own connection/password/diagnostic controller.
+Herdr's Instances page uses that view with optional local names, durable in-place
+rename and local removal. Its authenticated info probe runs only for the
+explicitly selected saved origin before durable MRU selection and activation.
+The paired address stays read-only; a different origin uses Welcome pairing.
+Removal preserves pending delivery and never revokes a server client. The
+original fullscreen phone/dialog container and existing Back stack are reused.
+Current native runtime limits remain in STATUS.md.
+
 ### Header, session drawer and workspace drawer
 
 `apps/MobileHeader.tsx` already implements the intended mobile header, recent-session switcher, metadata popover and workspace activity marker. It reads `useSession`, `useSessionUIStore`, `useDirectoryStore`, `useGitStore`, multi-run state and `MobileSessionSwitcher`. Adding only a title prop will not remove those data reads. Split its presentation from the existing OpenCode container: title, subtitle/metadata, selected identity, activity, switcher items and callbacks must arrive from one selected-session owner.

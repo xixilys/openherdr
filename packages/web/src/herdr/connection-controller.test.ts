@@ -14,19 +14,28 @@ function fixture(initialPairing: Pairing | null = one) {
   const activations: Connection[] = [];
   const redemptions: { server: string; pairing: Pairing }[] = [];
   const writes: Connection[] = [];
+  const probes: Connection[] = [];
   let saved: Connection[] = [{ server: 'https://saved.test', token: 'existing-device' }];
   let initialize = async () => {};
   let save = async (connection: Connection) => { saved = [connection, ...saved.filter(item => item.server !== connection.server)]; };
   let redeem = async (server: string, _pairing: Pairing): Promise<Connection> => ({ server, token: 'new-device' });
+  let probe = async (_connection: Connection): Promise<'ready' | 'unauthorized'> => 'ready';
+  let rename = async (server: string, label: string) => { saved = saved.map(item => item.server === server ? { ...item, label } : item); };
+  let forget = async (server: string) => { saved = saved.filter(item => item.server !== server); };
   const controller = new HerdrConnectionController({
     initialize: () => initialize(), list: () => saved,
     async redeem(server, pairing) { redemptions.push({ server, pairing }); return redeem(server, pairing); },
     async save(connection) { writes.push(connection); await save(connection); },
+    async probe(connection) { probes.push(connection); return probe(connection); },
+    rename: (server, label) => rename(server, label), forget: server => forget(server),
   }, connection => activations.push(connection), { server: initialPairing?.server ?? '', pairing: initialPairing, error: null });
-  return { controller, activations, redemptions, writes,
+  return { controller, activations, redemptions, writes, probes,
     initializeWith: (operation: typeof initialize) => { initialize = operation; },
     saveWith: (operation: typeof save) => { save = operation; },
     redeemWith: (operation: typeof redeem) => { redeem = operation; },
+    probeWith: (operation: typeof probe) => { probe = operation; },
+    renameWith: (operation: typeof rename) => { rename = operation; },
+    forgetWith: (operation: typeof forget) => { forget = operation; },
   };
 }
 test('intake previews both CLI and native links without redeeming', () => {
@@ -179,4 +188,75 @@ test('saving a replacement with a newer queued intent keeps the current revoked 
   expect(f.controller.isRejected({ server: one.server, token: 'new-device' })).toBe(false);
   expect(f.controller.getSnapshot().authRequiredServer).toBe(one.server);
   expect(f.controller.getSnapshot().pairing).toEqual(two);
+});
+
+test('saved selection probes before durable ordering and leaves failed candidates unchanged', async () => {
+  const f = fixture(null); const gate = deferred<'ready' | 'unauthorized'>(); f.probeWith(() => gate.promise);
+  const pending = f.controller.selectSaved('https://saved.test');
+  expect(f.controller.getSnapshot().phase).toBe('probing'); expect(f.probes).toHaveLength(1);
+  expect(f.writes).toEqual([]); expect(f.activations).toEqual([]);
+  gate.resolve('ready'); await pending;
+  expect(f.writes).toHaveLength(1); expect(f.activations).toHaveLength(1);
+  const failed = fixture(null); failed.probeWith(async () => { throw new Error('Offline'); });
+  const original = failed.controller.getSnapshot().saved;
+  await failed.controller.selectSaved('https://saved.test');
+  expect(failed.controller.getSnapshot().saved).toEqual(original);
+  expect(failed.controller.getSnapshot().error).toBe('connectionUnavailable');
+  expect(failed.writes).toEqual([]); expect(failed.activations).toEqual([]);
+  expect(failed.controller.isRejected({ server: 'https://saved.test', token: 'existing-device' })).toBe(false);
+});
+
+test('an unauthorized saved candidate is blocked without saving or changing another credential', async () => {
+  const f = fixture(null); f.probeWith(async () => 'unauthorized');
+  await f.controller.selectSaved('https://saved.test');
+  expect(f.controller.getSnapshot().authRequiredServer).toBe('https://saved.test');
+  expect(f.controller.isRejected({ server: 'https://saved.test', token: 'existing-device' })).toBe(true);
+  expect(f.controller.isRejected({ server: one.server, token: 'other-device' })).toBe(false);
+  await f.controller.selectSaved('https://saved.test');
+  expect(f.probes).toHaveLength(1); expect(f.writes).toEqual([]); expect(f.activations).toEqual([]);
+});
+
+test('a newer pairing during probe prevents stale selection and persistence', async () => {
+  const f = fixture(null); const gate = deferred<'ready' | 'unauthorized'>(); f.probeWith(() => gate.promise);
+  const pending = f.controller.selectSaved('https://saved.test');
+  f.controller.acceptLink(link(two)); gate.resolve('ready'); await pending;
+  expect(f.writes).toEqual([]); expect(f.activations).toEqual([]);
+  expect(f.controller.getSnapshot().pairing).toEqual(two);
+});
+
+test('deactivating during probe prevents old selection from persisting or navigating', async () => {
+  const f = fixture(null); const gate = deferred<'ready' | 'unauthorized'>(); f.probeWith(() => gate.promise);
+  const pending = f.controller.selectSaved('https://saved.test');
+  f.controller.setActive(false); gate.resolve('ready'); await pending;
+  expect(f.writes).toEqual([]); expect(f.activations).toEqual([]);
+  expect(f.controller.getSnapshot().phase).toBe('editing');
+});
+
+test('name edits await persistence, retain failures and never activate or redeem', async () => {
+  const f = fixture(null); const gate = deferred<void>(); f.renameWith(() => gate.promise);
+  const pending = f.controller.renameSaved('https://saved.test', 'Research Mac');
+  expect(f.controller.getSnapshot().phase).toBe('renaming');
+  expect(await f.controller.renameSaved('https://saved.test', 'Duplicate')).toBe(false);
+  await f.controller.selectSaved('https://saved.test'); expect(f.probes).toEqual([]);
+  gate.resolve(); expect(await pending).toBe(true);
+  f.renameWith(async () => { throw new Error('Locked vault'); });
+  const before = f.controller.getSnapshot().saved;
+  expect(await f.controller.renameSaved('https://saved.test', 'Retry name')).toBe(false);
+  expect(f.controller.getSnapshot().saved).toEqual(before);
+  expect(f.controller.getSnapshot().error).toBe('credentialStorage');
+  expect(f.writes).toEqual([]); expect(f.activations).toEqual([]); expect(f.redemptions).toEqual([]);
+});
+
+test('local removal reports only durable success and a newer pairing still wins', async () => {
+  const f = fixture(null); f.forgetWith(async () => { throw new Error('Locked vault'); });
+  expect(await f.controller.removeSaved('https://saved.test')).toBe(null);
+  expect(f.controller.getSnapshot().saved).toHaveLength(1);
+  expect(f.controller.getSnapshot().error).toBe('credentialStorage');
+  const gate = deferred<void>(); f.forgetWith(() => gate.promise);
+  const pending = f.controller.removeSaved('https://saved.test');
+  expect(await f.controller.removeSaved('https://saved.test')).toBe(null);
+  f.controller.acceptLink(link(two)); gate.resolve();
+  expect(await pending).toEqual({ server: 'https://saved.test', token: 'existing-device' });
+  expect(f.controller.getSnapshot().pairing).toEqual(two);
+  expect(f.activations).toEqual([]); expect(f.probes).toEqual([]); expect(f.redemptions).toEqual([]);
 });

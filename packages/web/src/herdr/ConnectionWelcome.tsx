@@ -9,7 +9,7 @@ import { credentialStorageKind } from './transport';
 import { HerdrConnectionController } from './connection-controller';
 import { useHerdrText } from './herdr.i18n';
 
-export function ConnectionWelcome({ controller, toolbar, onClose }: { controller: HerdrConnectionController; toolbar: ReactNode; onClose: (() => void) | null }) {
+export function ConnectionWelcome({ controller, toolbar, onClose, onManage }: { controller: HerdrConnectionController; toolbar: ReactNode; onClose: (() => void) | null; onManage?: () => void }) {
   const { t } = useI18n();
   const h = useHerdrText();
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
@@ -47,7 +47,7 @@ export function ConnectionWelcome({ controller, toolbar, onClose }: { controller
     }
   };
   const errorCode = state.error;
-  const error = scanError ?? (errorCode === 'invalidPairing' || errorCode === 'invalidServer' || errorCode === 'credentialStorage' || errorCode === 'credentialSave' ? h(errorCode) : errorCode);
+  const error = scanError ?? (errorCode === 'connectionUnavailable' ? t('mobile.connect.error.unreachable') : errorCode === 'invalidPairing' || errorCode === 'invalidServer' || errorCode === 'credentialStorage' || errorCode === 'credentialSave' ? h(errorCode) : errorCode);
   const manualForm = <form className="flex w-full flex-col gap-3 pt-3" onSubmit={event => { event.preventDefault(); setScanError(null); void controller.connect(); }}>
     <label className="flex flex-col gap-1 typography-small text-muted-foreground">{h('server')}
       <input {...mobileInputKeyboardProps} className={mobileConnectionInputClass} type="url" dir="ltr" inputMode="url" autoCapitalize="none" required disabled={locked} tabIndex={manualOpen ? undefined : -1} value={state.server} onChange={event => controller.setServer(event.target.value)} />
@@ -62,6 +62,6 @@ export function ConnectionWelcome({ controller, toolbar, onClose }: { controller
   </form>;
   return <>
     {scanning && <MobileQrScannerOverlay onCancel={cancelScan} hint={h('pairingHint')} />}
-    <MobileConnectionWelcomeView logo={<span className="flex size-[72px] items-center justify-center"><img src="/openherdr.svg" width={72} height={72} alt="OpenHerdr" /></span>} title={h('connectTitle')} notice={state.authRequiredServer ? <p role="status" className="w-full rounded-[18px] border border-border bg-surface-elevated px-3.5 py-3 typography-small text-foreground">{t('mobile.connect.notice.authExpired', { label: state.authRequiredServer })}</p> : null} scan={{ supported: scanSupported, scanning, busy, hint: h('pairingHint'), onScan: () => void scan() }} error={error} saved={state.saved.map(item => ({ id: item.server, label: item.server, detail: '', connecting: state.savingSaved === item.server, disabled: controller.isRejected(item) }))} onSaved={server => { setScanError(null); void controller.selectSaved(server); }} disabled={locked || scanning} manualOpen={manualOpen} onToggleManual={() => { if (!locked) setManualOpen(current => !current); }} manualForm={manualForm} toolbar={<><div className="flex items-center justify-center gap-2">{toolbar}</div>{onClose && <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>{t('mobile.instances.cancelEdit')}</Button>}</>} />
+    <MobileConnectionWelcomeView logo={<span className="flex size-[72px] items-center justify-center"><img src="/openherdr.svg" width={72} height={72} alt="OpenHerdr" /></span>} title={h('connectTitle')} notice={state.authRequiredServer ? <p role="status" className="w-full rounded-[18px] border border-border bg-surface-elevated px-3.5 py-3 typography-small text-foreground">{t('mobile.connect.notice.authExpired', { label: state.authRequiredServer })}</p> : null} scan={{ supported: scanSupported, scanning, busy, hint: h('pairingHint'), onScan: () => void scan() }} error={error} saved={state.saved.map(item => ({ id: item.server, label: item.label || item.server, detail: item.label ? item.server : '', connecting: state.savingSaved === item.server, disabled: controller.isRejected(item) }))} onSaved={server => { setScanError(null); void controller.selectSaved(server); }} disabled={locked || scanning} manualOpen={manualOpen} onToggleManual={() => { if (!locked) setManualOpen(current => !current); }} manualForm={manualForm} toolbar={<><div className="flex items-center justify-center gap-2">{toolbar}</div>{onManage && state.saved.length > 0 && <Button type="button" variant="ghost" disabled={locked || scanning} onClick={onManage}>{t('mobile.menu.instances')}</Button>}{onClose && <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>{t('mobile.instances.cancelEdit')}</Button>}</>} />
   </>;
 }

@@ -191,13 +191,18 @@ config-backed dictation capability. It passes a preview input, attachment
 controls and the existing model/agent row into `MobilePillComposerView`.
 The preview keeps the original synchronous expand callback and morph markers.
 
-`ui/MobilePillComposerView.tsx` owns the pill frame, action buttons and optional
-`MobilePillComposerFooterView`. It reads only i18n and shared UI primitives.
-The editor input accepts controlled text, its textarea ref and the owner's
-keyboard, focus, blur and paste handlers. Its `data-herdr-composer` marker lets
-the dedicated root retain its native image-paste focus checks. Draft scope,
-IME/send policy, attachment preparation and delivery receipts remain with the
-owner. The frame does not submit on Enter itself.
+`ui/MobilePillComposerView.tsx` owns the collapsed preview frame. Its model/agent
+row and action buttons are shared with `ui/MobileExpandedComposerView.tsx`.
+Both views read only i18n and shared UI primitives. The expanded view receives
+the real editor as a node; draft scope, IME/send policy, attachment preparation
+and delivery receipts remain with the owner. The frames do not submit on Enter.
+
+`ui/ComposerBoxView.tsx` owns the original editor's shadow and opaque box.
+`ChatInput` keeps its original editor/footer children, radius, expanded layout,
+drop-zone ref, dictation markers and drag handlers while using this frame.
+The Herdr floating expanded composer uses the same frame with `ComposerEditor`;
+its wrapper marks the editor for native image paste without changing CodeMirror's
+contenteditable element. The earlier editable-textarea pill branch is removed.
 
 Top rows and attachments render inside the frame; an activity slot renders
 above it. Footer labels, the provider icon and agent color come from actual selected

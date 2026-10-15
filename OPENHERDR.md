@@ -138,10 +138,19 @@ verified the corrected untracked-file addition diff. The rebuilt APK packages
 `herdr-BDGqP9Kp.js` and has not received native interaction acceptance.
 Complete editor and Git parity remain later work.
 
-After recording this increment, the next bounded UI task is the original
-expanded composer, followed by native conversation identity and read-only
-Codex history. Keep those tasks tied to the full Android experience; do not
-extend the tool-detail branch into an open-ended series of small display tests.
+The file-navigation source is committed at `0d2415a30` and verified on public
+main. Dot's update `bb75e874-dd29-4305-a958-a61fc7eec032` was stored; reading and
+another review are unconfirmed. The refreshed default bridge serves the current
+asset, passed authenticated snapshot/revocation checks, and sent no terminal input.
+
+The expanded-composer source now shares the original CodeMirror editor, mobile
+keyboard shell, viewport pin and frame. Its actual browser flow includes
+multiline input, collapse/return, one real response and preserved old-message
+reading position. The rebuilt APK packages `herdr-CF2mEnjj.js` with no native
+interactive acceptance yet. Fullscreen editing and autocomplete remain in scope.
+The next direction remains native conversation identity and read-only Codex
+history, with the current source limitations recorded in the parity plan. Keep
+those tasks tied to the full Android experience; do not extend the tool-detail branch into an open-ended series of small display tests.
 
 ## Validation and safe experiments
 

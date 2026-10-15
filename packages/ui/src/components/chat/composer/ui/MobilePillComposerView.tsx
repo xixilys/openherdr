@@ -6,23 +6,9 @@ import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 export type MobilePillComposerInput = {
-    kind: 'preview';
     value: string;
     placeholder: string;
     onExpand: () => void;
-} | {
-    kind: 'editor';
-    value: string;
-    onChange: (value: string) => void;
-    placeholder: string;
-    ariaLabel: string;
-    textareaRef?: React.Ref<HTMLTextAreaElement>;
-    onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement>;
-    onFocus?: React.FocusEventHandler<HTMLTextAreaElement>;
-    onBlur?: React.FocusEventHandler<HTMLTextAreaElement>;
-    onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>;
-    disabled?: boolean;
-    maxLength?: number;
 };
 
 type MobilePillComposerChoice = {
@@ -31,7 +17,7 @@ type MobilePillComposerChoice = {
     disabled?: boolean;
 };
 
-type MobilePillComposerFooterViewProps = {
+type MobileComposerChoices = {
     model?: MobilePillComposerChoice & { icon?: React.ReactNode };
     agent?: MobilePillComposerChoice & { color?: React.CSSProperties['color'] };
 };
@@ -41,7 +27,7 @@ const keepKeyboard = (event: React.PointerEvent<HTMLButtonElement>) => {
 };
 
 /** Model and agent labels come from the controller's actual selection. */
-function MobilePillComposerFooterView({ model, agent }: MobilePillComposerFooterViewProps) {
+export function MobileComposerChoicesView({ model, agent }: MobileComposerChoices) {
     if (!model && !agent) return null;
     return <div className="flex items-center justify-between gap-x-2 px-3.5 pb-2 pt-0.5">
         {model ? <button
@@ -68,7 +54,7 @@ function MobilePillComposerFooterView({ model, agent }: MobilePillComposerFooter
 
 export const MOBILE_PILL_ICON_BUTTON_CLASS = 'flex cursor-pointer items-center justify-center text-foreground transition-none outline-none focus:outline-none flex-shrink-0 disabled:cursor-not-allowed h-8 w-8';
 
-export type MobilePillComposerViewProps = MobilePillComposerFooterViewProps & {
+export type MobilePillComposerViewProps = MobileComposerChoices & {
     input: MobilePillComposerInput;
     attachmentControl?: React.ReactNode;
     /** Genuine queue, goal or hint rows, inside the pill above the prompt. */
@@ -103,8 +89,7 @@ export function MobilePillComposerView({
     footerIconButtonClass = MOBILE_PILL_ICON_BUTTON_CLASS,
     iconSizeClass = 'h-[18px] w-[18px]', sendIconSizeClass = 'h-4 w-4', stopIconSizeClass = 'h-6 w-6',
 }: MobilePillComposerViewProps) {
-    const { t } = useI18n();
-    const footer = bottomRow ?? (model || agent ? <MobilePillComposerFooterView model={model} agent={agent} /> : null);
+    const footer = bottomRow ?? (model || agent ? <MobileComposerChoicesView model={model} agent={agent} /> : null);
     const rounded = topRow || footer ? 'rounded-[1.5rem]' : 'rounded-full';
     return <div className="flex flex-col">
         {statusRow}
@@ -112,45 +97,44 @@ export function MobilePillComposerView({
             <div data-mobile-composer-pill="true" data-composer-box="true" className={cn('oc-surface-floating flex min-w-0 flex-col border border-border/80', rounded)}>
                 {topRow}
                 {attachments}
-                <div className={cn('flex min-w-0 gap-x-0.5 ps-1 pe-1', input.kind === 'preview' ? 'h-12 items-center' : 'min-h-12 items-end py-2')}>
+                <div className="flex min-w-0 gap-x-0.5 ps-1 pe-1 h-12 items-center">
                     {attachmentControl}
-                    {input.kind === 'preview' ? <button
+                    <button
                         type="button"
                         data-composer-morph-prompt="true"
                         className="flex h-full min-w-0 flex-1 cursor-text items-center px-1.5 text-start"
                         onClick={input.onExpand}
-                    ><span className={cn('truncate typography-ui-label', input.value.trim() ? 'text-foreground' : 'text-muted-foreground/40')}>{input.value.trim() ? input.value : input.placeholder}</span></button> : <textarea
-                        ref={input.textareaRef}
-                        data-composer-morph-prompt="true"
-                        data-chat-input="true"
-                        data-herdr-composer="true"
-                        rows={1}
-                        value={input.value}
-                        disabled={input.disabled}
-                        maxLength={input.maxLength}
-                        placeholder={input.placeholder}
-                        aria-label={input.ariaLabel}
-                        onChange={event => input.onChange(event.currentTarget.value)}
-                        onKeyDown={input.onKeyDown}
-                        onFocus={input.onFocus}
-                        onBlur={input.onBlur}
-                        onPaste={input.onPaste}
-                        className="h-8 min-h-0 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-1.5 typography-ui-label text-foreground outline-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed"
-                    />}
-                    {onStartDictation ? <button type="button" className={footerIconButtonClass} onClick={onStartDictation} title={t('chat.dictation.start')} aria-label={t('chat.dictation.start')}><Icon name="mic" className={cn(iconSizeClass, 'text-current')} /></button> : null}
-                    {isRunning && canQueue && onQueue ? <button type="button" className={cn(footerIconButtonClass, 'text-primary hover:text-primary')} onClick={onQueue} title={t('chat.chatInput.actions.queueMessageAria')} aria-label={t('chat.chatInput.actions.queueMessageAria')}><Icon name="send-plane-2" className={cn(sendIconSizeClass, '-rotate-90 rtl:rotate-90')} /></button> : null}
-                    {canAbort ? <button
-                        type="button"
-                        className={cn(footerIconButtonClass, 'text-[var(--status-error)] hover:text-[var(--status-error)]')}
-                        onMouseDown={event => event.preventDefault()}
-                        onPointerDownCapture={keepKeyboard}
-                        onClick={event => { event.stopPropagation(); onAbort(); }}
-                        title={t('chat.chatInput.actions.stopGeneratingAria')}
-                        aria-label={t('chat.chatInput.actions.stopGeneratingAria')}
-                    ><StopIcon className={stopIconSizeClass} /></button> : !isRunning && canSend ? <Button type="button" variant="ghost" size="icon" className="text-primary hover:text-primary" onClick={onSend} title={t('chat.chatInput.actions.sendMessageAria')} aria-label={t('chat.chatInput.actions.sendMessageAria')}><Icon name="send-plane-2" className={sendIconSizeClass} /></Button> : null}
+                    ><span className={cn('truncate typography-ui-label', input.value.trim() ? 'text-foreground' : 'text-muted-foreground/40')}>{input.value.trim() ? input.value : input.placeholder}</span></button>
+                    <MobileComposerActionsView {...{ isRunning, canSend, canQueue, canAbort, onSend, onAbort, onQueue, onStartDictation, footerIconButtonClass, iconSizeClass, sendIconSizeClass, stopIconSizeClass }} />
                 </div>
                 {footer}
             </div>
         </div>
     </div>;
+}
+
+type MobileComposerActionsProps = Pick<MobilePillComposerViewProps,
+    'isRunning' | 'canSend' | 'canQueue' | 'canAbort' | 'onSend' | 'onAbort' | 'onQueue' | 'onStartDictation' |
+    'footerIconButtonClass' | 'iconSizeClass' | 'sendIconSizeClass' | 'stopIconSizeClass'>;
+
+/** Both mobile frames keep the same source-owned action eligibility. */
+export function MobileComposerActionsView({
+    isRunning, canSend, canQueue, canAbort, onSend, onAbort, onQueue, onStartDictation,
+    footerIconButtonClass = MOBILE_PILL_ICON_BUTTON_CLASS,
+    iconSizeClass = 'h-[18px] w-[18px]', sendIconSizeClass = 'h-4 w-4', stopIconSizeClass = 'h-6 w-6',
+}: MobileComposerActionsProps) {
+    const { t } = useI18n();
+    return <>
+        {onStartDictation ? <button type="button" className={footerIconButtonClass} onClick={onStartDictation} title={t('chat.dictation.start')} aria-label={t('chat.dictation.start')}><Icon name="mic" className={cn(iconSizeClass, 'text-current')} /></button> : null}
+        {isRunning && canQueue && onQueue ? <button type="button" className={cn(footerIconButtonClass, 'text-primary hover:text-primary')} onClick={onQueue} title={t('chat.chatInput.actions.queueMessageAria')} aria-label={t('chat.chatInput.actions.queueMessageAria')}><Icon name="send-plane-2" className={cn(sendIconSizeClass, '-rotate-90 rtl:rotate-90')} /></button> : null}
+        {canAbort ? <button
+            type="button"
+            className={cn(footerIconButtonClass, 'text-[var(--status-error)] hover:text-[var(--status-error)]')}
+            onMouseDown={event => event.preventDefault()}
+            onPointerDownCapture={keepKeyboard}
+            onClick={event => { event.stopPropagation(); onAbort(); }}
+            title={t('chat.chatInput.actions.stopGeneratingAria')}
+            aria-label={t('chat.chatInput.actions.stopGeneratingAria')}
+        ><StopIcon className={stopIconSizeClass} /></button> : !isRunning && canSend ? <Button type="button" variant="ghost" size="icon" className="text-primary hover:text-primary" onClick={onSend} title={t('chat.chatInput.actions.sendMessageAria')} aria-label={t('chat.chatInput.actions.sendMessageAria')}><Icon name="send-plane-2" className={sendIconSizeClass} /></Button> : null}
+    </>;
 }

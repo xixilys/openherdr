@@ -15,14 +15,18 @@ is retained. Public `xixilys/openherdr` hosts the development source. The first
 published integration revision was `c1b07b395`. The current chat presentation
 iteration follows that baseline; complete native interaction remains pending.
 The shared tool/attachment/form source increment is `965f2f346`, verified on
-public main. The current file-navigation increment serves `herdr-BDGqP9Kp.js` from the
-default bridge and packages the same asset in the rebuilt Android APK.
+public main. The file-navigation increment is published at `0d2415a30`. It serves
+`herdr-BDGqP9Kp.js` in its historical APK. The current expanded-composer
+increment serves and packages `herdr-CF2mEnjj.js`.
 
 ## Integrated source
 
 - Original mobile header/drawers, right-aligned user bubbles, two-line long
   message expansion, inline tool summaries, floating pill composer and title
-  session popup are shared with the original OpenCode wrappers. Herdr retains
+  session popup are shared with the original OpenCode wrappers. The original
+  CodeMirror composer and mobile keyboard hooks now provide tap-to-expand,
+  multiline input, collapse and picker focus handoff. The original wrapper and
+  Herdr share the same opaque editor frame; request docks move with its form. Herdr retains
   its own source controller and actual mutations. Themes, typography and native
   Back/lifecycle helpers remain shared. Full interaction fidelity is pending.
 - Tool details reuse original shell input/output, scrolling, highlighting and
@@ -102,6 +106,18 @@ default bridge and packages the same asset in the rebuilt Android APK.
   helper tests with 92 assertions and 13 host-operation tests. Independent
   source review found no blocking issue; its executable-bit correction is
   included in the final host tests. These checks do not establish native UI use.
+- The expanded-composer HTTPS browser flow passed tap focus, Unicode/multiline
+  input, mobile Enter newline, model-picker return, collapse/reopen and workspace
+  return with the draft retained. Reading old messages stayed at 80 pixels across
+  workspace navigation. One bounded request returned `OPENHERDR_EXPANDED_INPUT_OK`;
+  its prompt and reply each appeared once, and the sent draft cleared. Arabic
+  RTL layout was checked and the original language/viewport restored. Public
+  captures are `assets/composer-expanded.jpg` and `assets/composer-response.jpg`.
+- The composer increment passes 9 controller tests, 1 shared-frame test, 6 pure
+  pill tests, 8 original-pill tests and the existing conversation/files scenarios.
+  Independent review caught an attachment callback retaining an old disabled
+  state after returning from Files. Its new regression failed before the local
+  callback correction and passed afterward. Final review has no remaining P1/P2.
 - The current DOM integration check covers stream failure/recovery, viewport
   changes, reader position, return to latest, permission-before-form docking and
   retaining a form answer while a permission temporarily hides it. Shared
@@ -131,7 +147,15 @@ default bridge and packages the same asset in the rebuilt Android APK.
   packages/mobile/openherdr/VALIDATION.md.
   That native sample used `herdr-BEKetIzv.js`. The latest file-navigation APK
   packages `herdr-BDGqP9Kp.js`; its HTML matches the web build byte for byte.
-  This latest APK has not been installed or interactively tested on Android.
+  That file-navigation APK was not installed or interactively tested on Android.
+  The current expanded-composer APK packages `herdr-CF2mEnjj.js`, is 15,738,094
+  bytes and exactly matches the current web HTML. It also has no native
+  interactive acceptance. The ordinary mobile command rebuilt web assets and
+  synchronized Capacitor, then hung in Gradle native filesystem enumeration.
+  Its canceled attempt and the subsequent shared-cache lock failure are retained.
+  A per-invocation isolated Gradle home/project cache with a copied read-only
+  dependency cache and filesystem watching disabled built successfully in
+  2m 49s, with all 213 tasks executed. No shared cache or mount was modified.
   One cold-start sample of the older build returned Activity success in 5.246 seconds, still showed
   a blank loading frame at 7.573 seconds, and displayed Connect in a later capture
   within 29 seconds. The exact visible-ready time and cause remain unknown.
@@ -189,3 +213,15 @@ does not establish a further review.
 The subsequent tool/attachment/form source and validation limits were sent in
 message `d4082711-b2cd-4bc8-8b0b-028522e32f15`. Storage acceptance is confirmed;
 reading and another review are unconfirmed.
+
+The file-navigation source and runtime limits were sent to dot in message
+`bb75e874-dd29-4305-a958-a61fc7eec032`. Storage acceptance is confirmed;
+reading and another review are unconfirmed. The current UI increment restores
+the original pill-to-expanded composer interaction, with shared input editing
+and presentation. Fullscreen editing and autocomplete remain unfinished, as
+does native connected interaction.
+
+The old task Gradle daemon remained in the operating system's exiting state
+and retained its shared journal lock after cancellation. The successful build
+used isolated caches. The build logs and process diagnostics are retained in
+`.tmp/`; no claim is made that the original Gradle environment recovered.

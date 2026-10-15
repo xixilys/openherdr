@@ -106,3 +106,12 @@ unavailable target without selecting supplied sibling rows. Syntax and scoped
 lint checked the extracted sources. Android rendering, edge gestures, native
 Back, and the upstream OpenCode screen regression require the owning integrated
 runtime. Static rendering does not establish those interactions.
+
+The dedicated conversation's floating composer uses the original CodeMirror
+editor, mobile shell and viewport pin. `ConversationComposer.vitest.tsx` checks
+actual DOM focus, preview/expanded transitions, selection/draft retention,
+mobile Enter and IME guards, queue and mutation locks, picker handoffs, hidden
+and changed owners, native cancel events, tablet expansion and Back-layer order.
+The real conversation tests also retain permission/form priority, stream recovery
+and chat-to-file reading position around this editor. Native keyboard, file
+picker and Android system Back behavior still require device acceptance.

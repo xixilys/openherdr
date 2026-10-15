@@ -88,7 +88,6 @@ export function MobilePillComposer(props: MobilePillComposerProps) {
 
     return <MobilePillComposerView
         input={{
-            kind: 'preview',
             value: message,
             placeholder: currentSessionId || newSessionDraftOpen
                 ? t('chat.chatInput.placeholder.chatCompact')

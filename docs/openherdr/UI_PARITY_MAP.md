@@ -12,8 +12,8 @@ Keep the separate OpenHerdr entrypoint and authenticated transport. Replace its 
 The subsequent integration shares `HerdrMobileShell`, user bubbles/text,
 tool summaries/descriptions, the pill composer, session switcher and
 return-to-latest presentation with the original wrappers. Shell/diff output,
-attachment/image views, stepped forms and the phone Files browser now share their
-original presentation too. Herdr supplies real source records, confined asset
+attachment/image views, stepped forms, the phone Files browser and floating
+expanded composer now share their original presentation too. Herdr supplies real source records, confined asset
 reads and isolated drafts. It has host Files/Git, project context, preferences
 and an owned OpenCode conversation driver. This
 inventory's route limitations describe its initial state, and do not replace
@@ -61,6 +61,42 @@ The shared public host API is `packages/ui/src/lib/api/types.ts:RuntimeAPIs`, co
 The normalized live contract is `lib/opencode/events.ts`. It includes `message.updated/patched/removed`, `message.part.updated/delta`, `message.tool.transition`, part replacement, session status/error/idle, permission asked/replied, form created/settled and shell started/ended. Herdr pane revision/activity events do not supply these message/tool/approval transitions. A conversation source adapter must prove which events it can produce from its real source.
 
 The original actions in `sync/session-actions.ts` include create/delete/rename, prompt/abort, revert/fork, permission replies and form replies through `opencodeClient`. Reusing visual chat controls requires adapting these actions as well as loading historical text.
+
+### Floating expanded input
+
+Herdr `ConversationComposer` now uses the original `ComposerEditor`,
+`useMobileComposerShell` and `useMobileViewportPin`. A phone tap expands the pill
+into the floating editor and focuses it in that gesture. The extracted
+`ComposerBoxView` supplies the same opaque box and shadow to the original
+`ChatInput` and Herdr editor. The original wrapper keeps its editor children,
+layout and state owner; the shared frame performs no source reads or submission.
+
+Herdr retains editor selection across pill swaps and detaches the editor while
+hidden. Its view owner includes server, machine, pane identity, session and
+directory; changing owners destroys that view. Text and attachments stay in the
+scoped draft store. Picker handoff and focus restoration respect visibility.
+Idle send, running-turn queue and abort each require their actual capability;
+unknown delivery continues to block mutations. Permission/form input moves with
+the same positioned composer during viewport pinning.
+
+The actual 412×915 HTTPS browser acceptance passed Unicode 2-line editing,
+Enter inserting a newline, tap focus, model-picker close, collapse/reopen and
+return from Files with draft and attachment controls retained. Opening the editor
+preserved reader position at 601.5; a separate non-bottom Files round trip
+preserved 80 → 80. One bounded real prompt produced
+`OPENHERDR_EXPANDED_INPUT_OK`, with 1 user prompt and 1 response; its sent draft
+cleared. These observations do not imply the viewport stayed fixed during the
+new response. Arabic inspection confirmed actual `dir="rtl"`, model controls
+on the right and agent controls on the left. English, the cleared test draft and
+the normal viewport were restored afterward. The receipt is
+`.tmp/expanded-composer-browser.json`; public browser captures are
+`assets/composer-expanded.jpg` and `assets/composer-response.jpg`.
+
+Focused regressions passed for the composer 9, shared box frame 1 and pure pill 6.
+The original pill 8, conversation 1 and file-return 3 also passed. The final
+combined gate is `.tmp/check-expanded-composer-release.log`; the original web
+build passed. Fullscreen input, agent/command/file autocomplete, physical native
+IME, system Back and native sharing remain unfinished or unverified.
 
 ### Files and editor
 
@@ -177,11 +213,20 @@ Do not expand all units into one shared-store rewrite. The shell and host Files/
 
 Full parity should be accepted by original feature and actual user flow, not by the count of copied components. The current read-only panels are useful working references and recovery routes. They should not become the permanent substitute for the original files editor, Changes screen, session/chat UI, settings or attachment flows.
 
-## File-navigation artifact and remaining acceptance
+## Current artifact and remaining acceptance
 
-The final debug APK for this increment contains `herdr-BDGqP9Kp.js`, with its
-bundled index matching `dist-herdr/herdr.html`. It has not been installed or
-interactively tested on Android. The previous `herdr-BEKetIzv.js` build supplies
-the older native Connect and cold-start evidence in
-`packages/mobile/openherdr/VALIDATION.md`. Complete editor/Git behavior, connected
-native interaction and the wider original application parity remain unfinished.
+The expanded-composer debug APK is 15,738,094 bytes and contains
+`herdr-CF2mEnjj.js`; its bundled HTML exactly matches the built web HTML.
+`.tmp/expanded-composer-apk.json` records the artifact. The normal full mobile
+command encountered a native filesystem-enumeration hang. The successful APK
+came from an isolated Gradle invocation with its own home/project cache and
+read-only copied dependencies, with filesystem watching and the daemon disabled.
+The log `.tmp/android-expanded-composer-isolated-online.log` reports
+`BUILD SUCCESSFUL in 2m 49s`, with all 213 tasks executed.
+
+This latest APK has not been installed or tested interactively on Android.
+The preceding file-navigation artifact used `herdr-BDGqP9Kp.js`; the older
+`herdr-BEKetIzv.js` build supplies the native Connect and cold-start observations
+in `packages/mobile/openherdr/VALIDATION.md`. Fullscreen/autocomplete input,
+complete editor/Git behavior, connected native interaction and the wider original
+application parity remain unfinished.

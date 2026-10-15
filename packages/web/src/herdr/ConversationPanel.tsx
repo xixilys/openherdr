@@ -11,23 +11,19 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { copyTextToClipboard } from '@openchamber/ui/lib/clipboard';
 import { useI18n } from '@openchamber/ui/lib/i18n';
 import { openExternalUrl } from '@openchamber/ui/lib/url';
-import { isIMECompositionEvent } from '@openchamber/ui/lib/ime';
 import { isMobileSurfaceRuntime } from '@openchamber/ui/lib/runtimeSurface';
-import { shouldSubmitEnter } from '@openchamber/ui/components/chat/composer/keyboardPolicy';
 import type { Theme } from '@openchamber/ui/types/theme';
 import { getDefaultTheme } from '@openchamber/ui/lib/theme/themes';
 import { MarkdownPresentationContext, type MarkdownPresentationSource } from '@openchamber/ui/components/chat/MarkdownPresentationContext';
 import AssistantTextPart from '@openchamber/ui/components/chat/message/parts/AssistantTextPart';
 import { ReasoningTimelineBlock } from '@openchamber/ui/components/chat/message/parts/ReasoningPart';
 import { SimpleMarkdownRenderer } from '@openchamber/ui/components/chat/MarkdownRenderer';
-import { ComposerAttachmentControls } from '@openchamber/ui/components/chat/composer/ui/ComposerAttachmentControls';
-import { MobilePillComposerView, MOBILE_PILL_ICON_BUTTON_CLASS } from '@openchamber/ui/components/chat/composer/ui/MobilePillComposerView';
 import { UserMessageBubble, UserTextView } from '@openchamber/ui/components/chat/message/parts/UserMessagePresentation';
 import { ComposerFloatingPanel } from '@openchamber/ui/components/chat/composer/ui/ComposerFloatingPanel';
 import { registerFloatingPanelClearanceReader } from '@openchamber/ui/components/chat/composer/state/composerInsetReaders';
 import { ScrollToBottomView } from '@openchamber/ui/components/chat/components/ScrollToBottomView';
 import { useMobileAutocompleteMaxHeight } from '@openchamber/ui/components/chat/useMobileAutocompleteMaxHeight';
-import { ATTACHMENT_ACCEPT, getUnsupportedAttachmentInputs } from '@openchamber/ui/sync/attachment-files';
+import { getUnsupportedAttachmentInputs } from '@openchamber/ui/sync/attachment-files';
 import { setNativeImagePasteEnabled, subscribeToNativeImagePastes } from '@openchamber/ui/lib/nativeImagePaste';
 import type { ModelRef } from '@openchamber/ui/lib/opencode/model';
 import {
@@ -40,6 +36,7 @@ import { useHerdrText } from './herdr.i18n';
 import { conversationDrafts, draftIdentity, reconcileConversationTail, prepareConversationAttachments, readConversationLines } from './conversation-state';
 import { trackConversationMutation, type ConversationMutationRequest } from './conversation-actions';
 import { ConversationTool } from './ConversationTool';
+import { ConversationComposer } from './ConversationComposer';
 import { ConversationForm } from './ConversationForm';
 import { HerdrConversationAttachments, type HerdrConversationAttachmentsProps } from './conversation-attachments';
 import { workspaceFilePath, type WorkspaceFileRequest } from './workspace-navigation';
@@ -61,7 +58,7 @@ export type ConversationPanelProps = {
   onOpenFile?: (request: WorkspaceFileRequest) => void;
 };
 const endpoint = (operation: string) => `/api/herdr/conversations/${operation}`;
-const emptyGitHubPicker = () => {};
+
 type AttachmentSource = Omit<HerdrConversationAttachmentsProps, 'files' | 'compact' | 'className'>;
 
 export function ConversationPanel(props: ConversationPanelProps) {
@@ -96,10 +93,8 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const [pickerQuery, setPickerQuery] = React.useState('');
   const [atLatest, setAtLatest] = React.useState(true);
   const alive = React.useRef(true); const selectedRef = React.useRef(selectedId); selectedRef.current = selectedId;
-  const input = React.useRef<HTMLInputElement>(null);
   const timeline = React.useRef<HTMLDivElement>(null); const content = React.useRef<HTMLDivElement>(null);
   const composer = React.useRef<HTMLDivElement>(null);
-  const editor = React.useRef<HTMLTextAreaElement>(null);
   const following = React.useRef(true); const prependHeight = React.useRef<number | null>(null);
   const viewportHeight = React.useRef<number | null>(null);
   const preparation = React.useRef<{ key: string; controller: AbortController } | null>(null);
@@ -139,17 +134,6 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     observer.observe(slot); resize();
     return () => { observer.disconnect(); list.style.removeProperty('padding-bottom'); list.style.removeProperty('scroll-padding-bottom'); };
   }, [hasSnapshot, selectedId]);
-  const sizeEditor = React.useCallback(() => {
-    const node = editor.current;
-    if (!node) return;
-    node.style.height = 'auto';
-    node.style.height = `${Math.min(node.scrollHeight, Math.max(48, (window.visualViewport?.height ?? window.innerHeight) * 0.3))}px`;
-  }, []);
-  React.useLayoutEffect(sizeEditor, [draft.text, hasSnapshot, sizeEditor]);
-  React.useEffect(() => {
-    window.addEventListener('resize', sizeEditor); window.visualViewport?.addEventListener('resize', sizeEditor);
-    return () => { window.removeEventListener('resize', sizeEditor); window.visualViewport?.removeEventListener('resize', sizeEditor); };
-  }, [sizeEditor]);
 
   React.useEffect(() => { alive.current = true; return () => { alive.current = false; preparation.current?.controller.abort(); setNativeImagePasteEnabled(false); }; }, []);
   React.useEffect(() => () => {
@@ -211,6 +195,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     setSnapshot(null); setActivityFresh(false); setStreamError(null); setNotice(null); following.current = true; setAtLatest(true); prependHeight.current = null;
     setNativeImagePasteEnabled(false);
   }, [selectedId]);
+  React.useEffect(() => { setPicker(null); setPickerQuery(''); }, [disabled, draftKey]);
   const targetIdentity = resolved?.target.identity;
   React.useEffect(() => {
     if (!targetIdentity) return;
@@ -298,11 +283,11 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   React.useEffect(() => {
     const node = timeline.current, body = content.current; if (!node || !body || !globalThis.ResizeObserver) return;
     const resize = () => { viewportHeight.current = node.clientHeight; if (following.current) node.scrollTop = node.scrollHeight; };
-    const keyboardSettled = () => { sizeEditor(); resize(); };
+    const keyboardSettled = resize;
     const observer = new ResizeObserver(resize); observer.observe(body); observer.observe(node); resize();
     window.addEventListener('oc:keyboard-settled', keyboardSettled);
     return () => { observer.disconnect(); window.removeEventListener('oc:keyboard-settled', keyboardSettled); };
-  }, [selectedId, sizeEditor]);
+  }, [selectedId]);
 
   const rows = new Map((history?.conversations ?? []).map((item) => [item.session.id, item.session]));
   for (const item of bound?.sessions ?? []) rows.set(item.session.id, item.session);
@@ -338,7 +323,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     return true;
   };
   const send = async () => {
-    const target = activeSnapshot?.target; if (!writable || preparing || preparation.current?.key === draftKey || !target || !selectedId || (!draft.text.trim() && !draft.files.length)) return;
+    const target = activeSnapshot?.target; if (!writable || activeSnapshot?.capabilities.prompt !== true || preparing || preparation.current?.key === draftKey || !target || !selectedId || (!draft.text.trim() && !draft.files.length)) return;
     const captured = { key: draftKey, revision: draft.revision, sessionId: selectedId };
     const result = await mutate('act', { target, sessionId: selectedId, action: 'prompt', input: { text: draft.text, files: draft.files.map(({ uri, name }) => ({ uri, name })), delivery: 'queue' } }, driverPromptSchema, 'prompt');
     if (!result) return;
@@ -363,11 +348,11 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : fallbackError); }
   };
   React.useEffect(() => subscribeToNativeImagePastes((paste) => {
-    if (!writable || document.activeElement?.getAttribute('data-herdr-composer') !== 'true') return;
+    if (!writable || !document.activeElement?.closest('[data-herdr-composer="true"]')) return;
     if (paste.ok) void attach([paste.file]); else setError(t('chat.chatInput.toast.sendAttachmentsFailed'));
   }), [attach, t, writable]);
   React.useEffect(() => {
-    const sync = () => setNativeImagePasteEnabled(writable && !document.hidden && document.activeElement?.getAttribute('data-herdr-composer') === 'true');
+    const sync = () => setNativeImagePasteEnabled(writable && !document.hidden && !!document.activeElement?.closest('[data-herdr-composer="true"]'));
     sync(); document.addEventListener('visibilitychange', sync);
     return () => { setNativeImagePasteEnabled(false); document.removeEventListener('visibilitychange', sync); };
   }, [draftKey, writable]);
@@ -460,22 +445,19 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
       </div>
     </div>
     {activeSnapshot ? <div ref={composer} data-composer-slot="floating" className="absolute inset-x-0 bottom-0 z-10">
-      <div className="chat-input-column mx-auto w-full max-w-3xl px-3 pt-2" style={{ paddingBottom: 'max(0.75rem, var(--oc-safe-area-bottom, 0px))' }}>
+      <div className="chat-input-column mx-auto w-full max-w-3xl px-3 pt-2">
         <ScrollToBottomView visible={!atLatest} onClick={() => { following.current = true; setAtLatest(true); if (timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight; }} />
-        <MobilePillComposerView
-          input={{
-            kind: 'editor', value: draft.text, textareaRef: editor, disabled: !writable,
-            placeholder: t('chat.chatInput.placeholder.chatCompact'), ariaLabel: h('draftPlaceholder'),
-            onChange: (text) => conversationDrafts.update(draftKey, (previous) => ({ ...previous, text })),
-            onFocus: () => setNativeImagePasteEnabled(writable), onBlur: () => setNativeImagePasteEnabled(false),
-            onPaste: (event) => { const files = [...event.clipboardData.files]; if (files.length && writable) { event.preventDefault(); void attach(files); } },
-            onKeyDown: (event) => { if (!isIMECompositionEvent(event) && event.key === 'Enter' && shouldSubmitEnter({ isMobile: !!navigation || isMobileSurfaceRuntime(), isDesktopExpanded: false, enterToSend: preferences?.enterToSend ?? true, enterToSendConfigured: preferences?.enterToSendConfigured ?? false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) { event.preventDefault(); void send(); } },
-          }}
+        <ConversationComposer key={conversationOwner}
+          text={draft.text} writable={writable} hidden={disabled} isMobile={!!navigation || isMobileSurfaceRuntime()} pickerOpen={picker !== null}
+          ariaLabel={h('draftPlaceholder')} preferences={preferences} attachmentFiles={draft.files}
+          onTextChange={(text) => conversationDrafts.update(draftKey, (previous) => ({ ...previous, text }))}
+          onAttach={(files) => { void attach(files); }}
+          onEditorFocus={() => setNativeImagePasteEnabled(writable)} onEditorBlur={() => setNativeImagePasteEnabled(false)}
           isRunning={!!running} canSend={canSend} canQueue={!!running && canSend} canAbort={!!running && writable && activeSnapshot.capabilities.abort === true}
           onSend={() => { void send(); }} onAbort={() => { void act('abort', {}); }} onQueue={running ? () => { void send(); } : undefined}
           model={{ label: modelLabel, onChoose: () => setPicker('model'), disabled: !writable || !activeSnapshot.capabilities.modelSelection, icon: <Icon name="code-ai" className="size-3.5 shrink-0" /> }}
           agent={{ label: agentLabel, onChoose: () => setPicker('agent'), disabled: !writable || !activeSnapshot.capabilities.agentSelection, color: activeSnapshot.session.agent?.toLowerCase() === 'build' ? 'var(--status-success)' : undefined }}
-          attachmentControl={<div aria-disabled={!writable} className={!writable ? 'pointer-events-none opacity-50' : undefined}><ComposerAttachmentControls isVSCode={false} footerIconButtonClass={MOBILE_PILL_ICON_BUTTON_CLASS} iconSizeClass="h-[18px] w-[18px]" handlePickLocalFiles={() => input.current?.click()} openGitHubPicker={emptyGitHubPicker} filesOnly /></div>}
+
           statusRow={running && atLatest && !hasRequest ? <div role="status" className="mb-2"><div className="oc-surface-floating inline-flex h-7 max-w-full items-center gap-2 whitespace-nowrap rounded-full ps-2 pe-3"><Icon name="code-ai" className="size-3.5 shrink-0" /><span className="truncate typography-meta">{modelLabel} · {t('chat.todo.inProgress')}</span></div></div> : undefined}
           topRow={preparing || unsupported.length || (catalog && (!catalog.models.length || !catalog.agents.length) && !catalog.authoritative) ? <div className="border-b border-border/40 px-3 py-2 typography-meta text-muted-foreground">
             {preparing ? <p role="status">{t('common.loading')}</p> : null}
@@ -483,9 +465,9 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
             {unsupported.length && selectedModel ? <p className="text-[var(--status-warning-text)]">{t('chat.chatInput.toast.unsupportedAttachmentModalities', { model: selectedModel.name, modalities: [...new Set(unsupported.map((item) => item.modality))].join(', '), files: unsupported.map((item) => item.attachment.name).join(', ') })}</p> : null}
           </div> : undefined}
           attachments={draft.files.length ? <div className="flex flex-wrap gap-2 px-3 pt-2">{draft.files.map((file) => <div key={file.id} className="flex min-w-0 items-center gap-1 rounded-md border border-border px-2 py-1 typography-meta"><span dir="auto" className="max-w-48 truncate">{file.name}</span><Button size="xs" variant="ghost" disabled={busy} aria-label={t('chat.fileAttachment.actions.removeNamed', { name: file.name })} onClick={() => conversationDrafts.update(draftKey, (previous) => ({ ...previous, files: previous.files.filter((item) => item.id !== file.id) }))}><Icon name="close" className="size-3" /></Button></div>)}</div> : undefined}
-        />
-        <input ref={input} type="file" multiple accept={ATTACHMENT_ACCEPT} className="hidden" onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ''; if (files.length && writable) void attach(files); }} />
+        >
         <ConversationRequestDock key={conversationOwner} owner={conversationOwner} snapshot={activeSnapshot} writable={writable} isMobile={!!navigation || isMobileSurfaceRuntime()} onAction={act} onNotice={(message) => { if (selectedRef.current === activeSnapshot.session.id) setNotice(message); }} />
+        </ConversationComposer>
       </div>
     </div> : null}
     <MobileOverlayPanel open={picker !== null} onClose={closePicker} title={t(picker === 'agent' ? 'chat.modelControls.selectAgent' : 'chat.modelControls.selectModel')}>

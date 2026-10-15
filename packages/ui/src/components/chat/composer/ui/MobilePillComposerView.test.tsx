@@ -41,14 +41,14 @@ async function mountPill(props: MobilePillComposerViewProps) {
     };
 }
 const noop = () => {};
-const editor = { kind: 'editor', value: 'Actual draft', placeholder: 'Plan, build, or ask', ariaLabel: 'Prompt', onChange: noop } as const;
+const preview = { value: 'Actual draft', placeholder: 'Plan, build, or ask', onExpand: noop } as const;
 
-test('standalone editor preserves the original pill and footer without config or runtime requests', async () => {
+test('standalone preview preserves the original pill and footer without config or runtime requests', async () => {
     let sends = 0;
     let modelChoices = 0;
     let agentChoices = 0;
     const props: MobilePillComposerViewProps = {
-        input: editor, isRunning: false, canSend: true, canQueue: false, canAbort: false, onSend: () => { sends++; }, onAbort: noop,
+        input: preview, isRunning: false, canSend: true, canQueue: false, canAbort: false, onSend: () => { sends++; }, onAbort: noop,
         attachmentControl: <button type="button">Attach</button>,
         topRow: <div data-actual-queue>Actual queued prompt</div>,
         statusRow: <div data-actual-status>Actual activity</div>,
@@ -58,11 +58,10 @@ test('standalone editor preserves the original pill and footer without config or
     const mounted = await mountPill(props);
     try {
         const pill = mounted.container.querySelector('[data-mobile-composer-pill]');
-        const textarea = mounted.container.querySelector('textarea');
         expect(pill?.classList.contains('oc-surface-floating')).toBe(true);
         expect(pill?.classList.contains('rounded-[1.5rem]')).toBe(true);
-        expect(textarea?.value).toBe('Actual draft');
-        expect(textarea?.getAttribute('data-herdr-composer')).toBe('true');
+        expect(pill?.textContent).toContain('Actual draft');
+        expect(mounted.container.querySelector('textarea')).toBeNull();
         const model = mounted.container.querySelector<HTMLButtonElement>('[title="Selected model"]');
         const agent = mounted.container.querySelector<HTMLButtonElement>('[title="Build"]');
         expect(model?.parentElement?.className).toBe('flex items-center justify-between gap-x-2 px-3.5 pb-2 pt-0.5');
@@ -77,38 +76,9 @@ test('standalone editor preserves the original pill and footer without config or
     } finally { await mounted.close(); }
 });
 
-test('native paste, focus, blur and IME keyboard events reach the owner unchanged', async () => {
-    const events: Event[] = [];
-    const focused: string[] = [];
-    const changes: string[] = [];
-    const pasteEvents: Event[] = [];
-    const textareaRef = React.createRef<HTMLTextAreaElement>();
-    const props: MobilePillComposerViewProps = {
-        input: { ...editor, textareaRef, onChange: value => { changes.push(value); }, onKeyDown: event => { events.push(event.nativeEvent); }, onPaste: event => { pasteEvents.push(event.nativeEvent); }, onFocus: () => { focused.push('focus'); }, onBlur: () => { focused.push('blur'); } },
-        isRunning: false, canSend: false, canQueue: false, canAbort: false, onSend: noop, onAbort: noop,
-    };
-    const mounted = await mountPill(props);
-    try {
-        const textarea = textareaRef.current;
-        if (!textarea) throw new Error('Missing controlled textarea');
-        const composingEnter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true });
-        const paste = new Event('paste', { bubbles: true });
-        await act(async () => { textarea.focus(); textarea.dispatchEvent(composingEnter); textarea.dispatchEvent(paste); textarea.blur(); });
-        const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-        if (!setValue) throw new Error('Native textarea setter is missing');
-        await act(async () => { setValue.call(textarea, 'Changed draft'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
-        expect(changes).toEqual(['Changed draft']);
-        expect(events).toEqual([composingEnter]);
-        expect(composingEnter.isComposing).toBe(true);
-        expect(pasteEvents).toEqual([paste]);
-        expect(focused).toEqual(['focus', 'blur']);
-        expect(mounted.requests).toEqual([]);
-    } finally { await mounted.close(); }
-});
-
 test('running actions expose only supplied queue and abort callbacks', async () => {
     let sends = 0; let queues = 0; let aborts = 0;
-    const props: MobilePillComposerViewProps = { input: editor, isRunning: true, canSend: true, canQueue: true, canAbort: true, onSend: () => { sends++; }, onAbort: () => { aborts++; } };
+    const props: MobilePillComposerViewProps = { input: preview, isRunning: true, canSend: true, canQueue: true, canAbort: true, onSend: () => { sends++; }, onAbort: () => { aborts++; } };
     const mounted = await mountPill(props);
     try {
         expect(mounted.container.querySelector('[aria-label="Queue message"]')).toBeNull();
@@ -128,7 +98,7 @@ for (const canQueue of [true, false]) {
     test(`running without abort keeps idle send hidden when canQueue=${canQueue}`, async () => {
         let sends = 0; let queues = 0; let aborts = 0;
         const mounted = await mountPill({
-            input: editor, isRunning: true, canSend: true, canQueue, canAbort: false,
+            input: preview, isRunning: true, canSend: true, canQueue, canAbort: false,
             onSend: () => { sends++; }, onQueue: () => { queues++; }, onAbort: () => { aborts++; },
         });
         try {
@@ -147,7 +117,7 @@ for (const canQueue of [true, false]) {
 test('queue eligibility is independent of idle send eligibility and requires a running turn', async () => {
     let queues = 0; let sends = 0;
     const props: MobilePillComposerViewProps = {
-        input: editor, isRunning: true, canSend: false, canQueue: true, canAbort: false,
+        input: preview, isRunning: true, canSend: false, canQueue: true, canAbort: false,
         onSend: () => { sends++; }, onQueue: () => { queues++; }, onAbort: noop,
     };
     const mounted = await mountPill(props);
@@ -169,7 +139,7 @@ test('queue eligibility is independent of idle send eligibility and requires a r
 test('stop prevents touch and mouse focus changes while leaving other pointer defaults intact', async () => {
     let aborts = 0;
     const mounted = await mountPill({
-        input: editor, isRunning: true, canSend: false, canQueue: false, canAbort: true,
+        input: preview, isRunning: true, canSend: false, canQueue: false, canAbort: true,
         onSend: noop, onAbort: () => { aborts++; },
     });
     try {

@@ -219,6 +219,7 @@ import { isDraftSendWaiting, subscribeDraftSendWaiting } from '@/lib/worktrees/p
 import { ComposerAutocompletePopups } from './composer/ui/ComposerAutocompletePopups';
 import { ComposerFooter } from './composer/ui/ComposerFooter';
 import { MobilePillComposer } from './composer/ui/MobilePillComposer';
+import { ComposerBoxView } from './composer/ui/ComposerBoxView';
 import { ComposerContextChips } from './composer/ui/ComposerContextChips';
 import { LargeTextPasteChoice, type LargeTextPasteChoiceAction } from './composer/ui/LargeTextPasteChoice';
 import { LinkedReferenceRow } from './composer/ui/LinkedReferenceRow';
@@ -4217,39 +4218,21 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onAgentSelect={handleAgentSelect}
                         onClose={closeAutocomplete}
                     />
-                {/* The lift shadow lives on this wrapper, apart from the
-                    box. */}
-                <div
-                    className={cn(
-                        'flex flex-col',
-                        isComposerExpanded && 'flex-1 min-h-0',
-                        'shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.12)]',
-                    )}
-                    style={{ borderRadius: chatInputRadius }}
-                >
-                <div
-                    className={cn(
-                        "flex flex-col relative overflow-visible",
-                        isComposerExpanded && 'flex-1 min-h-0',
-                        "border border-border/80",
-                        // Opaque: always on screen over the moving transcript
-                        // (see .oc-surface-floating in design-system.css).
-                        'oc-surface-floating',
-                        isDragging && "ring-2 ring-primary ring-offset-2"
-                    )}
-                    style={{ borderRadius: chatInputRadius }}
-                    ref={dropZoneRef}
-                    // The mobile pill morph measures and animates this box.
-                    data-composer-box={isMobile ? 'true' : undefined}
-                    // The desktop dictation overlay is up: the box hides its
-                    // other contents (see design-system.css).
-                    data-dictating={desktopDictating && !isMobile && !isBtwActive ? 'true' : undefined}
-                    onDropCapture={handleDropCapture}
-                    onDragEnter={handleDragEnter}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onDragEnd={handleDragEnd}
+                <ComposerBoxView
+                    radius={chatInputRadius}
+                    expanded={isComposerExpanded}
+                    boxRef={dropZoneRef}
+                    boxProps={{
+                        className: cn(isDragging && "ring-2 ring-primary ring-offset-2"),
+                        'data-composer-box': isMobile ? 'true' : undefined,
+                        'data-dictating': desktopDictating && !isMobile && !isBtwActive ? 'true' : undefined,
+                        onDropCapture: handleDropCapture,
+                        onDragEnter: handleDragEnter,
+                        onDragOver: handleDragOver,
+                        onDragLeave: handleDragLeave,
+                        onDrop: handleDrop,
+                        onDragEnd: handleDragEnd,
+                    }}
                 >
                     {isDragging && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 rounded-xl">
@@ -4420,9 +4403,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     />
                     {mobileModelAgentRow}
                     </div>
-
-                </div>
-                </div>
+                </ComposerBoxView>
                 </div>
                 </>
                 )}

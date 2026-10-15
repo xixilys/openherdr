@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act } from 'react';
+import { EditorView } from '@codemirror/view';
 import type { Root } from 'react-dom/client';
 import { Window } from 'happy-dom';
 import type { WorkspaceFileRequest } from '../../../../web/src/herdr/workspace-navigation';
@@ -63,9 +64,10 @@ afterEach(async () => { await act(async () => root?.unmount()); await dom.happyD
 test('a bound tool file action captures its verified host and survives closing the workspace', async () => {
   await renderPanel();
   const action = await waitForAction(); expect(action).not.toBeNull();
-  const editor = host.querySelector('textarea'); expect(editor).not.toBeNull();
-  const setText = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-  await act(async () => { setText?.call(editor, 'Unsent conversation draft'); editor?.dispatchEvent(new Event('input', { bubbles: true })); });
+  const editor = host.querySelector<HTMLElement>('.cm-content'); expect(editor).not.toBeNull();
+  const editorView = editor ? EditorView.findFromDOM(editor) : null;
+  if (!editorView) throw new Error('Missing original composer editor');
+  await act(async () => editorView.dispatch({ changes: { from: 0, insert: 'Unsent conversation draft' } }));
   const timeline = host.querySelector<HTMLElement>('[data-message-id]')?.parentElement?.parentElement;
   if (!timeline) throw new Error('Missing timeline');
   Object.defineProperties(timeline, { scrollHeight: { configurable: true, value: 2000 }, clientHeight: { configurable: true, value: 500 } });
@@ -77,8 +79,8 @@ test('a bound tool file action captures its verified host and survives closing t
   expect(opened).toHaveLength(1);
   expect(opened[0]).toMatchObject({ server: 'https://fixture.example', machine: 'local', paneId: 'w1:p1', paneIdentity: target.identity, sessionId: session.id, root: '/fixture', path: 'nested/source.ts', line: 9 });
   await renderPanel(true); await renderPanel(false); await settle();
-  expect(host.querySelector('textarea')).toBe(editor);
-  expect(editor?.value).toBe('Unsent conversation draft');
+  expect(host.querySelector('.cm-content')).toBe(editor);
+  expect(editorView.state.doc.toString()).toBe('Unsent conversation draft');
   expect(host.querySelector<HTMLElement>('[data-message-id]')?.parentElement?.parentElement).toBe(timeline);
   expect(timeline.scrollTop).toBe(250);
 });

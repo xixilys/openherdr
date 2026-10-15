@@ -88,6 +88,32 @@ button opens Herdr workspaces and panes. Rename/fork/delete and pagination stay
 in the conversation menu on mobile. Model/agent selection opens the original
 mobile overlay presentation and operates on the selected owned conversation.
 
+`ConversationComposer` owns the input presentation and reuses the original
+`ComposerEditor`, `useMobileComposerShell` and `useMobileViewportPin`.
+A phone tap commits the preview-to-editor swap before focusing in the same
+gesture. The original native shell retains its own frame-timed focus behavior.
+Blur, keyboard hide, Escape and the shared Back stack return to the preview.
+Hardware keyboards and tablet size keep the editor expanded. The existing
+mobile Enter/IME policy and desktop send preferences still apply.
+
+The editor view is retained across pill swaps and hidden mobile panels, including
+its selection. Hiding detaches it so a pending picker restore cannot focus it.
+The view store is keyed by server, machine, pane identity, session and directory;
+changing owners destroys that store. Text and attachments remain in the existing
+scoped draft store. A native file picker holds expansion until change or cancel
+and cancels keyboard restoration. Model/agent pickers use the original overlay
+handoff. The permission/form dock is inside the same positioned form, so browser
+viewport pinning moves its input and pending requests together. Native image paste
+matches the focused CodeMirror element through its Herdr ancestor and retains the
+existing writable/foreground checks. Send and queue are guarded separately from
+abort availability and unknown-delivery mutation locks.
+
+This increment covers the original floating expansion. Fullscreen editing,
+agent/command/file autocomplete and voice remain separate work. The original
+OpenCode web, Electron, VS Code and mobile wrappers keep their state and editor
+behavior around the shared box. The Herdr browser, hosted mobile and Capacitor
+client use this controller; Herdr remains outside the VS Code webview.
+
 Live presentation requires both a fresh bound snapshot and a connected event
 stream. A failed read, stream failure, hidden page or paused panel withdraws
 activity, assistant streaming and reasoning animation while retaining transcript
@@ -260,3 +286,11 @@ owner replies, occupant replacement before or during file reads, draft and CodeM
 inner Back routing, binary fallback and failed-listing behavior. These DOM
 checks do not establish physical Android Back, native file sharing, or the
 integrated chat-to-Files-to-Changes return flow.
+
+`packages/ui/src/apps/herdr/ConversationComposer.vitest.tsx` renders the real
+CodeMirror editor and original shell hooks. It covers synchronous browser-tap
+focus, draft/selection retention, mobile Enter and IME send guards, queue/lock
+eligibility, picker restoration, keyboard-hide intent, hidden/changed owners,
+file cancellation, tablet expansion and shared Back-layer order. These DOM
+checks do not establish Android IME, real system Back, keyboard geometry,
+native picker behavior or fullscreen/autocomplete parity.

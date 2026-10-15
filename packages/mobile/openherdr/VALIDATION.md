@@ -1,6 +1,45 @@
 # Native build validation
 
-## Latest file-navigation artifact
+## Latest expanded-composer artifact
+
+The current debug APK is 15,738,094 bytes and packages `herdr-CF2mEnjj.js`.
+Its `assets/public/index.html` exactly matches the current web build, and the
+referenced bundle is present. `.tmp/expanded-composer-apk.json` records the check.
+Package identity and native source are unchanged. This APK has not been installed
+or interactively tested on Android.
+
+`bun run mobile:herdr:android` rebuilt the web client and synchronized Capacitor,
+then stopped making progress inside Gradle's native filesystem enumeration.
+The owned client was canceled. A retry with filesystem watching disabled hit
+the old daemon's shared journal-cache lock. Both failed attempts are retained in
+`.tmp/android-expanded-composer.log` and
+`.tmp/android-expanded-composer-gradle-retry.log`.
+
+The final Gradle invocation used the installed Gradle 8.14.3 distribution, a
+per-invocation Gradle home/project cache, and a separate read-only copy of the
+existing dependency cache. It used `--no-daemon --no-watch-fs`; the offline
+attempt lacked repository metadata, so normal resolution of the already-declared
+dependencies was enabled for the successful build. No dependency declaration,
+shared cache, global Gradle configuration or mounted filesystem was changed.
+`.tmp/android-expanded-composer-isolated-online.log` records `BUILD SUCCESSFUL`
+in 2m 49s and 213 tasks executed. The old task daemon remained in an exiting
+state with its journal lock; recovery of that shared environment is unconfirmed.
+
+The actual HTTPS browser at 412x915 passed tap-to-expand and focus, multiline
+Unicode input, Enter newline, model-picker focus return, collapse/reopen,
+workspace-return draft retention and a non-bottom reader position of 80 pixels.
+One bounded real request returned `OPENHERDR_EXPANDED_INPUT_OK`, with one prompt,
+one reply and the sent draft cleared. Arabic RTL positioning also passed before
+the language and viewport were restored. `.tmp/expanded-composer-browser.json`
+records these checks. Public screenshots are
+`docs/openherdr/assets/composer-expanded.jpg` and `composer-response.jpg`.
+
+These browser results do not test Android IME, system Back, native paste,
+file chooser/sharing, rotation or connection recovery. Fullscreen editing and
+autocomplete remain unfinished. Older native Connect/cold-start observations
+below continue to belong to `herdr-BEKetIzv.js`.
+
+## Previous file-navigation artifact
 
 The 2026-10-15 file-navigation increment was built with
 `bun run mobile:herdr:android` on `xixilys-macmini`, using the existing Android
@@ -8,17 +47,18 @@ SDK and Java 21 installation. The final log is
 `.tmp/android-file-navigation-release.log`. Gradle reported `BUILD SUCCESSFUL`
 in 2 seconds with 213 tasks, 27 executed and 186 up-to-date.
 
-The current `android/app/build/outputs/apk/debug/app-debug.apk` is 16,467,798 bytes
-and contains `assets/herdr-BDGqP9Kp.js`. Its `assets/public/index.html` exactly
-matches the rebuilt `dist-herdr/herdr.html`. The package remains
+That file-navigation `android/app/build/outputs/apk/debug/app-debug.apk` was
+16,467,798 bytes and contained `assets/herdr-BDGqP9Kp.js`. At that validation,
+its `assets/public/index.html` exactly matched the then-built
+`dist-herdr/herdr.html`. The package remains
 `dev.openherdr.mobile`, versionCode 2 / versionName 0.1.0, minimum SDK 24 and
 target SDK 36. This APK includes the shared `MobileFilesView`, current-file tool
 navigation and the existing manual host editor.
 
-This latest APK has not been installed or tested interactively on Android. The
+That APK was not installed or tested interactively on Android. The
 Connect screen and cold-start observations below belong to the older
 `herdr-BEKetIzv.js` build. No new native startup, connected chat, Back, keyboard,
-file sharing or physical-phone acceptance is claimed for the current artifact.
+file sharing or physical-phone acceptance was claimed for that artifact.
 
 The actual HTTPS browser at 412×915 loaded `herdr-BDGqP9Kp.js` and completed a
 real tool current-file action, close/reopen with file draft retained, directory

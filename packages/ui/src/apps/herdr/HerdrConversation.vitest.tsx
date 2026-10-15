@@ -77,7 +77,7 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
     const closePreview = document.querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]'); assert(closePreview);
     await act(async () => closePreview.click());
     const timeline = host.querySelector<HTMLElement>('[data-message-id]')?.parentElement?.parentElement;
-    const editor = host.querySelector('textarea');
+    const editor = host.querySelector('.cm-content');
     assert(timeline); assert(editor);
     let viewport = 500;
     Object.defineProperties(timeline, { scrollHeight: { configurable: true, get: () => 2000 }, clientHeight: { configurable: true, get: () => viewport } });
@@ -106,6 +106,7 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
     };
     await refreshRequests('form');
     const answer = host.querySelector('[role="dialog"][aria-label="Fixture question"] textarea'); assert(answer instanceof HTMLTextAreaElement);
+    assert.equal(host.querySelector('form [role="dialog"][aria-label="Fixture question"] textarea'), answer, 'viewport pinning moves the question with its composer form');
     const dockBody = answer.closest<HTMLElement>('[class~="max-h-[50vh]"]'); assert(dockBody);
     Object.defineProperty(host, 'getBoundingClientRect', { configurable: true, value: () => new dom.DOMRect(0, 50, 412, 500) });
     let dockBottom = 500;
@@ -125,10 +126,6 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
     assert.equal(answer.value, 'Answer in progress', 'permission priority preserves an unfinished form answer');
     assert.equal(answer.closest('[hidden]'), null, 'the form becomes visible after permission resolution');
     await refreshRequests('none');
-    Object.defineProperty(editor, 'scrollHeight', { configurable: true, get: () => 1000 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 600 });
-    await act(async () => { window.dispatchEvent(new Event('resize')); });
-    assert.equal(editor.style.height, '180px', 'viewport changes update the editor height limit');
     const readsBeforeFailure = readCount;
     const source = streams[streams.length - 1]; assert(source);
     await act(async () => { source.closed = true; source.controller.error(new Error('Fixture stream disconnected')); });

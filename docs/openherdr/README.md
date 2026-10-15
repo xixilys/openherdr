@@ -105,6 +105,21 @@ support inline previews and explicit reads of current project files; the latter
 are labelled as current content. Stepped forms keep page-lifetime drafts across
 conversation changes and retain them after failed or unknown replies.
 
+Tapping the mobile input now expands the original floating CodeMirror editor.
+It shares the original editor shell, viewport pinning and box frame with
+OpenChamber. Unicode multiline drafts survive model-picker close,
+collapse/reopen and a visit to Files. Mobile Enter inserts a newline. Drafts,
+attachments, send/queue eligibility and unknown-delivery locks keep their real
+conversation owner.
+
+The actual HTTPS browser at 412×915 passed those interactions and preserved a
+non-bottom reading position through the Files round trip. One bounded real
+prompt returned `OPENHERDR_EXPANDED_INPUT_OK` exactly once and cleared the sent
+draft. Arabic inspection confirmed mirrored model/agent controls; the browser
+was then restored to English with the test draft cleared. The receipt is
+`.tmp/expanded-composer-browser.json`. Physical native IME, system Back, sharing,
+fullscreen input and autocomplete remain unverified or unfinished.
+
 Tool file actions now open the shared original mobile Files browser and existing
 host editor with a captured conversation identity and canonical root. The editor
 labels the loaded bytes as the current file. A changed pane identity or root
@@ -121,11 +136,14 @@ directory were cleaned up. These results are recorded in
 `.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
 and `.tmp/untracked-ssh-acceptance.json`.
 
-The new Android debug APK includes `herdr-BDGqP9Kp.js` and has not been installed
-or tested interactively on Android. Older native Connect/cold-start observations
-belong to the previous `herdr-BEKetIzv.js` build. Complete editor/Git behavior,
-connected native interaction and full original-feature parity remain unfinished.
-The earlier browser download completion is still unknown.
+The latest Android debug APK is 15,738,094 bytes and includes
+`herdr-CF2mEnjj.js`, with its bundled HTML matching the web build. It has not been
+installed or tested interactively on Android. Older native Connect/cold-start
+observations belong to `herdr-BEKetIzv.js`; the previous file-navigation APK used
+`herdr-BDGqP9Kp.js`. Complete editor/Git behavior, connected native interaction
+and full original-feature parity remain unfinished. The earlier browser download
+completion is still unknown. Build details and the isolated Gradle recovery are
+recorded in [native validation](../../packages/mobile/openherdr/VALIDATION.md).
 
 Ordinary workspaces need a trusted project-root registration before project context
 is available. Pane cwd changes never choose another notes owner. Worktrees of
@@ -173,3 +191,10 @@ browser image shows search results; the editor image shows the saved file.
 ![Current-file editor after manual Save](assets/file-editor.jpg)
 
 ![Saved untracked file shown in Changes](assets/file-changes.jpg)
+
+The expanded input and its real response were captured in the same HTTPS browser.
+These images do not establish native Android keyboard or Back behavior.
+
+![Original floating editor expanded in the mobile-width browser](assets/composer-expanded.jpg)
+
+![Actual response after sending from the expanded editor](assets/composer-response.jpg)

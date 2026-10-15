@@ -9,7 +9,7 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
   const globals = {
     window: dom, document: dom.document, navigator: dom.navigator,
     localStorage: dom.localStorage, sessionStorage: dom.sessionStorage,
-    Node: dom.Node, NodeList: dom.NodeList, NodeFilter: dom.NodeFilter, Element: dom.Element,
+    Node: dom.Node, Text: dom.Text, NodeList: dom.NodeList, NodeFilter: dom.NodeFilter, Element: dom.Element,
     HTMLElement: dom.HTMLElement, HTMLAnchorElement: dom.HTMLAnchorElement, HTMLButtonElement: dom.HTMLButtonElement,
     HTMLInputElement: dom.HTMLInputElement, HTMLTextAreaElement: dom.HTMLTextAreaElement,
     HTMLImageElement: dom.HTMLImageElement, HTMLTableElement: dom.HTMLTableElement,
@@ -42,8 +42,8 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
         permissions: requests === 'both' ? [{ id: 'permission_fixture', sessionID: session.id, action: 'shell', resources: ['echo fixture'] }] : [],
         forms: requests !== 'none' ? [{ id: 'form_fixture', sessionID: session.id, title: 'Fixture question', fields: [{ type: 'string', key: 'answer', title: 'Fixture answer' }] }] : [],
         activity: { type: 'running' }, messages: { cursor: {}, data: [
-        { id: 'msg_user', type: 'user', time: { created: 100 }, text: 'Keep this transcript while reconnecting.' },
-        { id: 'msg_assistant', type: 'assistant', agent: 'build', model: { providerID: 'fixture', id: 'fixture' }, time: { created: 200 }, content: [{ type: 'reasoning', text: 'Current reasoning', time: { created: 200 } }, { type: 'text', text: 'Current **assistant** response.\n\nStill streaming' }] },
+        { id: 'msg_user', type: 'user', time: { created: 100 }, text: 'Keep this transcript while reconnecting.', files: [{ name: 'fixture.txt', mime: 'text/plain', data: btoa('INLINE_ATTACHMENT_CONTENT'), source: { type: 'inline' } }] },
+        { id: 'msg_assistant', type: 'assistant', agent: 'build', model: { providerID: 'fixture', id: 'fixture' }, time: { created: 200 }, content: [{ type: 'tool', id: 'tool_shell', name: 'shell', time: { created: 200, ran: 201 }, state: { status: 'running', input: { command: 'echo CURRENT_TOOL_OUTPUT' }, metadata: { output: 'CURRENT_TOOL_OUTPUT' } } }, { type: 'reasoning', text: 'Current reasoning', time: { created: 202 } }, { type: 'text', text: 'Current **assistant** response.\n\nStill streaming' }] },
       ] } });
     }
     if (url.pathname.endsWith('/events')) return new Response(new ReadableStream<Uint8Array>({
@@ -66,8 +66,16 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
   try {
     await act(async () => root.render(<I18nProvider><ConversationPanel transport={new HerdrTransport({ server: 'https://fixture.example', token: 'fixture' })} machine="local" paneId="w1:p1" targetMetadata={{ workspaceId: 'w1', tabId: 'w1:t1', session: null }} /></I18nProvider>));
     for (let attempt = 0; attempt < 20 && !host.querySelector('[data-streaming-reply]'); attempt += 1) await settle();
-    assert(host.querySelector('[data-streaming-reply]'), 'a fresh live assistant is marked streaming');
+    assert(host.querySelector('[data-streaming-reply]'), `a fresh live assistant is marked streaming: ${host.textContent}`);
     assert(host.querySelector('[data-reasoning-block-id] .animate-busy-wave'), 'fresh reasoning displays live activity');
+    const shell = [...host.querySelectorAll<HTMLElement>('[role="button"][aria-expanded]')].find((node) => node.textContent?.includes('Shell Command')); assert(shell);
+    await act(async () => shell.click());
+    assert(host.querySelector('.tool-output-surface pre')?.textContent?.includes('CURRENT_TOOL_OUTPUT'), 'the real tool adapter displays source-owned running output');
+    const attachment = [...host.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent === 'fixture.txt'); assert(attachment);
+    await act(async () => attachment.click());
+    assert(document.querySelector('[role="dialog"] pre')?.textContent?.includes('INLINE_ATTACHMENT_CONTENT'), 'the message uses the source attachment preview');
+    const closePreview = document.querySelector<HTMLButtonElement>('[role="dialog"] [data-slot="dialog-close"]'); assert(closePreview);
+    await act(async () => closePreview.click());
     const timeline = host.querySelector<HTMLElement>('[data-message-id]')?.parentElement?.parentElement;
     const editor = host.querySelector('textarea');
     assert(timeline); assert(editor);
@@ -97,8 +105,8 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
       await settle();
     };
     await refreshRequests('form');
-    const answer = host.querySelector('form textarea'); assert(answer instanceof HTMLTextAreaElement);
-    const dockBody = answer.closest('form')?.parentElement?.parentElement?.parentElement; assert(dockBody);
+    const answer = host.querySelector('[role="dialog"][aria-label="Fixture question"] textarea'); assert(answer instanceof HTMLTextAreaElement);
+    const dockBody = answer.closest<HTMLElement>('[class~="max-h-[50vh]"]'); assert(dockBody);
     Object.defineProperty(host, 'getBoundingClientRect', { configurable: true, value: () => new dom.DOMRect(0, 50, 412, 500) });
     let dockBottom = 500;
     Object.defineProperty(dockBody, 'getBoundingClientRect', { configurable: true, value: () => new dom.DOMRect(0, dockBottom - 100, 412, 100) });
@@ -113,7 +121,7 @@ test('Herdr chat preserves reading intent on resize and retires live presentatio
     assert(host.querySelector('[role="dialog"][aria-label="Permission required"]'), 'permissions are docked above the composer ahead of a form');
     assert(answer.closest('[hidden]'), 'the form stays mounted but hidden behind the permission');
     await refreshRequests('form');
-    assert.equal(host.querySelector('form textarea'), answer, 'permission changes preserve the exact form editor');
+    assert.equal(host.querySelector('[role="dialog"][aria-label="Fixture question"] textarea'), answer, 'permission changes preserve the exact form editor');
     assert.equal(answer.value, 'Answer in progress', 'permission priority preserves an unfinished form answer');
     assert.equal(answer.closest('[hidden]'), null, 'the form becomes visible after permission resolution');
     await refreshRequests('none');

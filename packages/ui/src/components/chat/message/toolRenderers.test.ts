@@ -1,3 +1,4 @@
+import { TOOL_OUTPUT_MAX_CHARS as pureOutputMaxChars } from './toolOutputText';
 import { describe, test, expect } from 'bun:test';
 
 import { capToolOutputText, TOOL_OUTPUT_MAX_CHARS } from './toolRenderers';
@@ -64,4 +65,9 @@ describe('capToolOutputText (issue #2265 renderer OOM guard)', () => {
         // @ts-expect-error verifying runtime robustness against non-string inputs
         expect(capToolOutputText(null)).toBeNull();
     });
+});
+
+
+test('legacy and pure tool-output entrypoints retain the same character budget', () => {
+    expect(TOOL_OUTPUT_MAX_CHARS).toBe(pureOutputMaxChars);
 });

@@ -1,6 +1,8 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { useThemeSystem } from '@/contexts/useThemeSystem';
+import { useOptionalThemeSystem } from '@/contexts/useThemeSystem';
+import type { Theme } from '@/types/theme';
+import { getDefaultTheme } from '@/lib/theme/themes';
 import { getMarkdownSyntaxVars } from '@/components/chat/markdown/markdownSyntaxVars';
 import { highlightCodeInWorker } from '@/components/chat/markdown/markdown-worker';
 
@@ -63,6 +65,8 @@ interface WorkerHighlightedCodeProps {
   codeStyle?: React.CSSProperties;
   /** Wrap long lines instead of horizontal scroll. */
   wrap?: boolean;
+  /** Explicit palette for hosts without the application theme provider. */
+  theme?: Theme;
 }
 
 export const WorkerHighlightedCode: React.FC<WorkerHighlightedCodeProps> = ({
@@ -72,8 +76,11 @@ export const WorkerHighlightedCode: React.FC<WorkerHighlightedCodeProps> = ({
   style,
   codeStyle,
   wrap = false,
+  theme,
 }) => {
-  const { currentTheme } = useThemeSystem();
+  const themeSystem = useOptionalThemeSystem();
+  const fallbackTheme = React.useMemo(() => getDefaultTheme(false), []);
+  const currentTheme = theme ?? themeSystem?.currentTheme ?? fallbackTheme;
   const hostRef = React.useRef<HTMLDivElement>(null);
   const syntaxVars = React.useMemo(() => getMarkdownSyntaxVars(currentTheme), [currentTheme]);
 

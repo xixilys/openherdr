@@ -2,7 +2,7 @@ import type { Part, Session, ToolInput } from '@/lib/opencode/model';
 
 import { isSubagentTool, normalizeToolName } from '@/lib/opencode/tools';
 
-import { capToolOutputText } from '../toolRenderers';
+import { capToolOutputText } from '../toolOutputText';
 import { readTaskTagSessionIdFromOutput } from './taskSessionIdParser';
 
 const normalizeSessionIdCandidate = (value: unknown): string | undefined => {

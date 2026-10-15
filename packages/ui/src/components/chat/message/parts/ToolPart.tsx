@@ -21,16 +21,11 @@ import { findShellCancellation, findShellCompletion, readBackgroundShellID } fro
 import { opencodeClient } from '@/lib/opencode/client';
 import type { State } from '@/sync/types';
 import { useUIStore } from '@/stores/useUIStore';
-import { ScrollShadow } from '@/components/ui/ScrollShadow';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
-import { copyTextToClipboard } from '@/lib/clipboard';
 import type { ToolPopupContent } from '../types';
-import { PlainDiffFallback } from './PlainDiffFallback';
-import { isToolDiffPreviewOversized } from './toolDiffPreview';
-import { lazyWithChunkRecovery } from '@/lib/chunkLoadRecovery';
 
 import {
     formatEditOutput,
@@ -78,7 +73,8 @@ import {
 } from './toolDiffUtils';
 import { useChatColumnActions } from '@/components/chat/chatColumnSession';
 import { useStreamingTextThrottle } from '../../hooks/useStreamingTextThrottle';
-import { getStreamingOutputAppend, getToolOutput } from './toolOutput';
+import { getToolOutput } from './toolOutput';
+import { ToolScrollableSection, ToolShellInput, ToolShellOutput, ToolDiffPreview as DiffPreview, ToolDiffEntries, CopyToolOutputButton } from './ToolOutputPresentation';
 import { toAbsoluteFilePath } from '@/lib/path-utils';
 import {
     executeOutputTruncation,
@@ -381,84 +377,6 @@ const parseQuestionOutput = (output: string): Array<{ question: string; answer: 
     return pairs.length > 0 ? pairs : null;
 };
 
-interface ToolScrollableSectionProps {
-    children: React.ReactNode;
-    maxHeightClass?: string;
-    className?: string;
-    outerClassName?: string;
-    disableHorizontal?: boolean;
-    followKey?: string;
-}
-
-const ToolScrollableSection: React.FC<ToolScrollableSectionProps> = ({
-    children,
-    maxHeightClass = 'max-h-[60vh]',
-    className,
-    outerClassName,
-    disableHorizontal = false,
-    followKey,
-}) => {
-    const scrollRef = React.useRef<HTMLElement>(null);
-    const isFollowingRef = React.useRef(true);
-    const lastScrollTopRef = React.useRef(0);
-
-    React.useLayoutEffect(() => {
-        const element = scrollRef.current;
-        if (followKey === undefined) {
-            isFollowingRef.current = true;
-            return;
-        }
-        if (!element || !isFollowingRef.current) {
-            return;
-        }
-        element.scrollTop = element.scrollHeight;
-        // Read back the clamped position before the queued scroll event fires.
-        lastScrollTopRef.current = element.scrollTop;
-    }, [followKey]);
-
-    return (
-        <div className={cn('w-full min-w-0 flex-none overflow-hidden', outerClassName)}>
-            <ScrollShadow
-                ref={scrollRef}
-                // Tool output boxes are short (often 240px), so the 48px default
-                // fade would hide a couple of lines at each edge.
-                size={24}
-                data-scrollable="true"
-                onWheelCapture={(event) => {
-                    if (followKey !== undefined && event.deltaY < 0) {
-                        isFollowingRef.current = false;
-                    }
-                }}
-                onScroll={(event) => {
-                    if (followKey === undefined) {
-                        return;
-                    }
-                    const element = event.currentTarget;
-                    const distanceToEnd = element.scrollHeight - element.scrollTop - element.clientHeight;
-                    // Output can grow between an automatic scroll and its event.
-                    // A larger bottom gap alone does not mean the reader moved up.
-                    if (distanceToEnd <= 2) {
-                        isFollowingRef.current = true;
-                    } else if (element.scrollTop < lastScrollTopRef.current - 1) {
-                        isFollowingRef.current = false;
-                    }
-                    lastScrollTopRef.current = element.scrollTop;
-                }}
-                className={cn(
-                    'tool-output-surface p-2 rounded-xl w-full min-w-0',
-                    maxHeightClass,
-                    disableHorizontal ? 'overflow-y-auto overflow-x-hidden' : 'overflow-auto',
-                    className,
-                )}
-            >
-                <div className="w-full min-w-0">
-                    {children}
-                </div>
-            </ScrollShadow>
-        </div>
-    );
-};
-
 const getToolOutputLanguage = (
     output: string,
     part: ToolPartType,
@@ -486,83 +404,6 @@ const getToolOutputText = (
     }
 
     return formatEditOutput(capped, part.tool, metadata);
-};
-
-const StreamingPlainTextOutput: React.FC<{ output: string }> = ({ output }) => {
-    const preRef = React.useRef<HTMLPreElement>(null);
-    const previousOutputRef = React.useRef('');
-
-    React.useLayoutEffect(() => {
-        const element = preRef.current;
-        if (!element) {
-            return;
-        }
-
-        const firstChild = element.firstChild;
-        const textNode = firstChild instanceof globalThis.Text
-            ? firstChild
-            : document.createTextNode('');
-        if (textNode !== firstChild) {
-            element.replaceChildren(textNode);
-        }
-
-        const append = getStreamingOutputAppend(previousOutputRef.current, output);
-        if (append === undefined) {
-            textNode.data = output;
-        } else if (append.length > 0) {
-            textNode.appendData(append);
-        }
-        previousOutputRef.current = output;
-    }, [output]);
-
-    return (
-        <pre
-            ref={preRef}
-            className="m-0 whitespace-pre-wrap break-words"
-            style={{
-                ...TOOL_COLLAPSED_CUSTOM_STYLE,
-                lineHeight: 'round(var(--code-block-line-height), 1px)',
-                overflowWrap: 'break-word',
-            }}
-        />
-    );
-};
-
-/** Copies a tool's whole output as plain text; shown on JSON and shell output. */
-const CopyToolOutputButton: React.FC<{ output: string }> = ({ output }) => {
-    const { t } = useI18n();
-    const [copied, setCopied] = React.useState(false);
-
-    React.useEffect(() => {
-        setCopied(false);
-    }, [output]);
-
-    const handleCopy = React.useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
-        event.stopPropagation();
-        const result = await copyTextToClipboard(output);
-        if (!result.ok) {
-            toast.error(t('chat.toolPart.copyOutputFailed'));
-            return;
-        }
-        setCopied(true);
-        if (typeof window !== 'undefined') {
-            window.setTimeout(() => setCopied(false), 1200);
-        }
-    }, [output, t]);
-
-    return (
-        <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-md bg-[var(--surface-elevated)]/80 text-muted-foreground hover:text-foreground"
-            onClick={handleCopy}
-            onPointerDown={(event) => event.stopPropagation()}
-            aria-label={copied ? t('chat.toolPart.copiedOutput') : t('chat.toolPart.copyOutput')}
-            title={copied ? t('chat.toolPart.copiedOutput') : t('chat.toolPart.copyOutput')}
-        >
-            <Icon name={copied ? 'check' : 'file-copy'} className="h-3.5 w-3.5" />
-        </Button>
-    );
 };
 
 type JsonOutputResult = ReturnType<typeof tryParseJsonOutput>;
@@ -657,9 +498,7 @@ const ToolScrollableTextOutput: React.FC<{
 
     if (isShellTool(part.tool) && isStreaming) {
         return (
-            <div className="typography-code text-muted-foreground/90">
-                <StreamingPlainTextOutput output={renderedOutput} />
-            </div>
+            <ToolShellOutput output={renderedOutput} isStreaming />
         );
     }
 
@@ -700,20 +539,7 @@ const ToolScrollableTextOutput: React.FC<{
 
     if (isShellTool(part.tool)) {
         return (
-            <div className="relative typography-code text-muted-foreground/90">
-                <div className="absolute inset-e-1 top-1 z-10">
-                    <CopyToolOutputButton output={renderedOutput} />
-                </div>
-                <div className="pe-8">
-                    <WorkerHighlightedCode
-                        language={outputLanguage}
-                        code={renderedOutput}
-                        style={TOOL_COLLAPSED_CUSTOM_STYLE}
-                        codeStyle={CODE_TAG_PROPS.style}
-                        wrap
-                    />
-                </div>
-            </div>
+            <ToolShellOutput output={renderedOutput} />
         );
     }
 
@@ -932,22 +758,6 @@ const renderAnimatedPathWithIcon = (path: string, animate = true, grow = true, s
                 </Text>
             </span>
         </span>
-    );
-};
-
-// The rich diff preview is the only tool-card piece that needs the
-// @pierre/diffs + Shiki stack; lazy-loading it keeps that stack out of the
-// eager chat graph. While the chunk loads, the plain-text patch renders as the
-// Suspense fallback, mirroring the preview's own error fallback.
-const LazyToolPartDiffPreview = lazyWithChunkRecovery(() => import('./ToolPartDiffPreview'));
-
-const DiffPreview: React.FC<{ diff: string; diffViewMode: DiffViewMode }> = ({ diff, diffViewMode }) => {
-    if (isToolDiffPreviewOversized(diff)) return <PlainDiffFallback diff={diff} />;
-
-    return (
-        <React.Suspense fallback={<PlainDiffFallback diff={diff} />}>
-            <LazyToolPartDiffPreview diff={diff} diffViewMode={diffViewMode} />
-        </React.Suspense>
     );
 };
 
@@ -1238,12 +1048,11 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
         if (isFileChangeTool(part.tool) && (diffEntries.length > 0 || !!diagnosticSection)) {
             return renderScrollableBlock(
                 <div className="space-y-3">
-                    {diffEntries.map((entry) => (
-                        <div key={entry.id} className="w-full min-w-0">
-                            <div className="mb-1 flex min-w-0 items-center gap-1 px-2 py-1">
-                                <div className="min-w-0 flex-1 typography-meta font-medium text-muted-foreground">
-                                    {renderPathLikeGitChanges(entry.title)}
-                                </div>
+                    <ToolDiffEntries
+                        entries={diffEntries}
+                        mode={diffViewMode}
+                        renderTitle={(entry) => renderPathLikeGitChanges(entry.title)}
+                        renderActions={(entry) => <>
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -1264,17 +1073,8 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                                 >
                                     <Icon name="git-pull-request" className="h-3.5 w-3.5" />
                                 </Button>
-                            </div>
-                            {entry.renderMode === 'diff' ? (
-                                <DiffPreview
-                                    diff={entry.patch}
-                                    diffViewMode={diffViewMode}
-                                />
-                            ) : (
-                                <PlainDiffFallback diff={entry.patch} />
-                            )}
-                        </div>
-                    ))}
+                        </>}
+                    />
                     {renderDiagnosticsSection()}
                 </div>,
                 { className: 'p-1' }
@@ -1390,9 +1190,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                         <div className="my-1">
                             {renderScrollableBlock(
                                 isShellTool(part.tool) ? (
-                                    <pre className="tool-input-text whitespace-pre-wrap break-words typography-code text-muted-foreground/90 m-0 p-0">
-                                        {inputTextContent}
-                                    </pre>
+                                    <ToolShellInput input={inputTextContent} />
                                 ) : isWriteLikeTool && writeLikeInputPatch ? (
                                     <DiffPreview
                                         diff={writeLikeInputPatch}

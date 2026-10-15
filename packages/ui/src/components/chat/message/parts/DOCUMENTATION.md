@@ -363,3 +363,24 @@ Why: only navigation tools use the compact static path; all other tools need obs
 - Reasoning: `ReasoningPart.tsx`
 - Status/placeholders: `WorkingPlaceholder.tsx`, `SessionActiveSpinner.tsx`, `MigratingPart.tsx`, `BusyDots.tsx`
 - Utility renderers: `VirtualizedCodeBlock.tsx`, `MinDurationShineText.tsx`
+
+- `ToolOutputPresentation.tsx` owns the shared scroll viewport, plain live shell
+  text, final highlighted shell text with copy, shell input and lazy diff entries.
+  It accepts already formatted and bounded text or parsed `DiffPatchEntry` records.
+  Source owners use `getToolOutput`, `useStreamingTextThrottle` and
+  `toolOutputText.ts` before rendering. File navigation is passed through title
+  and action slots. JSON display decisions, extension rules, diagnostics, errors and
+  background-job lifecycle remain in `ToolPart`. Standalone hosts can supply an
+  explicit `Theme` to the final code and diff renderers without initializing the
+  original application stores. Original web, desktop, VS Code and mobile owners
+  keep provider-selected themes; Herdr web and Capacitor owners pass their theme.
+
+`toolDiffUtils` retains the authoritative v2 `metadata.files[].file` path for
+navigation and uses it for fallback titles when no legacy display label exists.
+
+`../../MessageAttachmentsView.tsx` and `../../ImagePreviewView.tsx` share
+attachment chips, image strips and the image gallery with the original
+`FileAttachment` and `ToolOutputDialog` owners. `../../imagePreviewHooks.ts`
+owns browser-only overlay/viewport state. Source adapters retain URL safety,
+authentication and byte lifetimes. The gallery uses image URL identity and
+registers with the shared mobile Back layers while open.

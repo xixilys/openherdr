@@ -105,9 +105,11 @@ the repository/revision and the UI correction in message
 shared presentation, request dock and composer-state corrections. Continue the
 remaining original-presentation work before expanding backend feature families.
 The current shared UI has real HTTPS browser validation, a rebuilt Android APK
-and an observed native connection screen. Native connected-chat interaction,
-tool-specific diff/attachment views and the original stepped form flow remain
-unfinished. Dot was sent the new source and validation limits in message
+and an observed native connection screen. The subsequent presentation increment
+shares shell/diff output, attachment/image previews and the original stepped
+form flow. Native connected-chat interaction, source-owned child controls,
+diagnostic/file-navigation actions and full feature parity remain unfinished.
+Dot was sent the prior source and validation limits in message
 `d681f1e0-9177-42de-80b4-5903ee7fc2a4`; this follow-up is stored, with reading
 unconfirmed. The owning default bridge was restarted on the current code and
 its new HTTPS path passed health, bearer rejection and an authenticated default

@@ -22,6 +22,14 @@ iteration follows that baseline; complete native interaction remains pending.
   session popup are shared with the original OpenCode wrappers. Herdr retains
   its own source controller and actual mutations. Themes, typography and native
   Back/lifecycle helpers remain shared. Full interaction fidelity is pending.
+- Tool details reuse original shell input/output, scrolling, highlighting and
+  multi-file diff views, including real progress output and failed partial
+  results. Attachments reuse original chips, image strips and the image gallery.
+  File references load only after a click, through the confined host client.
+  Current disk content is labelled separately from inline historical bytes.
+  The original stepped form flow retains answers across permission hiding and
+  conversation navigation. Field changes invalidate old answers; a late reply
+  cannot clear a newer draft after returning to the same conversation.
 - Local and saved-SSH Files/Git provide real manual editing, revision conflict
   refusal, uploads/downloads, status/diff, stage/unstage, commits, branches and
   checkout. Native Herdr worktree create/open/remove is connected.
@@ -63,12 +71,28 @@ iteration follows that baseline; complete native interaction remains pending.
   An isolated Herdr session restart required explicit history rebind; the saved
   conversation remained available. A transient event disconnect cleared after
   recovery. These are browser checks.
+- On the latest browser build, a new bounded request read and edited one
+  disposable fixture file. The tool row displayed the actual before/after diff;
+  unified and side-by-side modes both worked. Disk readback matched the new line.
+  An unbound saved conversation opened its real inline text attachment without
+  borrowing the active pane. Its marker rendered correctly. Clicking Download
+  produced no application error, but the browser download event timed out and
+  no file appeared in the known default Downloads directory. Download completion
+  remains unknown; the action was not repeated.
 - The current DOM integration check covers stream failure/recovery, viewport
   changes, reader position, return to latest, permission-before-form docking and
   retaining a form answer while a permission temporarily hides it. Shared
   composer checks separate running, queue and abort capability. Import checks
   reject accidental initialization of the original OpenCode runtime.
   The focused shared presentation suites pass 32 tests and 188 assertions.
+- The current tool/form/attachment adapter and conversation integration run
+  passes 29 tests across 4 suites. It covers source output, field updates,
+  disabled/unknown response locks, same-owner draft recovery, attachment bytes,
+  source changes, late results and zero legacy runtime initialization. Shared
+  gallery tests cover Back-layer registration, image navigation through equal
+  source refreshes and RTL keys. Fifty file-reference views issue no download
+  on mount; clicking one issues one request, including repeated loading clicks.
+  These are DOM and fixture checks, separate from the actual browser checks.
 - Focused HTTP checks pass 35/35. New preference/project-context service and
   client checks pass, including same-pane project changes, draft retention and
   delayed reads after a confirmed write. Independent review verified those
@@ -82,6 +106,10 @@ iteration follows that baseline; complete native interaction remains pending.
   system-bar backdrop/contrast correction has source review and a rebuilt APK.
   Latest runtime screenshots and remaining interaction checks are recorded in
   packages/mobile/openherdr/VALIDATION.md.
+  The latest APK packages `herdr-BEKetIzv.js` and matches the current web page.
+  One cold-start sample returned Activity success in 5.246 seconds, still showed
+  a blank loading frame at 7.573 seconds, and displayed Connect in a later capture
+  within 29 seconds. The exact visible-ready time and cause remain unknown.
 
 Computer Use cannot currently operate the emulator's standalone Qt window.
 The official Android Studio route did not expose it. Only task-created IDE
@@ -99,6 +127,8 @@ that failure remains in its owned fixture. The configured default model then
 completed the bounded tool/Markdown check. Chrome's extension lacks file-URL
 access, so its actual attachment upload remains blocked. No private reference image or
 synthetic transcript is used as functional proof.
+The latest historical inline attachment preview passed; the latest browser
+download has no confirmed disk receipt. Native sharing remains unverified.
 
 Remote structured drivers, Codex/Claude adapters, ordinary project registration,
 provider/MCP/plugin configuration, schedules/agent memory, notifications/voice,
@@ -113,7 +143,9 @@ selected-conversation navigation, message expansion, tool presentation, request
 docks and native interaction. The current integration addresses navigation,
 message-level expansion, independent running/queue/abort controls and dock
 priority. Native interaction and the remaining tool-specific views still need
-work. The reviewer's actual model is unconfirmed; no Android runtime acceptance
+work. Shared shell/diff output, attachment previews and stepped forms have since
+been integrated. Source-owned child/background controls, diagnostics, file
+navigation and persistent JSON display choices remain unfinished. The reviewer's actual model is unconfirmed; no Android runtime acceptance
 was claimed by that review.
 
 The historical terminal baseline was committed at `9991c6f8d`; its validations

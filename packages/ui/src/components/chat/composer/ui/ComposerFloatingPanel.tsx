@@ -7,6 +7,7 @@ interface ComposerFloatingPanelProps {
     header: React.ReactNode;
     children?: React.ReactNode;
     compact?: boolean;
+    hidden?: boolean;
     role?: 'dialog' | 'region';
     ariaLabel?: string;
 }
@@ -15,10 +16,11 @@ interface ComposerFloatingPanelProps {
 /** Panels mounted per chat column, so the marker survives an overlap. */
 const mountedPanels = new WeakMap<HTMLElement, number>();
 
-export function ComposerFloatingPanel({ header, children, compact = false, role, ariaLabel }: ComposerFloatingPanelProps) {
+export function ComposerFloatingPanel({ header, children, compact = false, hidden = false, role, ariaLabel }: ComposerFloatingPanelProps) {
     const panelRef = React.useRef<HTMLDivElement | null>(null);
 
     React.useLayoutEffect(() => {
+        if (hidden) return;
         const panel = panelRef.current;
         const column = panel?.closest<HTMLElement>('[data-composer-bound]');
         if (!panel || !column) return;
@@ -50,10 +52,10 @@ export function ComposerFloatingPanel({ header, children, compact = false, role,
                 mountedPanels.set(column, remaining);
             }
         };
-    }, []);
+    }, [hidden]);
 
     return (
-        <div ref={panelRef} className="chat-input-column absolute bottom-full inset-s-0 inset-e-0 z-30 mb-3" role={role} aria-label={ariaLabel}>
+        <div ref={panelRef} hidden={hidden} className="chat-input-column absolute bottom-full inset-s-0 inset-e-0 z-30 mb-3" role={role} aria-label={ariaLabel}>
             {/* Shadow on the wrapper, never on the glass: see "Floating composer"
                 in composer/DOCUMENTATION.md. */}
             <GlassPopupMotion className="origin-bottom rounded-xl shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.12)]">

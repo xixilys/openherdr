@@ -9,43 +9,39 @@ import { MobileOverlayPanel } from '@openchamber/ui/components/ui/MobileOverlayP
 import { MobileSessionSwitcherView } from '@openchamber/ui/apps/MobileSessionSwitcherView';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '@openchamber/ui/components/ui/dropdown-menu';
 import { copyTextToClipboard } from '@openchamber/ui/lib/clipboard';
-import { getToolMetadata } from '@openchamber/ui/lib/toolHelpers';
-import { getToolIcon } from '@openchamber/ui/components/chat/message/parts/toolPresentation';
-import { getToolDescription } from '@openchamber/ui/components/chat/message/parts/toolDescription';
 import { useI18n } from '@openchamber/ui/lib/i18n';
 import { openExternalUrl } from '@openchamber/ui/lib/url';
 import { isIMECompositionEvent } from '@openchamber/ui/lib/ime';
 import { isMobileSurfaceRuntime } from '@openchamber/ui/lib/runtimeSurface';
 import { shouldSubmitEnter } from '@openchamber/ui/components/chat/composer/keyboardPolicy';
 import type { Theme } from '@openchamber/ui/types/theme';
+import { getDefaultTheme } from '@openchamber/ui/lib/theme/themes';
 import { MarkdownPresentationContext, type MarkdownPresentationSource } from '@openchamber/ui/components/chat/MarkdownPresentationContext';
 import AssistantTextPart from '@openchamber/ui/components/chat/message/parts/AssistantTextPart';
 import { ReasoningTimelineBlock } from '@openchamber/ui/components/chat/message/parts/ReasoningPart';
 import { SimpleMarkdownRenderer } from '@openchamber/ui/components/chat/MarkdownRenderer';
-import { JsonSummaryView } from '@openchamber/ui/components/chat/message/parts/JsonSummaryView';
-import { FormFieldControl } from '@openchamber/ui/components/chat/FormFieldControl';
-import { initialFormValues, visibleFields, missingRequiredKeys, valueOf, buildFormAnswer, type FormValues } from '@openchamber/ui/components/chat/formCardState';
 import { ComposerAttachmentControls } from '@openchamber/ui/components/chat/composer/ui/ComposerAttachmentControls';
 import { MobilePillComposerView, MOBILE_PILL_ICON_BUTTON_CLASS } from '@openchamber/ui/components/chat/composer/ui/MobilePillComposerView';
 import { UserMessageBubble, UserTextView } from '@openchamber/ui/components/chat/message/parts/UserMessagePresentation';
-import { ToolSummaryView } from '@openchamber/ui/components/chat/message/parts/ToolSummaryView';
 import { ComposerFloatingPanel } from '@openchamber/ui/components/chat/composer/ui/ComposerFloatingPanel';
 import { registerFloatingPanelClearanceReader } from '@openchamber/ui/components/chat/composer/state/composerInsetReaders';
 import { ScrollToBottomView } from '@openchamber/ui/components/chat/components/ScrollToBottomView';
 import { useMobileAutocompleteMaxHeight } from '@openchamber/ui/components/chat/useMobileAutocompleteMaxHeight';
 import { ATTACHMENT_ACCEPT, getUnsupportedAttachmentInputs } from '@openchamber/ui/sync/attachment-files';
 import { setNativeImagePasteEnabled, subscribeToNativeImagePastes } from '@openchamber/ui/lib/nativeImagePaste';
-import type { ToolPart, ModelRef } from '@openchamber/ui/lib/opencode/model';
-import { normalizeToolName } from '@openchamber/ui/lib/opencode/tools';
+import type { ModelRef } from '@openchamber/ui/lib/opencode/model';
 import {
   driverResolveSchema, driverListSchema, driverHistoryListSchema, driverReadSchema, driverHistoryReadSchema,
   driverCatalogSchema, driverCreateSchema, driverActionSchema, driverPromptSchema, driverForkSchema, driverEventSchema,
-  mergeConversationMessages, type ConversationSnapshot, type ConversationRecord, type ConversationForm, type ConversationCatalog,
+  mergeConversationMessages, type ConversationSnapshot, type ConversationRecord, type ConversationCatalog,
 } from '@openchamber/ui/lib/opencode/herdr-driver';
 import { type HerdrTransport, type PendingDelivery, type HerdrJsonValue, snapshotSchema, infoSchema } from './transport';
 import { useHerdrText } from './herdr.i18n';
 import { conversationDrafts, draftIdentity, reconcileConversationTail, prepareConversationAttachments, readConversationLines } from './conversation-state';
 import { trackConversationMutation, type ConversationMutationRequest } from './conversation-actions';
+import { ConversationTool } from './ConversationTool';
+import { ConversationForm } from './ConversationForm';
+import { HerdrConversationAttachments, type HerdrConversationAttachmentsProps } from './conversation-attachments';
 
 type TargetMetadata = { workspaceId: string; tabId: string; session: string | null };
 export type ConversationPanelProps = {
@@ -64,6 +60,7 @@ export type ConversationPanelProps = {
 };
 const endpoint = (operation: string) => `/api/herdr/conversations/${operation}`;
 const emptyGitHubPicker = () => {};
+type AttachmentSource = Omit<HerdrConversationAttachmentsProps, 'files' | 'compact' | 'className'>;
 
 export function ConversationPanel(props: ConversationPanelProps) {
   return <ConversationPanelOwner key={JSON.stringify([props.transport.connection.server, props.machine, props.paneId])} {...props} />;
@@ -71,6 +68,7 @@ export function ConversationPanel(props: ConversationPanelProps) {
 
 function ConversationPanelOwner({ transport, machine, paneId, disabled = false, mutationBlocked = false, targetMetadata, themeMode, theme, preferences, navigation, onPendingDelivery }: ConversationPanelProps) {
   const { t } = useI18n(); const h = useHerdrText();
+  const presentationTheme = React.useMemo(() => theme ?? getDefaultTheme(themeMode === 'dark'), [theme, themeMode]);
   const fallbackError = h('messageError'), missingNative = h('noNativeSession'), disconnected = h('conversationDisconnected');
   const suppliedMetadata = !!targetMetadata;
   const [resolved, setResolved] = React.useState<z.infer<typeof driverResolveSchema> | null>(null);
@@ -302,7 +300,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const onTitleChange = navigation?.onTitleChange;
   React.useLayoutEffect(() => { onTitleChange?.(title); }, [onTitleChange, title]);
   React.useEffect(() => () => onTitleChange?.(null), [onTitleChange]);
-  const markdownSource = React.useMemo<MarkdownPresentationSource>(() => ({ directory: activeSnapshot?.session.directory ?? resolved?.directory ?? '', runtimeKey: transport.connection.server, themeMode, theme, isVSCode: false, fileReferences: false, inlineImages: false, ownOrigins: [transport.connection.server], openExternalLink: (url) => { void openExternalUrl(url); } }), [activeSnapshot?.session.directory, resolved?.directory, themeMode, theme, transport.connection.server]);
+  const markdownSource = React.useMemo<MarkdownPresentationSource>(() => ({ directory: activeSnapshot?.session.directory ?? resolved?.directory ?? '', runtimeKey: transport.connection.server, themeMode, theme: presentationTheme, isVSCode: false, fileReferences: false, inlineImages: false, ownOrigins: [transport.connection.server], openExternalLink: (url) => { void openExternalUrl(url); } }), [activeSnapshot?.session.directory, resolved?.directory, themeMode, presentationTheme, transport.connection.server]);
   const recordFor = (operation: string): PendingDelivery => {
     if (!metadata) throw new Error(h('noNativeSession'));
     return { requestId: crypto.randomUUID(), server: transport.connection.server, machine, session: metadata.session, workspaceId: metadata.workspaceId, tabId: metadata.tabId, paneId, method: `conversation.${operation}` };
@@ -416,6 +414,8 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const closePicker = () => { setPicker(null); setPickerQuery(''); };
   const visibleError = error ?? streamError;
   const hasRequest = !!(activeSnapshot?.permissions?.length || activeSnapshot?.forms?.length);
+  const conversationOwner = JSON.stringify([transport.connection.server, machine, paneId, activeSnapshot?.target?.identity ?? null, activeSnapshot?.session.id, activeSnapshot?.session.directory]);
+  const attachmentSource: AttachmentSource = { transport, owner: conversationOwner, target: activeSnapshot?.target ? { machine, paneId } : null, directory: activeSnapshot?.session.directory ?? null, theme: presentationTheme, isMobile: !!navigation || isMobileSurfaceRuntime(), onOpenExternal: markdownSource.openExternalLink };
 
   return <MarkdownPresentationContext.Provider value={markdownSource}><section data-composer-bound className="relative flex h-full min-h-0 flex-col bg-background text-foreground" aria-label={h('conversations')}>
     {navigation ? <MobileSessionSwitcherView open={navigation.open && !disabled} onClose={() => navigation.onOpenChange(false)} anchorRef={navigation.anchorRef} selectedId={selectedId} rows={[...rows.values()].map((session) => ({ id: session.id, title: session.id === selectedId ? title : session.title || session.id, subtitle: session.directory, activity: liveActivity && session.id === activeSnapshot?.session.id && activeSnapshot.history === null ? activeSnapshot.activity?.type === 'running' ? 'running' : 'idle' : 'unknown' }))} onSelect={(id) => { setSelectedId(id); setError(null); }} onCreate={createConversation} createDisabled={writeDisabled || resolved?.capabilities.create !== true} footer={sessionActions} /> : <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border p-3">
@@ -444,7 +444,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
         {!selectedId ? <p className="py-8 text-center typography-ui text-muted-foreground">{resolved?.nativeAccess === 'unavailable' ? h('noNativeSession') : h('createFirst')}</p> : null}
         {reading ? <p role="status" className="typography-meta text-muted-foreground">{t('common.loading')}</p> : null}
         {activeSnapshot?.cursor.next ? <Button size="sm" variant="ghost" onClick={() => { if (activeSnapshot.cursor.next) void loadOlder(activeSnapshot.cursor.next); }}>{t('chat.history.loadOlder')}</Button> : null}
-        {activeSnapshot?.messages.map((record) => <ConversationMessage key={record.message.id} record={record} live={!!running} streaming={!!running && record.message.id === latestAssistantId} expandReasoningWhileStreaming={preferences?.expandReasoningWhileStreaming ?? true} writable={writable && activeSnapshot.capabilities.fork === true} onFork={() => { void fork(record.message.id); }} />)}
+        {activeSnapshot?.messages.map((record) => <ConversationMessage key={record.message.id} record={record} attachmentSource={attachmentSource} live={!!running} streaming={!!running && record.message.id === latestAssistantId} expandReasoningWhileStreaming={preferences?.expandReasoningWhileStreaming ?? true} writable={writable && activeSnapshot.capabilities.fork === true} onFork={() => { void fork(record.message.id); }} />)}
         {activeSnapshot && activeSnapshot.access === 'read-only' ? <div className="rounded-lg border border-border bg-surface-muted p-3 typography-meta text-muted-foreground"><p>{activeSnapshot.history ? h('rebindConfirm') : h('nativeReadOnly')}</p>{activeSnapshot.history && resolved ? <Button className="mt-2" size="sm" variant="outline" disabled={writeDisabled} onClick={() => setDialog('rebind')}>{h('rebind')}</Button> : null}</div> : null}
         <div aria-hidden="true" ref={registerFloatingPanelClearanceReader} style={{ height: 'var(--chat-floating-panel-clearance, 0px)' }} />
       </div>
@@ -475,7 +475,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
           attachments={draft.files.length ? <div className="flex flex-wrap gap-2 px-3 pt-2">{draft.files.map((file) => <div key={file.id} className="flex min-w-0 items-center gap-1 rounded-md border border-border px-2 py-1 typography-meta"><span dir="auto" className="max-w-48 truncate">{file.name}</span><Button size="xs" variant="ghost" disabled={busy} aria-label={t('chat.fileAttachment.actions.removeNamed', { name: file.name })} onClick={() => conversationDrafts.update(draftKey, (previous) => ({ ...previous, files: previous.files.filter((item) => item.id !== file.id) }))}><Icon name="close" className="size-3" /></Button></div>)}</div> : undefined}
         />
         <input ref={input} type="file" multiple accept={ATTACHMENT_ACCEPT} className="hidden" onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ''; if (files.length && writable) void attach(files); }} />
-        <ConversationRequestDock key={activeSnapshot.session.id} snapshot={activeSnapshot} writable={writable} onAction={(action, value) => { void act(action, value); }} />
+        <ConversationRequestDock key={conversationOwner} owner={conversationOwner} snapshot={activeSnapshot} writable={writable} isMobile={!!navigation || isMobileSurfaceRuntime()} onAction={act} onNotice={(message) => { if (selectedRef.current === activeSnapshot.session.id) setNotice(message); }} />
       </div>
     </div> : null}
     <MobileOverlayPanel open={picker !== null} onClose={closePicker} title={t(picker === 'agent' ? 'chat.modelControls.selectAgent' : 'chat.modelControls.selectModel')}>
@@ -495,7 +495,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   </section></MarkdownPresentationContext.Provider>;
 }
 
-function ConversationMessage({ record, streaming, live, writable, onFork, expandReasoningWhileStreaming }: { record: ConversationRecord; streaming: boolean; live: boolean; writable: boolean; onFork: () => void; expandReasoningWhileStreaming: boolean }) {
+function ConversationMessage({ record, streaming, live, writable, onFork, expandReasoningWhileStreaming, attachmentSource }: { record: ConversationRecord; streaming: boolean; live: boolean; writable: boolean; onFork: () => void; expandReasoningWhileStreaming: boolean; attachmentSource: AttachmentSource }) {
   const { t, locale } = useI18n(); const message = record.message;
   const [expanded, setExpanded] = React.useState(false);
   const [truncatedParts, setTruncatedParts] = React.useState<ReadonlySet<string>>(() => new Set());
@@ -520,7 +520,8 @@ function ConversationMessage({ record, streaming, live, writable, onFork, expand
     </DropdownMenuContent></DropdownMenu>
   </div> : null;
   const body = <>
-    {record.parts.map((part) => part.type === 'text' ? message.role === 'assistant' ? <AssistantTextPart key={part.id} part={part} messageId={message.id} streamPhase={active ? 'streaming' : 'completed'} /> : <ConversationUserText key={part.id} id={part.id} text={part.text} expanded={expanded} onExpand={expandMessage} onTruncation={onTruncation} /> : part.type === 'reasoning' ? <ReasoningTimelineBlock key={part.id} blockId={part.id} text={part.text} time={part.time} isStreaming={active} expandWhileStreaming={expandReasoningWhileStreaming} /> : part.type === 'tool' ? <ConversationTool key={part.id} part={part} live={live} /> : part.type === 'file' ? <div key={part.id} className="flex items-center gap-2 rounded border border-border px-2 py-1 typography-meta"><Icon name="attachment-2" className="size-4" /><span dir="auto">{part.filename ?? part.mime}</span></div> : null)}
+    {record.parts.map((part) => part.type === 'text' ? message.role === 'assistant' ? <AssistantTextPart key={part.id} part={part} messageId={message.id} streamPhase={active ? 'streaming' : 'completed'} /> : <ConversationUserText key={part.id} id={part.id} text={part.text} expanded={expanded} onExpand={expandMessage} onTruncation={onTruncation} /> : part.type === 'reasoning' ? <ReasoningTimelineBlock key={part.id} blockId={part.id} text={part.text} time={part.time} isStreaming={active} expandWhileStreaming={expandReasoningWhileStreaming} /> : part.type === 'tool' ? <ConversationTool key={part.id} part={part} live={live} theme={attachmentSource.theme} directory={attachmentSource.directory ?? ''} attachments={part.state.status === 'completed' && part.state.attachments?.length ? <HerdrConversationAttachments {...attachmentSource} files={part.state.attachments} /> : undefined} /> : null)}
+    {record.parts.some((part) => part.type === 'file') ? <HerdrConversationAttachments {...attachmentSource} files={record.parts.filter((part) => part.type === 'file')} /> : null}
     {'text' in message && message.text ? <SimpleMarkdownRenderer content={message.text} enableFileReferences={false} /> : null}
     {message.role === 'compaction' && message.summary ? <SimpleMarkdownRenderer content={message.summary} variant="reasoning" enableFileReferences={false} /> : null}
     {message.role === 'shell' ? <div dir="ltr" className="whitespace-pre-wrap break-words font-mono typography-meta">{message.command}{message.output ? `\n${message.output.output}` : ''}</div> : null}
@@ -535,17 +536,7 @@ function ConversationUserText({ id, text, expanded, onExpand, onTruncation }: { 
   return <UserTextView text={text} expanded={expanded} onToggle={onExpand} showToggle={false} onTruncationChange={reportTruncation} />;
 }
 
-function ConversationTool({ part, live }: { part: ToolPart; live: boolean }) {
-  const { t } = useI18n();
-  const markdown = React.useContext(MarkdownPresentationContext);
-  const state = part.state;
-  const [expanded, setExpanded] = React.useState(false);
-  return <ToolSummaryView title={getToolMetadata(part.tool).displayName} icon={getToolIcon(normalizeToolName(part.tool))} summary={getToolDescription(part, state, markdown?.directory ?? '', t)} status={state.status} active={live && (state.status === 'pending' || state.status === 'running')} startedAt={state.status !== 'pending' && (live || state.status === 'completed' || state.status === 'error') ? state.time.start : undefined} endedAt={state.status === 'completed' || state.status === 'error' ? state.time.end : undefined} expanded={expanded} onToggle={() => setExpanded((value) => !value)}>
-    <div className="space-y-3 py-2"><JsonSummaryView data={state.input} />{state.status === 'pending' && state.raw ? <div dir="ltr" className="whitespace-pre-wrap break-words font-mono typography-meta">{state.raw}</div> : null}{(state.status === 'completed' || state.status === 'error') && state.output ? <SimpleMarkdownRenderer content={state.output} variant="tool" enableFileReferences={false} /> : null}{state.status === 'error' ? <p role="alert" className="whitespace-pre-wrap break-words typography-meta text-[var(--status-error-text)]">{state.error}</p> : null}{state.status === 'completed' ? state.attachments?.map((file) => <p key={file.id} dir="auto" className="typography-meta">{file.filename ?? file.mime}</p>) : null}</div>
-  </ToolSummaryView>;
-}
-
-function ConversationRequestDock({ snapshot, writable, onAction }: { snapshot: ConversationSnapshot; writable: boolean; onAction: (action: string, value: HerdrJsonValue) => void }) {
+function ConversationRequestDock({ snapshot, writable, isMobile, onAction, onNotice, owner }: { snapshot: ConversationSnapshot; writable: boolean; isMobile: boolean; onAction: (action: string, value: HerdrJsonValue) => Promise<boolean>; onNotice: (message: string) => void; owner: string }) {
   const { t } = useI18n();
   const [selected, setSelected] = React.useState<string | null>(null);
   const [collapsed, setCollapsed] = React.useState(false);
@@ -553,29 +544,16 @@ function ConversationRequestDock({ snapshot, writable, onAction }: { snapshot: C
   const permissions = snapshot.permissions ?? [], forms = snapshot.forms ?? [];
   const index = Math.max(0, permissions.findIndex((item) => item.id === selected));
   const permission = permissions[index];
-  const requestId = permission?.id ?? forms[0]?.id;
-  const availableMaxHeight = useMobileAutocompleteMaxHeight(body, !!requestId && !collapsed, 320);
+  const requestId = permission?.id;
+  const availableMaxHeight = useMobileAutocompleteMaxHeight(body, !!permission && !collapsed, 320);
   React.useEffect(() => setCollapsed(false), [requestId]);
-  if (!requestId) return null;
-  const title = permission ? t('chat.permissionCard.title') : forms[0].title;
-  const expandKey = permission ? 'chat.permissionDock.expandAria' : 'chat.formDock.expandAria';
-  const collapseKey = permission ? 'chat.permissionDock.collapseAria' : 'chat.formDock.collapseAria';
-  return <ComposerFloatingPanel role="dialog" ariaLabel={title} compact={collapsed} header={<>
-    <button type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} aria-label={t(collapsed ? expandKey : collapseKey)} className="flex min-w-0 flex-1 items-center gap-2 text-start text-muted-foreground hover:text-foreground"><Icon name="question" className="size-3.5 shrink-0 text-[var(--status-warning)]" /><Icon name={collapsed ? 'arrow-up-s' : 'arrow-down-s'} className="size-4 shrink-0" /><span className="truncate typography-ui-label text-foreground">{title}</span>{(permission ? permissions.length : forms.length) > 1 ? <span className="shrink-0 typography-micro">{t('chat.formDock.progress', { current: String(permission ? index + 1 : 1), total: String(permission ? permissions.length : forms.length) })}</span> : null}</button>
+  const title = t('chat.permissionCard.title');
+  return <>{permission ? <ComposerFloatingPanel role="dialog" ariaLabel={title} compact={collapsed} header={<>
+    <button type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} aria-label={t(collapsed ? 'chat.permissionDock.expandAria' : 'chat.permissionDock.collapseAria')} className="flex min-w-0 flex-1 items-center gap-2 text-start text-muted-foreground hover:text-foreground"><Icon name="question" className="size-3.5 shrink-0 text-[var(--status-warning)]" /><Icon name={collapsed ? 'arrow-up-s' : 'arrow-down-s'} className="size-4 shrink-0" /><span className="truncate typography-ui-label text-foreground">{title}</span>{permissions.length > 1 ? <span className="shrink-0 typography-micro">{t('chat.formDock.progress', { current: String(index + 1), total: String(permissions.length) })}</span> : null}</button>
     {!collapsed && permissions.length > 1 ? <div className="flex shrink-0 gap-1" role="tablist">{permissions.map((item, position) => <button key={item.id} type="button" role="tab" aria-selected={position === index} aria-label={t('chat.permissionDock.stepAria', { index: String(position + 1), tool: item.action })} onClick={() => setSelected(item.id)} className="flex size-4 items-center justify-center"><span className={`block size-1.5 rounded-full ${position === index ? 'bg-primary' : 'bg-foreground/15'}`} /></button>)}</div> : null}
   </>}>
     <div ref={body} hidden={collapsed} className="max-h-[50vh] overflow-y-auto overscroll-contain" style={availableMaxHeight === undefined ? undefined : { maxHeight: Math.max(120, availableMaxHeight - 96) }}>
       {permission ? <section className="space-y-2 p-3"><p className="typography-ui font-medium">{t('chat.permissionRequest.required')} {permission.action}</p>{permission.message ? <SimpleMarkdownRenderer content={permission.message} enableFileReferences={false} /> : null}<div dir="ltr" className="whitespace-pre-wrap break-words font-mono typography-meta">{permission.resources.join('\n')}</div><div className="flex flex-wrap gap-2"><Button size="sm" disabled={!writable || !snapshot.capabilities.permissions} onClick={() => onAction('permission', { requestId: permission.id, decision: 'once' })}>{t('chat.permissionRequest.actions.once')}</Button>{permission.save?.length ? <Button size="sm" variant="outline" disabled={!writable || !snapshot.capabilities.permissions} onClick={() => onAction('permission', { requestId: permission.id, decision: 'always' })}>{t('chat.permissionRequest.actions.always')}</Button> : null}<Button size="sm" variant="outline" disabled={!writable || !snapshot.capabilities.permissions} onClick={() => onAction('permission', { requestId: permission.id, decision: 'reject' })}>{t('chat.permissionRequest.actions.reject')}</Button></div></section> : null}
-      <div hidden={!!permission}>{forms.map((form, position) => <div key={form.id} hidden={position !== 0}><ConversationFormCard form={form} disabled={!writable || !snapshot.capabilities.forms} onReply={(answer) => onAction('form_reply', { formId: form.id, answer })} onCancel={() => onAction('form_cancel', { formId: form.id })} /></div>)}</div>
     </div>
-  </ComposerFloatingPanel>;
-}
-
-function ConversationFormCard({ form, disabled, onReply, onCancel }: { form: ConversationForm; disabled: boolean; onReply: (answer: HerdrJsonValue) => void; onCancel: () => void }) {
-  const { t } = useI18n();
-  const [values, setValues] = React.useState<FormValues>(() => initialFormValues(form.fields, { acknowledgeExternal: true }));
-  const [showErrors, setShowErrors] = React.useState(false);
-  const fields = visibleFields(form.fields, values); const missing = missingRequiredKeys(form.fields, values);
-  const submit = () => { setShowErrors(true); if (!missing.length && !disabled) onReply(buildFormAnswer(form.fields, values)); };
-  return <form className="rounded-lg border border-border bg-surface-elevated p-3" onSubmit={(event) => { event.preventDefault(); submit(); }}><h3 className="mb-2 typography-ui font-medium" dir="auto">{form.title}</h3>{fields.map((field) => <FormFieldControl key={field.key} field={field} values={values} missing={missing} showErrors={showErrors} isResponding={disabled} updateValue={(key, patch) => setValues((previous) => ({ ...previous, [key]: { ...valueOf(previous, key), ...patch } }))} onTextKeyDown={(event) => { if (!isIMECompositionEvent(event) && event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); submit(); } }} />)}{showErrors && missing.length ? <p role="alert" className="typography-meta text-[var(--status-error-text)]">{t('chat.formCard.missingRequired')}</p> : null}<div className="mt-3 flex gap-2"><Button size="sm" type="submit" disabled={disabled}>{t('chat.formCard.submit')}</Button><Button size="sm" type="button" variant="outline" disabled={disabled} onClick={onCancel}>{t('chat.formCard.cancel')}</Button></div></form>;
+  </ComposerFloatingPanel> : null}{forms.map((form, position) => <ConversationForm key={form.id} owner={owner} form={form} hidden={!!permission || position !== 0} waiting={Math.max(0, forms.length - position - 1)} isMobile={isMobile} disabled={!writable || !snapshot.capabilities.forms} onReply={(answer) => onAction('form_reply', { formId: form.id, answer })} onCancel={() => onAction('form_cancel', { formId: form.id })} onNotice={onNotice} />)}</>;
 }

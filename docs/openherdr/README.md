@@ -100,6 +100,10 @@ closure; controlling it from a new matching directory requires explicit rebind.
 Remote structured conversations and Codex/Claude transcript adapters remain
 unfinished. Other CLI agents retain real terminal control. Native reasoning,
 tool results and usage are shown only when supplied by the selected source.
+Tool details share the original shell and multi-file diff views. Attachments
+support inline previews and explicit reads of current project files; the latter
+are labelled as current content. Stepped forms keep page-lifetime drafts across
+conversation changes and retain them after failed or unknown replies.
 
 Ordinary workspaces need a trusted project-root registration before project context
 is available. Pane cwd changes never choose another notes owner. Worktrees of
@@ -137,4 +141,4 @@ The current outcome and remaining checks are in [STATUS.md](STATUS.md).
 [OPENHERDR.md](../../OPENHERDR.md) records the project decisions and boundaries.
 Server and UI module documentation describe the transport and state behavior.
 
-![Mobile browser controlling the test session](assets/mobile-control.jpg)
+![Actual tool diff in the mobile-width browser](assets/chat-presentation.png)

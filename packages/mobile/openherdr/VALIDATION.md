@@ -5,34 +5,58 @@
 The 2026-10-15 frozen UI integration was rebuilt with the existing root
 `bun run mobile:herdr:android` command on `xixilys-macmini`. The command rebuilt
 `dist-herdr`, copied it, synchronized Capacitor and compiled the Android debug
-APK using Java 21.0.9, SDK 36 and Gradle 8.14.3. Vite completed in 21.13 seconds;
-Gradle reported `BUILD SUCCESSFUL` with 213 tasks, 27 executed and 186 up-to-date.
-The log is `.tmp/android-ui-build-final.log`.
+APK using Java 21.0.9, SDK 36 and Gradle 8.14.3. Vite completed in 12.68 seconds;
+Gradle completed in 3 seconds and reported `BUILD SUCCESSFUL` with 213 tasks, 27 executed and 186 up-to-date.
+The log is `.tmp/android-ui-presentation-build.log`.
 
-The APK is `android/app/build/outputs/apk/debug/app-debug.apk`, 16,431,850 bytes.
+The APK is `android/app/build/outputs/apk/debug/app-debug.apk`, 16,462,669 bytes.
 Its bundled `assets/public/index.html` equals the rebuilt `dist-herdr/herdr.html`,
-and it contains the current `herdr-Docmua9V.js` bundle. This build includes the
-restored shared chat/composer presentation, session popup and keyboard geometry
-integration together with the existing host, conversation, preferences and
+and it contains the current `herdr-BEKetIzv.js` bundle. This build includes the
+restored shared chat/composer presentation, session popup, keyboard geometry,
+tool/attachment adapters and step-by-step forms together with the existing host, conversation, preferences and
 project-context modules. The package remains `dev.openherdr.mobile`,
 versionCode 2 / versionName 0.1.0, minimum SDK 24 and target SDK 36.
 
 The task-owned `OpenHerdr_API36` AVD was restarted from `.tmp/android-avd`
 after the earlier emulator process had exited. The detached emulator uses port
 5580, 2GB RAM and 2 cores. No user AVD or physical device was used. Boot completed,
-`adb install -r` returned `Success`, and `am start -W` reported `Status: ok` with
-`dev.openherdr.mobile/.MainActivity` resumed. The application process was PID 2282;
+`adb install -r` returned `Success`. The first `am start -W` returned
+`Status: timeout` after 16,614 ms. Read-only follow-up confirmed
+`dev.openherdr.mobile/.MainActivity` resumed and the connection form rendered.
+The application process was PID 3904;
 the detached emulator was PID 21369 at validation time. Install and launch logs
-are `.tmp/android-ui-install-final.log` and `.tmp/android-ui-launch-final.log`.
+are `.tmp/android-ui-presentation-install.log` and
+`.tmp/android-ui-presentation-launch.log`.
 
-The final read-only capture `.tmp/android-ui-connect-final.png` shows the actual
+The final read-only capture `.tmp/android-ui-presentation-connect.png` shows the actual
 connection form with blank server and pairing fields and the native-vault notice.
 Dark status and navigation backdrops have visible white system icons. An earlier
 capture during startup showed a blank loading frame and was replaced after the
 form rendered. The Android 15+ app-local StatusBar adapter registers after the
 generated plugins. Light theme, rotation, resume and keyboard interaction still
 require native checks. No native connected chat screen was exercised, so this
-capture does not establish the restored chat/composer fidelity on Android.
+capture does not establish the restored chat/composer, tool, attachment or form
+fidelity on Android. Earlier logs and screenshots remain available under their
+original names. The filtered startup log is
+`.tmp/android-ui-presentation-startup.log`; it includes WebView/graphics warnings
+and no sampled `FATAL` entry. Startup performance has not been measured.
+
+A single follow-up process cold start preserved app data and used `am force-stop`
+only for `dev.openherdr.mobile` on `emulator-5580`, then `am start -W`. It returned
+`Status: ok`, `LaunchState: COLD`, `TotalTime: 4812` and `WaitTime: 4942`.
+The host measured 5.246 seconds for the launch command. The immediate read-only
+capture completed 7.573 seconds after launch and still showed a blank loading
+frame. One follow-up capture showed the complete Connect form with blank fields,
+the vault notice and dark system bars. Its conservative visible-ready upper bound
+is 29 seconds after launch, derived from the first capture's file timestamp,
+the measured capture completion time and a 1-second rounding allowance.
+The actual first rendered time between the captures is unknown. This single
+emulator sample shows that successful Activity startup still precedes visible
+web readiness. It does not establish the cause of the original installation-time
+timeout, a performance regression or physical-phone startup behavior.
+Logs, timing receipt and both screenshots use the
+`.tmp/android-ui-presentation-cold-start` prefix. No repeated launch, rebuild,
+app-data clearing or native interaction was performed for this check.
 
 Capacitor bridge logging is disabled, including debug packages, because its
 default verbose calls include secure-storage method data.

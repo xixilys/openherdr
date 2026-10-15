@@ -11,7 +11,10 @@ Keep the separate OpenHerdr entrypoint and authenticated transport. Replace its 
 
 The subsequent integration shares `HerdrMobileShell`, user bubbles/text,
 tool summaries/descriptions, the pill composer, session switcher and
-return-to-latest presentation with the original wrappers. It has real Files/Git,
+return-to-latest presentation with the original wrappers. The next presentation
+increment shares shell/diff output, attachment/image views and stepped forms.
+Herdr supplies their real source records, confined asset reads and isolated drafts.
+It has real Files/Git,
 project context, preferences and an owned OpenCode conversation driver. This
 inventory's route limitations describe its initial state, and do not replace
 the current contracts in the owning module documentation. Full UI and feature

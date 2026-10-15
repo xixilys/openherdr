@@ -4,6 +4,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { File as PierreFile, PatchDiff } from '@pierre/diffs/react';
 import { WorkerHighlightedCode } from '@/components/code/WorkerHighlightedCode';
 import { createPortal } from 'react-dom';
+import { ImagePreviewView } from '../ImagePreviewView';
+import { usePreviewOverlayState, usePreviewViewport } from '../imagePreviewHooks';
 
 import { cn } from '@/lib/utils';
 import { SimpleMarkdownRenderer } from '../MarkdownRenderer';
@@ -41,7 +43,6 @@ interface ToolOutputDialogProps {
 
 const mermaidLoadFailure = (key: I18nKey, params?: I18nParams): MermaidLoadFailure => new MermaidLoadFailure(key, params);
 
-const PREVIEW_ANIMATION_MS = 150;
 const MERMAID_DIALOG_HEADER_HEIGHT = 40;
 const MERMAID_ASPECT_RETRY_DELAY_MS = 120;
 const MERMAID_ASPECT_MAX_RETRIES = 3;
@@ -106,13 +107,6 @@ const usePierreThemeConfig = (): PierreThemeConfig => {
         themeType: currentVariant === 'dark' ? 'dark' : 'light',
     };
 };
-
-type ViewportSize = { width: number; height: number };
-
-const getWindowViewport = (): ViewportSize => ({
-    width: typeof window !== 'undefined' ? window.innerWidth : 0,
-    height: typeof window !== 'undefined' ? window.innerHeight : 0,
-});
 
 const PREVIEW_VIEWPORT_LIMITS = {
     mobile: { widthRatio: 0.94, heightRatio: 0.86, padding: 10 },
@@ -184,294 +178,23 @@ const getSvgAspectRatio = (svg: SVGElement): number | null => {
     return null;
 };
 
-const usePreviewOverlayState = (open: boolean) => {
-    const [isRendered, setIsRendered] = React.useState(open);
-    const [isVisible, setIsVisible] = React.useState(open);
-    const [isTransitioning, setIsTransitioning] = React.useState(false);
-
-    React.useEffect(() => {
-        if (open) {
-            setIsRendered(true);
-            setIsTransitioning(true);
-            if (typeof window === 'undefined') {
-                setIsVisible(true);
-                return;
-            }
-
-            const raf = window.requestAnimationFrame(() => {
-                setIsVisible(true);
-            });
-
-            const doneId = window.setTimeout(() => {
-                setIsTransitioning(false);
-            }, PREVIEW_ANIMATION_MS);
-
-            return () => {
-                window.cancelAnimationFrame(raf);
-                window.clearTimeout(doneId);
-            };
-        }
-
-        setIsVisible(false);
-        setIsTransitioning(true);
-        if (typeof window === 'undefined') {
-            setIsRendered(false);
-            return;
-        }
-
-        const timeoutId = window.setTimeout(() => {
-            setIsRendered(false);
-            setIsTransitioning(false);
-        }, PREVIEW_ANIMATION_MS);
-
-        return () => {
-            window.clearTimeout(timeoutId);
-        };
-    }, [open]);
-
-    return { isRendered, isVisible, isTransitioning };
-};
-
-const usePreviewViewport = (open: boolean) => {
-    const [viewport, setViewport] = React.useState<ViewportSize>(getWindowViewport);
-
-    React.useEffect(() => {
-        if (!open || typeof window === 'undefined') {
-            return;
-        }
-
-        const onResize = () => {
-            setViewport(getWindowViewport());
-        };
-
-        onResize();
-        window.addEventListener('resize', onResize);
-        return () => {
-            window.removeEventListener('resize', onResize);
-        };
-    }, [open]);
-
-    return viewport;
-};
-
 const ImagePreviewDialog: React.FC<{
     popup: ToolPopupContent;
     onOpenChange: (open: boolean) => void;
     isMobile: boolean;
 }> = ({ popup, onOpenChange, isMobile }) => {
-    const { t, direction } = useI18n();
-    const gallery = React.useMemo(() => {
-        const baseImage = popup.image;
-        if (!baseImage) return [] as Array<{ url: string; mimeType?: string; filename?: string; size?: number }>;
-        const fromPopup = Array.isArray(baseImage.gallery)
-            ? baseImage.gallery.filter((item): item is { url: string; mimeType?: string; filename?: string; size?: number } => Boolean(item?.url))
-            : [];
-
-        if (fromPopup.length > 0) {
-            return fromPopup;
-        }
-
-        return [{
-            url: baseImage.url,
-            mimeType: baseImage.mimeType,
-            filename: baseImage.filename,
-            size: baseImage.size,
-        }];
+    const images = React.useMemo(() => {
+        const image = popup.image;
+        if (!image) return [];
+        const gallery = image.gallery?.filter((item) => Boolean(item.url)) ?? [];
+        return gallery.length > 0 ? gallery : [image];
     }, [popup.image]);
-
-    const [currentIndex, setCurrentIndex] = React.useState(0);
-    const [imageNaturalSize, setImageNaturalSize] = React.useState<{ url: string; width: number; height: number } | null>(null);
-    const { isRendered, isVisible, isTransitioning } = usePreviewOverlayState(popup.open);
-    const viewport = usePreviewViewport(popup.open);
-
-    React.useEffect(() => {
-        if (!popup.open || gallery.length === 0) {
-            return;
-        }
-
-        const requestedIndex = typeof popup.image?.index === 'number' ? popup.image.index : -1;
-        if (requestedIndex >= 0 && requestedIndex < gallery.length) {
-            setCurrentIndex(requestedIndex);
-            return;
-        }
-
-        const matchingIndex = popup.image?.url
-            ? gallery.findIndex((item) => item.url === popup.image?.url)
-            : -1;
-        setCurrentIndex(matchingIndex >= 0 ? matchingIndex : 0);
-    }, [gallery, popup.image?.index, popup.image?.url, popup.open]);
-
-    const currentImage = gallery[currentIndex] ?? gallery[0] ?? popup.image;
-    const imageTitle = currentImage?.filename || popup.title || 'Image preview';
-    const hasMultipleImages = gallery.length > 1;
-
-    const showPrevious = React.useCallback(() => {
-        if (gallery.length <= 1) return;
-        setCurrentIndex((prev) => (prev - 1 + gallery.length) % gallery.length);
-    }, [gallery.length]);
-
-    const showNext = React.useCallback(() => {
-        if (gallery.length <= 1) return;
-        setCurrentIndex((prev) => (prev + 1) % gallery.length);
-    }, [gallery.length]);
-
-    React.useEffect(() => {
-        if (!popup.open) {
-            return;
-        }
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onOpenChange(false);
-                return;
-            }
-
-            // "Previous" sits at the start of the row: on the right in RTL.
-            const previousKey = direction === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
-            const nextKey = direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
-            if (event.key === previousKey && hasMultipleImages) {
-                event.preventDefault();
-                showPrevious();
-                return;
-            }
-
-            if (event.key === nextKey && hasMultipleImages) {
-                event.preventDefault();
-                showNext();
-            }
-        };
-
-        window.addEventListener('keydown', onKeyDown);
-        return () => {
-            window.removeEventListener('keydown', onKeyDown);
-        };
-    }, [direction, hasMultipleImages, onOpenChange, popup.open, showNext, showPrevious]);
-
-    // The measured size belongs to one URL. Resetting it in an effect on URL
-    // change raced the load event of an already-cached image, which left the
-    // viewer stuck at its maximum box with wide dead margins around the image.
-    const currentImageUrl = currentImage?.url;
-    const currentNaturalSize = imageNaturalSize && imageNaturalSize.url === currentImageUrl
-        ? imageNaturalSize
-        : null;
-
-    const imageDisplaySize = React.useMemo(() => {
-        const maxWidth = Math.max(160, viewport.width * (isMobile ? 0.86 : 0.75));
-        const maxHeight = Math.max(160, viewport.height * (isMobile ? 0.72 : 0.75));
-
-        if (!currentNaturalSize) {
-            return {
-                width: Math.round(maxWidth),
-                height: Math.round(maxHeight),
-            };
-        }
-
-        const widthScale = maxWidth / currentNaturalSize.width;
-        const heightScale = maxHeight / currentNaturalSize.height;
-        const scale = Math.min(widthScale, heightScale);
-
-        return {
-            width: Math.max(1, Math.round(currentNaturalSize.width * scale)),
-            height: Math.max(1, Math.round(currentNaturalSize.height * scale)),
-        };
-    }, [currentNaturalSize, isMobile, viewport.height, viewport.width]);
-
-    if (!isRendered || !currentImage || typeof document === 'undefined') {
-        return null;
-    }
-
-    const content = (
-        <div className={cn('fixed inset-0 z-50', popup.open ? 'pointer-events-auto' : 'pointer-events-none')}>
-            <div
-                aria-hidden="true"
-                className={cn(
-                    // Same scrim as DialogOverlay, so the image viewer sits on
-                    // the app the way every other dialog does.
-                    'oc-glass-backdrop absolute inset-0 bg-surface-overlay/60',
-                    isTransitioning && 'transition-opacity duration-150 ease-out',
-                    isVisible ? 'opacity-100' : 'opacity-0'
-                )}
-                onMouseDown={() => onOpenChange(false)}
-            />
-
-            {hasMultipleImages && (
-                <>
-                    <button
-                        type="button"
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onClick={showPrevious}
-                        className="absolute inset-s-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-surface-elevated/90 text-surface-elevated-foreground hover:bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-ring"
-                        aria-label={t('chat.toolOutputDialog.image.previousAria')}
-                    >
-                        <Icon name="arrow-left-s" className="h-6 w-6" />
-                    </button>
-                    <button
-                        type="button"
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onClick={showNext}
-                        className="absolute inset-e-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-surface-elevated/90 text-surface-elevated-foreground hover:bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-ring"
-                        aria-label={t('chat.toolOutputDialog.image.nextAria')}
-                    >
-                        <Icon name="arrow-right-s" className="h-6 w-6" />
-                    </button>
-                </>
-            )}
-
-            <div
-                className={cn(
-                    'absolute inset-0 flex items-center justify-center pointer-events-none',
-                    isMobile ? 'p-2.5' : 'p-4'
-                )}
-            >
-                <div
-                    className={cn(
-                        'pointer-events-auto flex flex-col gap-2',
-                        isTransitioning && 'transition-opacity duration-150 ease-out',
-                        isVisible ? 'opacity-100' : 'opacity-0'
-                    )}
-                    style={{ width: `${imageDisplaySize.width}px` }}
-                >
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1 text-foreground typography-ui-header font-semibold truncate" title={imageTitle}>
-                            {imageTitle}
-                        </div>
-                        <button
-                            type="button"
-                            className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            onClick={() => onOpenChange(false)}
-                            aria-label={t('chat.toolOutputDialog.image.closeAria')}
-                        >
-                            <Icon name="close" className="h-4 w-4" />
-                        </button>
-                    </div>
-
-                    <img
-                        src={currentImage.url}
-                        alt={imageTitle}
-                        className="block object-contain"
-                        style={{ width: `${imageDisplaySize.width}px`, height: `${imageDisplaySize.height}px` }}
-                        loading="lazy"
-                        onLoad={(event) => {
-                            const element = event.currentTarget;
-                            const width = element.naturalWidth;
-                            const height = element.naturalHeight;
-                            const url = element.getAttribute('src') ?? '';
-                            if (width > 0 && height > 0) {
-                                setImageNaturalSize((previous) => {
-                                    if (previous && previous.url === url && previous.width === width && previous.height === height) {
-                                        return previous;
-                                    }
-                                    return { url, width, height };
-                                });
-                            }
-                        }}
-                    />
-                </div>
-            </div>
-        </div>
-    );
-
-    return createPortal(content, document.body);
+    const matchingIndex = images.findIndex((image) => image.url === popup.image?.url);
+    const requestedIndex = popup.image?.index;
+    const initialIndex = requestedIndex !== undefined && requestedIndex >= 0 && requestedIndex < images.length
+        ? requestedIndex : Math.max(0, matchingIndex);
+    return <ImagePreviewView open={popup.open} images={images} initialIndex={initialIndex}
+        title={popup.title || 'Image preview'} onOpenChange={onOpenChange} isMobile={isMobile} />;
 };
 
 // ── PERF-007: Virtualised sub-components for dialog ──────────────────

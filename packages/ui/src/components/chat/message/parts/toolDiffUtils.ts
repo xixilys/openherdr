@@ -520,7 +520,9 @@ const getFilePatch = (file: unknown): { filePath?: string; patch: string; title:
         ? file.relativePath
         : typeof file.filePath === 'string'
             ? file.filePath
-            : '';
+            : typeof file.file === 'string'
+                ? file.file
+                : '';
 
     return {
         filePath: getApplyPatchFilePath(file) ?? undefined,

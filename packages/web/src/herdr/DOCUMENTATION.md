@@ -102,8 +102,38 @@ parts report truncation to their message owner, which renders one expansion
 control per message. The original floating frame displays permissions before
 forms above the composer. Form editors remain mounted while hidden behind a
 permission, preserving unfinished answers. Panel clearance is published only
-to the small overlay and transcript-tail readers. The form body currently uses
-the shared all-fields card; the original stepped form interaction remains pending.
+to the small overlay and transcript-tail readers.
+
+`ConversationTool` adapts real source tool states to the shared shell output,
+scrolling, code highlighting and multi-file diff presentation. Running shell
+output comes from its actual progress metadata. Final and failed outputs use
+the original terminal normalization and output bound. JSON uses the original
+summary; subtask results reuse Markdown without inventing child controls.
+Background-job and child-session actions still need their source ownership
+contracts. Generic/read output retains the bounded source text; diagnostics,
+file navigation and persisted JSON display-mode controls are not copied yet.
+
+`ConversationForm` adapts the original `SteppedFormView`. Its page-lifetime
+memory holds up to 50 drafts, evicting the least recently saved draft after
+that limit. Server, machine, verified pane identity, session and form identify
+each draft. Permission priority and session navigation retain answers. A
+changed field definition starts fresh; failed or unknown replies retain the
+draft. Confirmed reply or cancellation removes only its captured generation,
+so a late completion cannot clear a newer owner or form definition.
+
+`HerdrConversationAttachments` supplies the original attachment chips, image
+strip and image preview. Inline data and host downloads share byte-size,
+raster-signature and UTF-8 checks. SVG and HTML remain text or downloads.
+File references are read only after a click through the authenticated host
+client, with the captured directory and returned relative path checked.
+History never borrows the selected pane for file reads. External HTTP links
+open only on explicit activation and receive no bearer token. Preview resources
+are scoped to transport, pane identity and session; changing owners hides old
+previews in the first render and releases their object URLs. Browser downloads
+release URLs after a delay; native downloads use the existing file-sharing API.
+The image gallery preserves the selected URL through equivalent source updates
+and registers a stable shared Back layer. This layer's DOM tests do not establish
+actual Android system Back behavior.
 
 The terminal workspace tab renders official read-only observation frames through the
 shared Ghostty renderer. A failed observation switches to a bounded text snapshot

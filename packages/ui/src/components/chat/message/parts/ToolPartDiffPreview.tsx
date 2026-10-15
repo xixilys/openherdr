@@ -4,6 +4,7 @@ import { PatchDiff } from '@pierre/diffs/react';
 import { useOptionalThemeSystem } from '@/contexts/useThemeSystem';
 import { ensurePierreThemeRegistered } from '@/lib/shiki/appThemeRegistry';
 import { getDefaultTheme } from '@/lib/theme/themes';
+import type { Theme } from '@/types/theme';
 import type { DiffViewMode } from '../DiffViewToggle';
 import { PlainDiffFallback } from './PlainDiffFallback';
 import { PIERRE_DIFF_TINT_CSS } from '@/lib/shiki/pierreDiffTint';
@@ -31,7 +32,7 @@ const TOOL_DIFF_METRICS = {
     spacing: 0,
 };
 
-const usePierreThemeConfig = () => {
+const usePierreThemeConfig = (explicitTheme?: Theme) => {
     const themeSystem = useOptionalThemeSystem();
     const fallbackLightTheme = React.useMemo(() => getDefaultTheme(false), []);
     const fallbackDarkTheme = React.useMemo(() => getDefaultTheme(true), []);
@@ -44,12 +45,12 @@ const usePierreThemeConfig = () => {
     const darkThemeId = themeSystem?.darkThemeId ?? fallbackDarkTheme.metadata.id;
 
     const lightTheme = React.useMemo(
-        () => availableThemes.find((theme) => theme.metadata.id === lightThemeId) ?? fallbackLightTheme,
-        [availableThemes, fallbackLightTheme, lightThemeId],
+        () => explicitTheme ?? availableThemes.find((theme) => theme.metadata.id === lightThemeId) ?? fallbackLightTheme,
+        [availableThemes, explicitTheme, fallbackLightTheme, lightThemeId],
     );
     const darkTheme = React.useMemo(
-        () => availableThemes.find((theme) => theme.metadata.id === darkThemeId) ?? fallbackDarkTheme,
-        [availableThemes, darkThemeId, fallbackDarkTheme],
+        () => explicitTheme ?? availableThemes.find((theme) => theme.metadata.id === darkThemeId) ?? fallbackDarkTheme,
+        [availableThemes, darkThemeId, explicitTheme, fallbackDarkTheme],
     );
 
     // Registration is synchronous module state inside @pierre/diffs; rendering
@@ -58,7 +59,7 @@ const usePierreThemeConfig = () => {
     ensurePierreThemeRegistered(lightTheme);
     ensurePierreThemeRegistered(darkTheme);
 
-    const currentVariant = themeSystem?.currentTheme.metadata.variant ?? 'light';
+    const currentVariant = explicitTheme?.metadata.variant ?? themeSystem?.currentTheme.metadata.variant ?? 'light';
 
     return {
         pierreTheme: { light: lightTheme.metadata.id, dark: darkTheme.metadata.id },
@@ -100,10 +101,11 @@ class DiffPreviewErrorBoundary extends React.Component<{
 export interface ToolPartDiffPreviewProps {
     diff: string;
     diffViewMode: DiffViewMode;
+    theme?: Theme;
 }
 
-const ToolPartDiffPreview: React.FC<ToolPartDiffPreviewProps> = React.memo(({ diff, diffViewMode }) => {
-    const { pierreTheme, pierreThemeType } = usePierreThemeConfig();
+const ToolPartDiffPreview: React.FC<ToolPartDiffPreviewProps> = React.memo(({ diff, diffViewMode, theme }) => {
+    const { pierreTheme, pierreThemeType } = usePierreThemeConfig(theme);
     const options = React.useMemo(
         () => ({
             diffStyle: diffViewMode === 'side-by-side' ? 'split' as const : 'unified' as const,

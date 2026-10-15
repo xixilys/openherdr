@@ -304,3 +304,16 @@ describe('toolDiffUtils', () => {
         expect(resolveToolQuickOpenTarget('bash', { command: 'ls' }, undefined)).toBeNull();
     });
 });
+
+
+test('v2 file metadata retains authoritative paths and fallback titles for malformed patches', () => {
+    const files = [
+        { file: '/workspace/first.ts', patch: 'first raw patch' },
+        { file: '/workspace/second.ts', relativePath: 'preferred-display.ts', patch: 'second raw patch' },
+    ];
+    const entries = getDiffPatchEntries({ files }, undefined, (path) => path.replace('/workspace/', ''));
+    expect(entries.map((entry) => entry.title)).toEqual(['first.ts', 'preferred-display.ts']);
+    expect(entries.map((entry) => entry.filePath)).toEqual(['/workspace/first.ts', '/workspace/second.ts']);
+    expect(entries.map((entry) => entry.renderMode)).toEqual(['text', 'text']);
+    expect(getApplyPatchFilePath(files[0])).toBe('/workspace/first.ts');
+});

@@ -46,6 +46,31 @@ oldest pending form and counts the rest in its header. The BTW sheet keeps
 the inline `FormCard` for its child session's forms; both render a field
 through `FormFieldControl`.
 
+`SteppedFormView` owns the shared floating frame and stepped interactions. Its
+caller supplies `SteppedFormState`, a state dispatcher, mobile mode, response
+status and copy/dismiss/submit actions. `steppedFormState.ts` owns the field
+signature and `createSteppedFormState` seeds answers and navigation. The view
+has no OpenCode sync or session dependencies.
+`disabled` blocks responses independently of the actual responding indicator.
+`FormDock` remains the OpenCode owner: it selects pending forms, reveals queued
+requests, sends replies and retains in-memory answers and step per form id
+across unmounts, including session switches and permission hiding. Successful
+reply or dismissal removes the draft. The existing 50-draft limit remains.
+The state records the complete parsed field definition. Changed URLs, options,
+conditions or constraints immediately invalidate old answers before submission.
+The view normalizes the new state and acknowledges the currently visible,
+expanded external step together, so a parent reset cannot erase that acknowledgment.
+
+A caller that keeps pending form owners mounted can pass `hidden` to
+`SteppedFormView`. Its frame keeps the editor DOM mounted through the native
+`hidden` attribute, releases floating-panel clearance while hidden and registers
+it again when shown. Hidden forms do not acknowledge external steps or measure
+popup height. The caller scopes retained state to its target, session and request
+identity and removes it when the request settles. Mobile plain Enter preserves
+text entry; desktop plain Enter advances or submits. Shift+Enter and IME
+composition preserve text entry, and Cmd/Ctrl+Enter submits once even when the
+textarea event bubbles to the frame.
+
 `formCardState.ts` decides what both surfaces show and send, mirroring
 OpenCode's `Form.validateAnswer`: fields are evaluated in declaration order,
 a `when` clause reads only the answers of active earlier fields (an

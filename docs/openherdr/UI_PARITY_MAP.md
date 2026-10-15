@@ -65,11 +65,37 @@ Current native runtime limits remain in STATUS.md.
 
 ### Header, session drawer and workspace drawer
 
-`apps/MobileHeader.tsx` already implements the intended mobile header, recent-session switcher, metadata popover and workspace activity marker. It reads `useSession`, `useSessionUIStore`, `useDirectoryStore`, `useGitStore`, multi-run state and `MobileSessionSwitcher`. Adding only a title prop will not remove those data reads. Split its presentation from the existing OpenCode container: title, subtitle/metadata, selected identity, activity, switcher items and callbacks must arrive from one selected-session owner.
+`apps/MobileHeaderView.tsx` owns the shared original header presentation. Its
+`MobileHeader.tsx` wrapper retains the OpenCode stores, recent-session switcher,
+metadata and workspace activity. Herdr supplies its actual selected-window title
+and its separate conversation-switcher owner to the shared header.
 
-`apps/MobileSessionsSheet.tsx` contains the actual project/worktree/session tree, search, swipe actions, pinning, ordering and worktree menus. It imports the OpenCode `Session` domain, live session sync, global sessions/history, session actions and project/worktree stores. Keep its rows and gestures. A Herdr tree uses real workspace/tab/pane identities and groups them by actual project/cwd metadata; do not label a pane as an archived conversation. Introduce an explicit row model and callbacks at this component boundary, preserving the OpenCode container as its first adapter.
+`apps/MobileSessionsSheet.tsx` retains original project/worktree/session data,
+search order, subsession filtering, live/unread state, rename, swipe, pinning and
+worktree actions. Its actual selection-row and grouped-search-card presentation
+now live in `MobileSessionRowView.tsx` and `MobileSessionsSearchResultsView.tsx`.
+The original wrapper keeps its hooks and supplies their rendered indicators;
+Herdr supplies genuine pane titles, state and parent context without fabricating
+OpenCode Session records.
 
-`apps/MobileWorkspaceDrawer.tsx` already renders Changes, Files, Terminal, Notes and MCP with visited-tab retention and phone/tablet variants. Its current children and Notes/MCP state are hardwired. Extract the existing drawer into a tab-content host, with the upstream wrapper supplying its current children. OpenHerdr can then reuse the exact drawer and tabs while its Files/Git/Terminal implementations change underneath. `MobileFullscreenSurface` and `MobileOverlayPanel` need no new navigation framework.
+`web/src/herdr/HerdrWindowNavigation.tsx` uses those views and the original
+submitted `SessionSearchInput`. `window-navigation.ts` projects the current
+machine's real workspace/tab/pane hierarchy and searches names, IDs, terminal
+titles and existing cwd fields. Matching panes in unselected workspaces are
+reachable directly. Current selection validates ancestry and terminal identity
+before returning to the existing read-only Monitor/restore flow. Failed reads
+retain disabled stale results; failed initial reads never claim no matches.
+Composing Escape keeps the shared input and enclosing drawer open. Actual App,
+original-wrapper and public snapshot/projection checks pass; real new browser
+and native interaction remain pending. Full tree pin/order/archive and remaining
+window-management parity are outside this bounded discovery flow and stay in
+the broader goal.
+
+`apps/MobileWorkspaceDrawerView.tsx` shares the original tab-content host,
+visited-panel retention, gestures and phone/tablet presentation. The original
+`MobileWorkspaceDrawer.tsx` supplies its data-owning panels; Herdr supplies its
+own existing Files/Git/Terminal/Context contents. `MobileFullscreenSurface` and
+`MobileOverlayPanel` retain their existing navigation infrastructure.
 
 ### Chat and timeline
 

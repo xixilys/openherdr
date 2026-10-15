@@ -21,6 +21,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "herdr.files.nativeDownloadLimit": "El uso compartido nativo admite archivos de hasta 8 MiB.",
+  "herdr.monitor.search": "Buscar ventanas",
+  "herdr.monitor.tabs": "Pestañas",
+  "herdr.monitor.panes": "Paneles",
   "herdr.monitor.recentText": "Salida reciente del terminal",
   "herdr.monitor.title": "Seguimiento",
   "herdr.monitor.readOnly": "Vista de solo lectura",

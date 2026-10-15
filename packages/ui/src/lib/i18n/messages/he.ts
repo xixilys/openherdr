@@ -20,6 +20,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
   "herdr.files.nativeDownloadLimit": "שיתוף דרך המערכת מוגבל לקבצים בגודל של עד 8 MiB.",
+  "herdr.monitor.search": "חיפוש חלונות",
+  "herdr.monitor.tabs": "כרטיסיות",
+  "herdr.monitor.panes": "חלוניות",
   "herdr.monitor.recentText": "פלט אחרון מהמסוף",
   "herdr.monitor.title": "ניטור",
   "herdr.monitor.readOnly": "תצוגה לקריאה בלבד",

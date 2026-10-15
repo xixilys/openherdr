@@ -21,6 +21,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "herdr.files.nativeDownloadLimit": "Udostępnianie systemowe obsługuje pliki do 8 MiB.",
+  "herdr.monitor.search": "Szukaj okien",
+  "herdr.monitor.tabs": "Karty",
+  "herdr.monitor.panes": "Panele",
   "herdr.monitor.recentText": "Ostatnie dane z terminala",
   "herdr.monitor.title": "Monitorowanie",
   "herdr.monitor.readOnly": "Widok tylko do odczytu",

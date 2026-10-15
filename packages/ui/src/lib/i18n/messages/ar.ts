@@ -20,6 +20,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
   "herdr.files.nativeDownloadLimit": "تدعم المشاركة عبر النظام ملفات بحجم يصل إلى 8 MiB فقط.",
+  "herdr.monitor.search": "البحث عن النوافذ",
+  "herdr.monitor.tabs": "علامات التبويب",
+  "herdr.monitor.panes": "الأجزاء",
   "herdr.monitor.recentText": "مخرجات الطرفية الأخيرة",
   "herdr.monitor.title": "المراقبة",
   "herdr.monitor.readOnly": "عرض للقراءة فقط",

@@ -198,3 +198,23 @@ and unmount media/font/iframe consumers. Explicit download has its own lifetime;
 native sharing retains the original whole-File/base64 interface and an 8 MiB
 limit. Codec, PDF pages and native share acceptance require actual runtime
 checks. Active HTML and canvas editors remain separate.
+
+`../MobileSessionRowView.tsx` owns the original sessions row title, context line,
+indentation and plain active frame. Titles and context labels keep their own
+text direction while aligning with the interface. Callers supply leading controls,
+trailing status content or a rename replacement. An embedded row leaves its
+opaque swipe frame to the original owner. A disabled selection prevents choosing
+a retained stale window result. The view imports no Session model, OpenCode hook,
+store or runtime API. `MobileSessionsSheet` keeps its AI rename, live/unread,
+pending requests, goal, work, pin, time, swipe and selection owners.
+
+`../MobileSessionsSearchResultsView.tsx` owns the original search-result spacing,
+section labels/counts and elevated cards. Callers supply ordered row nodes and
+dividers; zero-count groups are hidden. Original submitted search, ranking,
+subsession exclusion and project actions remain in `MobileSessionsSheet`.
+Herdr supplies real workspace/tab/pane titles, ancestry and native status through
+these same views. It creates no OpenCode Session or inferred unread/goal data.
+The focused DOM tests cover view geometry and controls, disabled stale selection,
+slot/rename framing, RTL padding and an actual original Sheet search/select with
+live and unread updates. Connected browser, gestures and native acceptance remain
+with the integrated owning application.

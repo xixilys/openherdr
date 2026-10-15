@@ -316,6 +316,48 @@ substitute API results for UI acceptance. Existing CF instances, phone connectio
 and fixed first-test APK are preserved. Current evidence is in STATUS.md and
 native validation; full feature/UI parity remains unfinished.
 
+The active bounded existing-window flow uses the original submitted search and
+contextual result presentation to find a workspace, tab or pane on the selected
+machine, select its real pane, view read-only output and return or restore the
+same target. Search the one current snapshot's names, IDs and existing cwd
+metadata, including terminal-title fallback. Search must find panes in
+unselected workspaces without reading their terminal output or polling other
+machines. Herdr keeps selection, restoration, drafts and delivery receipts;
+the original session wrapper keeps its OpenCode hooks around shared row/card
+presentation. Add no fabricated Session, pin/order/archive behavior or new
+backend family. After this flow, return to actual Android delivery and acceptance
+before opening another feature family. The pending phone-feedback and dot
+capability requests are separate from source progress.
+
+This search flow is implemented and built. The 47 relevant focused/retained
+cases, independent source review and final combined static gate pass. Actual
+public reads through the existing unchanged Settings backend confirm all four
+configured machine snapshots, current search projection, exact selected-pane
+identity before/after and read-only visible output. Its own test client was
+revoked. The new local APK is 42,334,370 bytes with `herdr-M8bqgRJI.js`; its assets
+match the isolated Web build. Existing public HTML remains the previous Settings
+entry, and no new connector, origin or phone cutover was created. Real browser
+and Android execution remain pending under the recorded access limits. Finish
+actual device delivery/acceptance before choosing another feature family; source
+or packaging results do not establish that the phone received this build.
+
+Window-search surfaces:
+
+- Herdr Web/PWA uses the selected-machine snapshot and existing authenticated
+  transport. Original desktop Web retains its session sidebar controller; the
+  shared search input consumes composing Escape before an outer surface closes.
+- Electron retains its original desktop session sidebar and provider ownership,
+  with the same shared search-input IME guard;
+  the separate Herdr browser entry uses the same snapshot flow as Web.
+- VS Code retains its existing session/sidebar runtime and the shared input IME
+  guard. It does not mount Herdr.
+- Original hosted mobile keeps MobileSessionsSheet's data, order, actions and
+  live hooks around the extracted row/search-card presentation. Herdr hosted
+  mobile supplies real workspace/tab/pane records to that presentation.
+- Original Capacitor mobile keeps that original wrapper. Herdr Capacitor uses
+  the same snapshot search and existing native Back/lifecycle contracts. Real
+  IME, gestures, Back and connected device execution remain separate acceptance.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and

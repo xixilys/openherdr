@@ -30,6 +30,64 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
+## Existing-window submitted search
+
+The window drawer now searches actual workspace, tab and pane names, IDs,
+terminal titles and existing cwd metadata on the selected machine. It uses the
+original submitted search field, contextual rows and grouped result cards.
+Typing keeps the current results until Enter. Pane results in unselected
+workspaces can be opened directly in read-only Monitor, with the exact
+workspace/tab/pane/terminal target retained for return and restoration.
+Search adds no terminal-content read or poll of another machine.
+
+Search and clear preserve terminal drafts and pending delivery. Switching
+machines resets query/draft ownership. Failed snapshot refreshes retain disabled
+stale results, while a failed first read does not report an empty result. Current
+selection rechecks fresh ancestry and terminal identity. The original mobile
+session wrapper keeps its live hooks, filtering, order, rename and swipe actions
+around the shared presentation. A shared-input fix also prevents composing
+Escape from closing an outer drawer while preserving native candidate cancel.
+
+The relevant suites pass 47 unique cases: 11 actual HerdrApp search cases,
+5 shared-row/card/original-sheet cases, 4 shared-input cases and 27 retained
+Monitor/restore cases. The retained Monitor/restore run preceded the Escape-only
+input correction; the affected input, Herdr search and original-sheet fixtures
+passed afterward. Independent source review has no unresolved P1/P2 finding.
+The final type/lint/Knip/anti-slop gate, original Web build, isolated Herdr build
+and Android assembleDebug pass. Initial title-search, composing-Escape and test
+event-type failures remain in the private logs.
+
+Fourteen actual public HTTP requests used the existing Settings instance.
+Local, WSL, JP API and Kansas each returned a parsed current snapshot, an exact
+pane match from the new search projection and one read-only visible-output
+response. Direct native reads before and after confirmed each selected terminal
+and its ancestry. The snapshots contained 3, 25, 7 and 9 panes respectively;
+only one pane per machine had its visible text read. Reports contain no query,
+user title, cwd or output text. The temporary HTTP client was revoked and its
+bearer then returned 401. This proves real transport/data integration with the
+new projection, not an executed search UI.
+
+The new debug APK is 42,334,370 bytes and contains `herdr-M8bqgRJI.js`, with exact
+Web HTML/entry matches, scanner, secure storage and 12 native libraries. It has
+not been installed or exercised. Existing hosted HTML remains
+`herdr-CXWKWYR7.js`; the unchanged backend contract supports the bundled native
+client without another connector. All four existing CF processes/origins and
+the fixed first-phone APK remain preserved. No saved phone connection changed.
+
+Actual browser layout/keyboard/drawer interaction and Android camera, KeyStore,
+Back/IME, gestures and lifecycle acceptance remain pending. Chrome blocked the
+preceding public and loopback navigation, and no permitted device surface or new
+phone result is available. No equivalent probe or workaround was attempted.
+PDF and complete original UI/feature parity also remain unfinished. After this
+bounded implementation, actual device delivery and acceptance take priority
+over another feature family.
+
+Private evidence is in `.tmp/window-search-source-review.md`,
+`.tmp/window-search-independent-event-types-final.log`,
+`.tmp/window-search-input-final.log`, `.tmp/window-search-monitor-regression.log`,
+`.tmp/check-window-search-release.log`, `.tmp/window-search-http.json`,
+`.tmp/window-search-apk.json` and `.tmp/window-search-preservation.json`.
+
 ## Settings navigation and search
 
 Herdr now uses the original Settings navigation, search and responsive page

@@ -67,7 +67,11 @@ export function SessionSearchInput({
             if (active && event.currentTarget.value.trim().length === 0 && value !== '') onSearch('');
           }}
           onKeyDown={(event) => {
-            if (!active || composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (!active) return;
+            if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) {
+              if (event.key === 'Escape') event.stopPropagation();
+              return;
+            }
             if (event.key === 'Enter') {
               event.preventDefault();
               event.stopPropagation();

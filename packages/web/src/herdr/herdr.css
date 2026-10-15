@@ -11,13 +11,8 @@
 .herdr-machine select { min-width:0; width:100%; }
 .herdr-sidebar-actions { padding:0 12px 14px; }
 .herdr-sidebar-actions>button { width:100%; justify-content:flex-start; }
-.herdr-search { margin:0 12px 20px; position:relative; }
-.herdr-search>svg { position:absolute; inset-inline-start:9px; top:6px; z-index:1; color:var(--surface-muted-foreground); }
-.herdr-search input { padding-inline-start:31px; }
 .herdr-section-label { display:flex; align-items:center; justify-content:space-between; padding:0 18px 10px; color:var(--surface-muted-foreground); font-size:11px; font-weight:500; }
 .herdr-section-label span { font-variant-numeric:tabular-nums; }
-.herdr-workspace-list { flex:1; min-height:0; overflow:auto; padding:0 8px; }
-.herdr-workspace-list>p { padding:12px; }
 .herdr-workspace { width:100%; gap:9px; justify-content:flex-start; margin-block-end:4px; font-weight:400; }
 .herdr-workspace>span { text-align:start; overflow:hidden; text-overflow:ellipsis; flex:1; }
 .herdr-workspace.is-selected,.herdr-view-tabs button[aria-pressed=true],.herdr-terminal-tabs button[aria-pressed=true],.herdr-sidebar-footer button[aria-pressed=true] { background:var(--interactive-selection); color:var(--interactive-selection-foreground); }

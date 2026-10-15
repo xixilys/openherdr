@@ -286,5 +286,103 @@
     "phone_cutover": "not_performed",
     "pdf_application_preview": "blank_unresolved",
     "full_settings_and_android_parity": "unfinished"
+  },
+  "existing_window_search_increment": {
+    "checked_at_utc": "2026-10-15T18:23:10.396Z",
+    "source_base_revision": "322b586ccaec2942f3ee4ae1bb563a601881862d",
+    "implementation": "original_submitted_search_and_shared_contextual_rows_cards_with_real_herdr_snapshot",
+    "focused_and_retained_cases": 47,
+    "actual_herdr_search_cases": 11,
+    "shared_row_cases": 3,
+    "search_card_and_original_wrapper_cases": 2,
+    "shared_input_cases": 4,
+    "retained_monitor_restore_cases": 27,
+    "retained_scope": "Monitor/restore ran before the Escape-only input fix; affected input/search/original-sheet cases passed after it",
+    "source_review": "no_unresolved_P1_P2_in_examined_scope",
+    "repository_checks": "passed",
+    "original_web_build": "passed",
+    "herdr_web_build": "passed",
+    "android_debug_build": "passed",
+    "apk": {
+      "path": "packages/mobile/openherdr/android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 42334370,
+      "entry": "herdr-M8bqgRJI.js",
+      "web_html_exact": true,
+      "entry_exact": true,
+      "scanner_registered": true,
+      "secure_storage_registered": true,
+      "native_libraries": 12,
+      "installed": false,
+      "native_execution": "not_run"
+    },
+    "public_http": {
+      "requests": 14,
+      "all_saved_machines_passed": 4,
+      "snapshots": [
+        {
+          "machine": "Local",
+          "workspaces": 2,
+          "tabs": 3,
+          "panes": 3,
+          "display_name_search_found_exact_pane": true,
+          "direct_terminal_and_ancestry_before_after": true,
+          "visible_panes_read": 1,
+          "output_query_title_cwd_recorded": false
+        },
+        {
+          "machine": "WSL",
+          "workspaces": 20,
+          "tabs": 20,
+          "panes": 25,
+          "display_name_search_found_exact_pane": true,
+          "direct_terminal_and_ancestry_before_after": true,
+          "visible_panes_read": 1,
+          "output_query_title_cwd_recorded": false
+        },
+        {
+          "machine": "JP API",
+          "workspaces": 7,
+          "tabs": 7,
+          "panes": 7,
+          "display_name_search_found_exact_pane": true,
+          "direct_terminal_and_ancestry_before_after": true,
+          "visible_panes_read": 1,
+          "output_query_title_cwd_recorded": false
+        },
+        {
+          "machine": "Kansas",
+          "workspaces": 3,
+          "tabs": 3,
+          "panes": 9,
+          "display_name_search_found_exact_pane": true,
+          "direct_terminal_and_ancestry_before_after": true,
+          "visible_panes_read": 1,
+          "output_query_title_cwd_recorded": false
+        }
+      ],
+      "health": 200,
+      "unauthenticated_private": 401,
+      "own_client_revoked": true,
+      "revoked_bearer": 401,
+      "pane_input": "not_sent",
+      "preferences_files_git": "not_changed",
+      "scope": "current parser/projection and real public data; not browser UI"
+    },
+    "backend": "unchanged_existing_settings_instance",
+    "hosted_html_entry": "herdr-CXWKWYR7.js",
+    "hosted_ui_upgrade": "not_performed",
+    "new_connector": "not_created",
+    "phone_cutover": "not_performed",
+    "browser": {
+      "actual_new_window_search_ui": "not_executed",
+      "prior_public_and_loopback_navigation": "Chrome_ERR_BLOCKED_BY_CLIENT",
+      "equivalent_retry_or_workaround": "not_attempted",
+      "pixel_layout_gestures_native_keyboard": "not_verified"
+    },
+    "first_phone_apk_and_public_release": "unchanged",
+    "existing_four_cf_instances": "preserved",
+    "pdf_application_preview": "blank_unresolved",
+    "full_feature_ui_parity": "unfinished",
+    "next_priority": "actual_android_delivery_and_acceptance_before_another_feature_family"
   }
 }

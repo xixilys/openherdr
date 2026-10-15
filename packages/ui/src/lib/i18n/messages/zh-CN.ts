@@ -21,6 +21,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "herdr.files.nativeDownloadLimit": "原生分享仅支持不超过 8 MiB 的文件。",
+  "herdr.monitor.search": "搜索窗口",
+  "herdr.monitor.tabs": "页签",
+  "herdr.monitor.panes": "窗格",
   "herdr.monitor.recentText": "最近终端输出",
   "herdr.monitor.title": "监控",
   "herdr.monitor.readOnly": "只读查看",

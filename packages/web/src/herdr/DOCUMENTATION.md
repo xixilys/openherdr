@@ -495,6 +495,34 @@ response.
 
 ## Runtime behavior
 
+`HerdrWindowNavigation` uses the original submitted `SessionSearchInput`,
+`MobileSessionRowView` and `MobileSessionsSearchResultsView` for existing-window
+discovery. `window-navigation.ts` projects only the selected machine's parsed
+snapshot, retaining native order and exact workspace/tab/pane ancestry. Search
+matches names, IDs, terminal titles and already-present cwd metadata through the
+original ranked matcher. It adds no terminal-content read or other-machine poll.
+The pane display fallback is label, title, stripped terminal title, then ID.
+
+The navigation component is keyed by origin and machine, so switching machines
+withdraws its query and unsubmitted search draft. While the drawer closes or is
+hidden, it holds its last snapshot for the original exit presentation and does
+not project background snapshot updates. Search submission and clearing change
+no terminal draft or delivery record. Pane selection goes through HerdrApp's
+current fresh snapshot, complete ancestry and terminal identity before the
+existing Monitor/restore owner takes over. Failed reads retain stale rows with
+selection disabled; a failed first read never displays an authoritative empty
+result. Successful empty results remain distinct from failure.
+
+The original OpenCode mobile sheet keeps its own domain hooks, result order,
+subsession filter, live/unread state, rename and swipe actions around the same
+row/card presentation. Herdr supplies genuine native pane status and does not
+create OpenCode Session records or initialize those original owners. This
+bounded search flow does not add pinning, ordering or archive semantics. DOM
+fixtures cover the real submitted input, authenticated requests, machine and
+terminal changes, failure, selection, drafts and browser-storage restoration.
+They do not establish real drawer layout, native keyboard/Back, gestures,
+application-process relaunch or public browser execution.
+
 | Runtime | Behavior |
 | --- | --- |
 | Browser/PWA | Dedicated responsive app, explicit pairing/bearer HTTP; compact chat composer and a desktop history toolbar |

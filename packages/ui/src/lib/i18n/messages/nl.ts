@@ -20,6 +20,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
   "herdr.files.nativeDownloadLimit": "Delen via het apparaat is beperkt tot bestanden van maximaal 8 MiB.",
+  "herdr.monitor.search": "Vensters zoeken",
+  "herdr.monitor.tabs": "Tabbladen",
+  "herdr.monitor.panes": "Deelvensters",
   "herdr.monitor.recentText": "Recente terminaluitvoer",
   "herdr.monitor.title": "Monitor",
   "herdr.monitor.readOnly": "Alleen-lezenweergave",

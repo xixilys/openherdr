@@ -124,18 +124,24 @@ test('edits preserve applied results until Enter and clearing applies immediatel
 
 test('IME confirmation does not submit or clear the query', async () => {
   const view = await fixture();
+  let outerEscapes = 0;
+  const outerKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') outerEscapes += 1; };
+  document.addEventListener('keydown', outerKeyDown);
   try {
     await view.compose('compositionstart');
     await view.type('人工');
     expect((await view.key('Enter')).defaultPrevented).toBe(false);
-    await view.key('Escape', { isComposing: true });
+    expect((await view.key('Escape', { isComposing: true })).defaultPrevented).toBe(false);
+    expect(outerEscapes).toBe(0);
     expect(view.input.value).toBe('人工');
     await view.compose('compositionend');
+    expect((await view.key('Escape', { keyCode: 229 })).defaultPrevented).toBe(false);
+    expect(outerEscapes).toBe(0);
     await view.key('Enter', { keyCode: 229 });
     expect(view.searches).toEqual([]);
     await view.key('Enter');
     expect(view.searches).toEqual(['人工']);
-  } finally { await view.cleanup(); }
+  } finally { document.removeEventListener('keydown', outerKeyDown); await view.cleanup(); }
 });
 
 test('Escape clears the draft first, then closes; external resets replace unsent text', async () => {

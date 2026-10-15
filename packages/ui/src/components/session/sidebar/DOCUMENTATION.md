@@ -355,7 +355,9 @@ Dedicated search fields in the sidebar, mobile session list, and archive submit
 only on Enter. `SessionSearchInput` owns draft text locally; list owners receive
 only committed queries, so typing does not invalidate the session tree. Clearing
 the field resets the applied query immediately. IME confirmation and held Enter
-do not submit. Escape clears text first, then closes the sidebar search when
+do not submit. Composing Escape keeps its native candidate-cancellation behavior
+and stops propagation before an enclosing drawer or search surface can close.
+Outside composition, Escape clears text first, then closes the sidebar search when
 already empty. Session rows receive one stable reset action rather than transient
 search-open or draft state. Closing a retained mobile search discards unsubmitted
 text.

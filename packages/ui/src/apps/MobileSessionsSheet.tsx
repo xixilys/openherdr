@@ -117,6 +117,8 @@ import {
 } from './mobileSessionFields';
 import { MobileProjectEditSurface } from './MobileProjectEditSurface';
 import { MobileSessionsDrawerView } from './MobileSessionsDrawerView';
+import { MobileSessionRowView } from './MobileSessionRowView';
+import { MobileSessionsSearchResultsView } from './MobileSessionsSearchResultsView';
 import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
 import { CollapsedActivityIndicator } from '@/components/session/sidebar/sessions/collapsedActivityIndicator';
 import { useCollapsedSessionActivityState } from '@/components/session/sidebar/sessions/collapsedActivityState';
@@ -396,56 +398,105 @@ const SessionRow: React.FC<{
   const pendingRequests = usePendingRequests(familyIds);
 
   const rowContent = (
-    <>
-      {isTreeRow && hasChildren && onToggleChildren ? (
-        // A thumb-sized target around the 14px chevron slot.
-        <button
-          type="button"
-          className="absolute z-10 flex w-[30px] items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={{ insetInlineStart: treeRowLeft(treeDepth) - 8, top: 0, bottom: 0, touchAction: 'manipulation' }}
-          aria-label={expanded
-            ? t('sessions.sidebar.session.subsessions.collapse')
-            : t('sessions.sidebar.session.subsessions.expand')}
-          aria-expanded={expanded}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleChildren();
-          }}
-        >
-          <FileTreeChevron expanded={expanded} />
-        </button>
-      ) : null}
-      {/* Left gutter slot: live activity indicator takes priority over the
-          subsession chevron — same position, so rows never shift. When the
-          row has children the slot still toggles them either way. */}
-      {!statusOnRight && (aiRename.pending || isStreaming || showUnreadDot || (hasChildren && onToggleChildren)) ? (
-        <button
-          type="button"
-          className="absolute z-10 flex w-6 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={{ insetInlineStart: Math.max(indent - 32, 2), top: 0, bottom: 0, touchAction: 'manipulation' }}
-          aria-label={aiRename.pending
-            ? t('sessions.aiRename.generating')
-            : expanded
-              ? t('sessions.sidebar.session.subsessions.collapse')
-              : t('sessions.sidebar.session.subsessions.expand')}
-          disabled={!hasChildren || !onToggleChildren}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleChildren?.();
-          }}
-        >
-          {aiRename.pending ? (
-            <Icon name="loader-4" className="size-3 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
-          ) : isStreaming || showUnreadDot ? (
-            <SessionActivityIndicator
-              state={turnActivity ?? 'unread'}
+    <MobileSessionRowView
+      title={title}
+      active={active}
+      indent={textIndent}
+      contextLabel={contextLabel}
+      embedded={swipeEnabled}
+      onSelect={() => {
+        // A tap while the actions are out just closes them.
+        if (revealed) {
+          onRevealedChange?.(false);
+          return;
+        }
+        onSelect();
+      }}
+      leading={(
+        <>
+          {isTreeRow && hasChildren && onToggleChildren ? (
+            // A thumb-sized target around the 14px chevron slot.
+            <button
+              type="button"
+              className="absolute z-10 flex w-[30px] items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              style={{ insetInlineStart: treeRowLeft(treeDepth) - 8, top: 0, bottom: 0, touchAction: 'manipulation' }}
+              aria-label={expanded
+                ? t('sessions.sidebar.session.subsessions.collapse')
+                : t('sessions.sidebar.session.subsessions.expand')}
+              aria-expanded={expanded}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleChildren();
+              }}
+            >
+              <FileTreeChevron expanded={expanded} />
+            </button>
+          ) : null}
+          {/* Left gutter slot: live activity indicator takes priority over the
+              subsession chevron — same position, so rows never shift. When the
+              row has children the slot still toggles them either way. */}
+          {!statusOnRight && (aiRename.pending || isStreaming || showUnreadDot || (hasChildren && onToggleChildren)) ? (
+            <button
+              type="button"
+              className="absolute z-10 flex w-6 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              style={{ insetInlineStart: Math.max(indent - 32, 2), top: 0, bottom: 0, touchAction: 'manipulation' }}
+              aria-label={aiRename.pending
+                ? t('sessions.aiRename.generating')
+                : expanded
+                  ? t('sessions.sidebar.session.subsessions.collapse')
+                  : t('sessions.sidebar.session.subsessions.expand')}
+              disabled={!hasChildren || !onToggleChildren}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleChildren?.();
+              }}
+            >
+              {aiRename.pending ? (
+                <Icon name="loader-4" className="size-3 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
+              ) : isStreaming || showUnreadDot ? (
+                <SessionActivityIndicator
+                  state={turnActivity ?? 'unread'}
+                />
+              ) : (
+                <RiArrowDownSLine className={cn('size-[18px] transition-transform duration-150', expanded ? 'rotate-0' : '-rotate-90 rtl:rotate-90')} />
+              )}
+            </button>
+          ) : null}
+        </>
+      )}
+      trailing={(
+        <>
+          {pin?.pinned ? (
+            <Icon name="pushpin" className="size-3 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.session.status.pinned')} />
+          ) : null}
+          {statusOnRight && (aiRename.pending || isStreaming || showUnreadDot) ? (
+            aiRename.pending
+              ? <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
+              : <SessionActivityIndicator
+                  state={turnActivity ?? 'unread'}
+                />
+          ) : null}
+          {showDoneHint ? (
+            <Icon name="check" className="size-3.5 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.session.work.doneSuggested')} />
+          ) : null}
+          {/* Goal and waiting requests sit before the time, so the time
+              column stays aligned from row to row. */}
+          <MobileSessionGoalGlyph session={session} />
+          <MobileSessionPendingBadges {...pendingRequests} />
+          {/* The elapsed turn takes the time slot while it matters, then
+              hands it back to the relative timestamp. */}
+          {showActivityDuration ? (
+            <SessionActivityDuration
+              sessionId={session.id}
+              running={isStreaming}
+              className="typography-micro"
             />
-          ) : (
-            <RiArrowDownSLine className={cn('size-[18px] transition-transform duration-150', expanded ? 'rotate-0' : '-rotate-90 rtl:rotate-90')} />
-          )}
-        </button>
-      ) : null}
-      {renaming && onSubmitRename && onCancelRename ? (
+          ) : time ? (
+            <span className="shrink-0 typography-micro text-muted-foreground tabular-nums">{time}</span>
+          ) : null}
+        </>
+      )}
+      replacement={renaming && onSubmitRename && onCancelRename ? (
         <MobileSessionRenameForm
           initialTitle={title}
           indent={textIndent}
@@ -453,94 +504,11 @@ const SessionRow: React.FC<{
           onSubmit={onSubmitRename}
           onCancel={onCancelRename}
         />
-      ) : (
-      <button
-        type="button"
-        // Single-line rows: fixed h-9 (36px) to match MobileSessionRenameForm
-        // exactly — min-h-* utilities lose the specificity fight against
-        // mobile.css's global 36px button floor anyway, so make the real
-        // height explicit. Two-line rows (search results with a context
-        // subtitle) keep flexible height.
-        className={cn(
-          'flex min-w-0 flex-1 items-center gap-2.5 pe-3.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-          contextLabel ? 'min-h-10 py-1' : 'h-9',
-        )}
-        style={{ paddingInlineStart: textIndent, touchAction: 'manipulation' }}
-        onClick={() => {
-          // A tap while the actions are out just closes them.
-          if (revealed) {
-            onRevealedChange?.(false);
-            return;
-          }
-          onSelect();
-        }}
-      >
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="flex items-center gap-2.5">
-            <span
-              dir="auto"
-              className={cn(
-                'block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label',
-                active ? 'text-primary' : 'text-foreground',
-              )}
-            >
-              {title}
-            </span>
-            {pin?.pinned ? (
-              <Icon name="pushpin" className="size-3 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.session.status.pinned')} />
-            ) : null}
-            {statusOnRight && (aiRename.pending || isStreaming || showUnreadDot) ? (
-              aiRename.pending
-                ? <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
-                : <SessionActivityIndicator
-                    state={turnActivity ?? 'unread'}
-                  />
-            ) : null}
-            {showDoneHint ? (
-              <Icon name="check" className="size-3.5 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.session.work.doneSuggested')} />
-            ) : null}
-            {/* Goal and waiting requests sit before the time, so the time
-                column stays aligned from row to row. */}
-            <MobileSessionGoalGlyph session={session} />
-            <MobileSessionPendingBadges {...pendingRequests} />
-            {/* The elapsed turn takes the time slot while it matters, then
-                hands it back to the relative timestamp. */}
-            {showActivityDuration ? (
-              <SessionActivityDuration
-                sessionId={session.id}
-                running={isStreaming}
-                className="typography-micro"
-              />
-            ) : time ? (
-              <span className="shrink-0 typography-micro text-muted-foreground tabular-nums">{time}</span>
-            ) : null}
-          </span>
-          {contextLabel ? (
-            <span className="block truncate typography-micro text-muted-foreground">{contextLabel}</span>
-          ) : null}
-        </span>
-      </button>
-      )}
-    </>
+      ) : undefined}
+    />
   );
 
-  // Plain rows (search results on an elevated card) keep the translucent
-  // treatment; swipeable rows need an OPAQUE background so the action buttons
-  // stay hidden behind the content until it slides.
-  if (!swipeEnabled) {
-    return (
-      <div data-active-session={active || undefined} className="relative overflow-hidden">
-        <div
-          className={cn(
-            'relative flex items-center gap-1 transition-colors',
-            active && 'bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]',
-          )}
-        >
-          {rowContent}
-        </div>
-      </div>
-    );
-  }
+  if (!swipeEnabled) return rowContent;
 
   return (
     <MobileSwipeActionsRow
@@ -2103,74 +2071,65 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
               description={t('mobile.sessions.empty.searchDescription')}
             />
           ) : normalizedQuery && !editingOrder ? (
-            <div className="flex flex-col gap-3 px-3 pt-2">
-              {searchSessionMatches.length > 0 ? (
-                <section>
-                  <div className="flex items-center justify-between px-1 pb-1.5">
-                    <span className="typography-micro font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('mobile.sessions.search.section.sessions')}
-                    </span>
-                    <span className="typography-micro text-muted-foreground tabular-nums">
-                      {searchSessionMatches.length}
-                    </span>
-                  </div>
-                  <div className="overflow-hidden rounded-2xl border border-border/70 bg-[var(--surface-elevated)]">
-                    {searchSessionMatches.map((session, index) => (
-                      <div key={session.id} className={cn(index > 0 && 'border-t border-border/70')}>
-                        <SessionRow
-                          session={session}
-                          active={currentSessionId === session.id}
-                          indent={12}
-                          contextLabel={buildSessionContextLabel(session)}
-                          onSelect={() => handleSelectSession(session)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-
-              {searchProjectMatches.length > 0 ? (
-                <section>
-                  <div className="flex items-center justify-between px-1 pb-1.5">
-                    <span className="typography-micro font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('mobile.sessions.search.section.projects')}
-                    </span>
-                    <span className="typography-micro text-muted-foreground tabular-nums">
-                      {searchProjectMatches.length}
-                    </span>
-                  </div>
-                  <div className="overflow-hidden rounded-2xl border border-border/70 bg-[var(--surface-elevated)]">
-                    {searchProjectMatches.map((project, index) => (
-                      <div
-                        key={project.id}
-                        className={cn('flex items-center', index > 0 && 'border-t border-border/70')}
-                      >
-                        <button
-                          type="button"
-                          className="flex min-h-12 min-w-0 flex-1 items-center gap-3 px-3 py-1.5 text-start transition-colors hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                          onClick={() => handleSelectProject(project)}
-                          style={{ touchAction: 'manipulation' }}
+            <MobileSessionsSearchResultsView
+              sections={[
+                {
+                  id: 'sessions',
+                  label: t('mobile.sessions.search.section.sessions'),
+                  count: searchSessionMatches.length,
+                  rows: (
+                    <>
+                      {searchSessionMatches.map((session, index) => (
+                        <div key={session.id} className={cn(index > 0 && 'border-t border-border/70')}>
+                          <SessionRow
+                            session={session}
+                            active={currentSessionId === session.id}
+                            indent={12}
+                            contextLabel={buildSessionContextLabel(session)}
+                            onSelect={() => handleSelectSession(session)}
+                          />
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+                {
+                  id: 'projects',
+                  label: t('mobile.sessions.search.section.projects'),
+                  count: searchProjectMatches.length,
+                  rows: (
+                    <>
+                      {searchProjectMatches.map((project, index) => (
+                        <div
+                          key={project.id}
+                          className={cn('flex items-center', index > 0 && 'border-t border-border/70')}
                         >
-                          <MobileProjectIcon project={project} />
-                          <span className="block min-w-0 flex-1 truncate typography-ui-label text-foreground">
-                            {project.label}
-                          </span>
-                        </button>
-                        {project.isGitRepo ? (
-                          <NewWorktreeIconButton onClick={() => handleNewWorktree(project.id)} />
-                        ) : null}
-                        <NewSessionIconButton
-                          className="me-2"
-                          label={t('mobile.sessions.newSessionInProjectAria', { label: project.label })}
-                          onClick={() => handleNewSessionInProject(project)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-            </div>
+                          <button
+                            type="button"
+                            className="flex min-h-12 min-w-0 flex-1 items-center gap-3 px-3 py-1.5 text-start transition-colors hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                            onClick={() => handleSelectProject(project)}
+                            style={{ touchAction: 'manipulation' }}
+                          >
+                            <MobileProjectIcon project={project} />
+                            <span className="block min-w-0 flex-1 truncate typography-ui-label text-foreground">
+                              {project.label}
+                            </span>
+                          </button>
+                          {project.isGitRepo ? (
+                            <NewWorktreeIconButton onClick={() => handleNewWorktree(project.id)} />
+                          ) : null}
+                          <NewSessionIconButton
+                            className="me-2"
+                            label={t('mobile.sessions.newSessionInProjectAria', { label: project.label })}
+                            onClick={() => handleNewSessionInProject(project)}
+                          />
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+              ]}
+            />
           ) : editingOrder ? (
             <div className="flex flex-col gap-2 px-3 py-2">
               <p className="px-1 typography-micro text-muted-foreground">

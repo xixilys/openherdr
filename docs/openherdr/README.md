@@ -139,6 +139,12 @@ pane. Agent terminals and ordinary dashboards use the same window list. The
 screen comes from that machine's existing Herdr service; a Codex session ID is
 not required. Agent state appears only when Herdr reports it.
 
+In the window drawer, enter a name, ID or current directory in Search windows
+and press Enter. Results include matching panes in other workspaces on that
+machine, with their workspace and tab context. Typing leaves the current results
+in place until submission. Clear search returns to the hierarchy. Selecting a
+pane returns to Monitor; search and clearing send no terminal input.
+
 Monitor is read-only. Screen observation falls back to the pane's visible text
 when the stream is unavailable. Read failures retain the last successful
 content and show its time. Switching targets clears the previous target's

@@ -1,6 +1,45 @@
 # Native build validation
 
-## Latest Settings build
+## Latest existing-window search build
+
+The debug APK is 42,334,370 bytes and packages `herdr-M8bqgRJI.js`. Its HTML and
+entry bytes exactly match the isolated Web output. Scanner, secure storage and
+12 native libraries remain packaged. Original Web and Herdr builds, Capacitor
+Android sync and Gradle assembleDebug pass. Gradle reports 8 seconds and 245
+tasks, 27 executed and 218 up-to-date, using the existing task cache and NDK
+27.1. The fixed first-phone APK and public prerelease are unchanged. This new
+APK has not been installed or interactively tested.
+
+The original submitted search and contextual row/card presentation now discover
+actual workspace/tab/pane names, IDs, terminal titles and current directory
+metadata. The existing selection/Monitor/restore owners remain. 47
+relevant focused/retained cases, independent source review and the final
+type/lint/Knip/anti-slop gate pass. The IME correction consumes composing Escape
+without cancelling its native default. DOM tests cover all three composition
+signals; this is not proof of native candidate cancellation or keyboard behavior.
+
+Fourteen public HTTP requests through the existing unchanged Settings backend
+confirmed real Local/WSL/JP API/Kansas snapshots, the current search projection,
+exact selected terminal identities and one read-only visible-text request per
+machine. User output/query text was not recorded, and the test client was revoked.
+No new CF connector or origin was created. Existing hosted HTML stays at
+`herdr-CXWKWYR7.js`; the APK bundles the newer UI around the same backend contract.
+No phone connection was migrated.
+
+Actual browser search/geometry/history and Android connection, camera, KeyStore,
+Back/IME, gestures, process death and background behavior remain unverified.
+The recorded Chrome public/loopback block and unavailable device-control surface
+were not bypassed or repeatedly probed. No new phone feedback is available.
+PDF and full feature/UI parity remain unfinished. Device delivery and acceptance
+are the next priority before starting another feature family.
+
+Evidence is in `.tmp/window-search-apk.json`, `.tmp/window-search-http.json`,
+`.tmp/window-search-preservation.json`, `.tmp/check-window-search-release.log`,
+`.tmp/build-web-window-search-final.log`,
+`.tmp/build-herdr-window-search-final.log` and
+`.tmp/build-window-search-android-final.log`.
+
+## Previous Settings build
 
 The debug APK is 42,331,767 bytes and contains `herdr-CXWKWYR7.js`. Its HTML
 and entry bytes exactly match the isolated Web output. Scanner, secure storage

@@ -20,6 +20,9 @@ import { pluginsGridI18n } from './plugins-grid.i18n';
 
 export const dict = {
   "herdr.files.nativeDownloadLimit": "Sistem üzerinden paylaşım en fazla 8 MiB boyutundaki dosyaları destekler.",
+  "herdr.monitor.search": "Pencere ara",
+  "herdr.monitor.tabs": "Sekmeler",
+  "herdr.monitor.panes": "Bölmeler",
   "herdr.monitor.recentText": "Son terminal çıktısı",
   "herdr.monitor.title": "İzleme",
   "herdr.monitor.readOnly": "Salt okunur görünüm",

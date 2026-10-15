@@ -191,7 +191,7 @@ export type NativeMutationResult = z.infer<typeof nativeMutationSchema>;
 type NativeDispatchResult = { kind: 'pending'; record: PendingDelivery } | { kind: 'stored'; value: NativeMutationResult };
 
 export class HerdrTransport {
-  constructor(readonly connection: Connection, private deliveries = pendingDeliveries) {}
+  constructor(readonly connection: Connection, private deliveries = pendingDeliveries, private onAuthenticationRequired?: (connection: Connection) => void) {}
   private async response(path: string, options: RequestInit, mutation: boolean): Promise<Response> {
     let response: Response;
     try {
@@ -203,6 +203,9 @@ export class HerdrTransport {
     if (!response.ok) {
       const body: unknown = await response.json().catch(() => null);
       const parsed = errorSchema.safeParse(body);
+      if (response.status === 401 && parsed.success && parsed.data.error.code === 'unauthorized' && !options.signal?.aborted) {
+        this.onAuthenticationRequired?.(this.connection);
+      }
       throw new TransportError(parsed.success ? parsed.data.error.code : `HTTP_${response.status}`, parsed.success ? parsed.data.error.message : `HTTP ${response.status}`, mutation && (response.status >= 500 || (parsed.success && ['outcome_unknown', 'request_already_recorded'].includes(parsed.data.error.code))));
     }
     return response;

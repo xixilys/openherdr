@@ -447,3 +447,36 @@ including lazy counts, command/skill/plain routing, inline exact-case names and
 IDs, slash/inline merging, the unique-ID limit, files/delivery, failures,
 source and draft changes, fresh registry classification, null action replies
 and unknown-delivery single dispatch.
+
+## Expired-device recovery
+
+The authenticated transport reports credential rejection only for HTTP 401 with
+OpenHerdr's parsed `unauthorized` error. HTML errors, Cloudflare 530, timeouts,
+403 and an engine's `conversation_request_refused` remain ordinary request
+failures. Aborted requests cannot report authentication changes. The app also
+compares the rejected server and token with its current connection, so an old
+request cannot replace a newer connection.
+
+The connection controller keeps the rejected credential blocked in memory and
+retains its saved origin. Welcome uses the original translated expired-device
+notice, disables that saved credential, and offers explicit new pairing or
+another saved origin. Cancel and native Back cannot reveal rejected private
+content. Monitoring, conversation and host reads pause while Welcome is open;
+portal dialogs follow their owning view's visibility. Conversation action and
+model dialogs, history/message menus, note confirmations and attachment previews
+close with their owner. Hidden attachments abort pending reads, release preview
+URLs and reject open/download actions.
+
+A confirmed pairing activates only after credential persistence succeeds. A
+failed save retries storage without redeeming the one-use code again. A newer
+intake remains pending through the captured save. Saving a replacement does not
+unblock the rejected token when a newer intent prevents activation. Saved
+selection also settles its queued intake if its token is rejected during save.
+
+The connected component is keyed by origin. Replacing the same origin's token
+recreates its transport while retaining the selected machine/window, chat draft
+and pending mutation record. Another origin has a separate component owner.
+Authentication recovery neither clears an unknown delivery nor resends it.
+`AuthRecovery.vitest.tsx` exercises the actual app and fetch boundary; controller
+and transport tests cover classification and persistence/intake interleavings.
+These fixtures do not establish Android KeyStore or system Back behavior.

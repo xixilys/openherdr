@@ -105,3 +105,78 @@ test('failed redemption is not retried or treated as a saved connection', async 
   expect(f.redemptions).toHaveLength(1); expect(f.writes).toHaveLength(0); expect(f.activations).toHaveLength(0);
   expect(f.controller.getSnapshot().error).toBe('Connection reset');
 });
+
+test('a rejected saved credential cannot activate or be saved again', async () => {
+  const f = fixture(null);
+  const revoked = { server: 'https://saved.test', token: 'existing-device' };
+  f.controller.requireAuthentication(revoked, false);
+  expect(f.controller.getSnapshot().authRequiredServer).toBe(revoked.server);
+  expect(f.controller.getSnapshot().server).toBe(revoked.server);
+  await f.controller.selectSaved(revoked.server);
+  expect(f.writes).toHaveLength(0);
+  expect(f.activations).toHaveLength(0);
+  expect(f.controller.getSnapshot().saved).toEqual([revoked]);
+});
+
+test('replacement authentication persists before activation and retries only saving', async () => {
+  const f = fixture(null);
+  const revoked = { server: one.server, token: 'old-device' };
+  f.controller.requireAuthentication(revoked, false);
+  f.controller.acceptLink(link(one));
+  let fail = true;
+  f.saveWith(async () => { if (fail) throw new Error('Unavailable'); });
+  await f.controller.connect();
+  expect(f.controller.getSnapshot().phase).toBe('save-failed');
+  expect(f.controller.isRejected(revoked)).toBe(true);
+  expect(f.activations).toHaveLength(0);
+  fail = false; await f.controller.connect();
+  expect(f.redemptions).toHaveLength(1);
+  expect(f.writes).toHaveLength(2);
+  expect(f.activations).toEqual([{ server: one.server, token: 'new-device' }]);
+  expect(f.controller.getSnapshot().authRequiredServer).toBe(null);
+});
+
+test('authentication failure preserves a newer visible intent and a confirmed save retry', async () => {
+  const f = fixture();
+  f.controller.acceptLink(link(two));
+  f.controller.requireAuthentication({ server: one.server, token: 'old-device' }, true);
+  expect(f.controller.getSnapshot().pairing).toEqual(two);
+  f.saveWith(async () => { throw new Error('Unavailable'); });
+  await f.controller.connect();
+  f.controller.requireAuthentication({ server: two.server, token: 'older-device' }, false);
+  expect(f.controller.getSnapshot().phase).toBe('save-failed');
+  f.saveWith(async () => {}); await f.controller.connect();
+  expect(f.redemptions).toHaveLength(1);
+  expect(f.activations).toEqual([{ server: two.server, token: 'new-device' }]);
+});
+
+test('a rejected saved selection settles the latest queued link without activating the old credential', async () => {
+  const f = fixture(null);
+  const gate = deferred<void>(); f.saveWith(() => gate.promise);
+  const pending = f.controller.selectSaved('https://saved.test');
+  f.controller.acceptLink(link(two));
+  f.controller.requireAuthentication({ server: 'https://saved.test', token: 'existing-device' }, true);
+  gate.resolve(); await pending;
+  expect(f.activations).toHaveLength(0);
+  expect(f.controller.getSnapshot().pairing).toEqual(two);
+  f.saveWith(async () => {}); await f.controller.connect();
+  expect(f.activations).toEqual([{ server: two.server, token: 'new-device' }]);
+  expect(f.controller.getSnapshot().pairing).toBe(null);
+});
+
+test('saving a replacement with a newer queued intent keeps the current revoked token blocked', async () => {
+  const f = fixture(null);
+  const revoked = { server: one.server, token: 'old-device' };
+  f.controller.requireAuthentication(revoked, false);
+  f.controller.acceptLink(link(one));
+  const gate = deferred<void>(); f.saveWith(() => gate.promise);
+  const pending = f.controller.connect();
+  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  f.controller.acceptLink(link(two));
+  gate.resolve(); await pending;
+  expect(f.activations).toHaveLength(0);
+  expect(f.controller.isRejected(revoked)).toBe(true);
+  expect(f.controller.isRejected({ server: one.server, token: 'new-device' })).toBe(false);
+  expect(f.controller.getSnapshot().authRequiredServer).toBe(one.server);
+  expect(f.controller.getSnapshot().pairing).toEqual(two);
+});

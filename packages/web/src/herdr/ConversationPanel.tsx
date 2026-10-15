@@ -95,6 +95,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const [renameValue, setRenameValue] = React.useState('');
   const [picker, setPicker] = React.useState<'model' | 'agent' | null>(null);
   const [pickerQuery, setPickerQuery] = React.useState('');
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const [atLatest, setAtLatest] = React.useState(true);
   const alive = React.useRef(true); const selectedRef = React.useRef(selectedId); selectedRef.current = selectedId;
   const timeline = React.useRef<HTMLDivElement>(null); const content = React.useRef<HTMLDivElement>(null);
@@ -227,7 +228,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     setSnapshot(null); setActivityFresh(false); setStreamError(null); setNotice(null); following.current = true; setAtLatest(true); prependHeight.current = null;
     setNativeImagePasteEnabled(false);
   }, [selectedId]);
-  React.useEffect(() => { setPicker(null); setPickerQuery(''); }, [disabled, draftKey]);
+  React.useEffect(() => { setPicker(null); setPickerQuery(''); setDialog(null); setHistoryOpen(false); }, [disabled, draftKey]);
   const targetIdentity = resolved?.target.identity;
   React.useEffect(() => {
     if (!targetIdentity) return;
@@ -469,11 +470,11 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const visibleError = error ?? streamError;
   const hasRequest = !!(activeSnapshot?.permissions?.length || activeSnapshot?.forms?.length);
   const conversationOwner = JSON.stringify([transport.connection.server, machine, paneId, activeSnapshot?.target?.identity ?? null, activeSnapshot?.session.id, activeSnapshot?.session.directory]);
-  const attachmentSource: AttachmentSource = { transport, owner: conversationOwner, target: activeSnapshot?.target ? { machine, paneId } : null, directory: activeSnapshot?.session.directory ?? null, theme: presentationTheme, isMobile: !!navigation || isMobileSurfaceRuntime(), onOpenExternal: markdownSource.openExternalLink };
+  const attachmentSource: AttachmentSource = { transport, owner: conversationOwner, target: activeSnapshot?.target ? { machine, paneId } : null, directory: activeSnapshot?.session.directory ?? null, theme: presentationTheme, isMobile: !!navigation || isMobileSurfaceRuntime(), active: !disabled, onOpenExternal: markdownSource.openExternalLink };
 
   return <MarkdownPresentationContext.Provider value={markdownSource}><section data-composer-bound className="relative flex h-full min-h-0 flex-col bg-background text-foreground" aria-label={h('conversations')}>
     {navigation ? <MobileSessionSwitcherView open={navigation.open && !disabled} onClose={() => navigation.onOpenChange(false)} anchorRef={navigation.anchorRef} selectedId={selectedId} rows={[...rows.values()].map((session) => ({ id: session.id, title: session.id === selectedId ? title : session.title || session.id, subtitle: session.directory, activity: liveActivity && session.id === activeSnapshot?.session.id && activeSnapshot.history === null ? activeSnapshot.activity?.type === 'running' ? 'running' : 'idle' : 'unknown' }))} onSelect={(id) => { setSelectedId(id); setError(null); }} onCreate={createConversation} createDisabled={writeDisabled || resolved?.capabilities.create !== true} footer={sessionActions} /> : <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border p-3">
-      <Select value={selectedId ?? ''} onValueChange={(id) => { setSelectedId(id); setError(null); }}>
+      <Select open={!disabled && historyOpen} onOpenChange={setHistoryOpen} disabled={disabled} value={selectedId ?? ''} onValueChange={(id) => { setSelectedId(id); setError(null); }}>
         <SelectTrigger className="min-w-0 flex-1" aria-label={h('history')}><SelectValue placeholder={h('history')}>{selectedId ? rows.get(selectedId)?.title || selectedId : h('history')}</SelectValue></SelectTrigger>
         <SelectContent>{[...rows.values()].map((session) => <SelectItem value={session.id} key={session.id}><span dir="auto">{session.title || session.id}</span></SelectItem>)}</SelectContent>
       </Select>
@@ -530,7 +531,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
         </ConversationComposer>
       </div>
     </div> : null}
-    <MobileOverlayPanel open={picker !== null} onClose={closePicker} title={t(picker === 'agent' ? 'chat.modelControls.selectAgent' : 'chat.modelControls.selectModel')}>
+    <MobileOverlayPanel open={!disabled && picker !== null} onClose={closePicker} title={t(picker === 'agent' ? 'chat.modelControls.selectAgent' : 'chat.modelControls.selectModel')}>
       <div className="space-y-2 p-1">
         <Input value={pickerQuery} onChange={(event) => setPickerQuery(event.target.value)} placeholder={t(picker === 'model' ? 'chat.modelControls.searchModels' : 'chat.modelControls.searchAgents')} aria-label={t(picker === 'model' ? 'chat.modelControls.searchModels' : 'chat.modelControls.searchAgents')} />
         {picker === 'model' ? <>
@@ -539,7 +540,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
         </> : catalog?.agents.filter((item) => !item.hidden && item.mode !== 'subagent' && `${item.name} ${item.description ?? ''}`.toLocaleLowerCase().includes(pickerQuery.toLocaleLowerCase())).map((item) => <Button key={item.id} variant="ghost" className="h-auto min-h-10 w-full justify-start text-start" disabled={!writable || !activeSnapshot?.capabilities.agentSelection} aria-pressed={activeSnapshot?.session.agent === item.id} onClick={() => { void act('agent', { agent: item.id }).then((success) => { if (success) closePicker(); }); }}><span className="flex min-w-0 flex-col"><span dir="auto">{item.name}</span>{item.description ? <span dir="auto" className="typography-meta text-muted-foreground">{item.description}</span> : null}</span></Button>)}
       </div>
     </MobileOverlayPanel>
-    <Dialog open={dialog !== null} onOpenChange={(open) => { if (!open) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialog === 'rename' ? t('sessions.sidebar.session.menu.rename') : dialog === 'delete' ? t('sessions.sidebar.dialogs.deleteSession.title') : h('rebind')}</DialogTitle><DialogDescription>{dialog === 'rebind' ? h('rebindConfirm') : dialog === 'delete' ? t('sessions.sidebar.dialogs.deleteSession.single', { sessionTitle: activeSnapshot?.session.title ?? '' }) : activeSnapshot?.session.id}</DialogDescription></DialogHeader>{dialog === 'rename' ? <Input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} aria-label={t('sessions.sidebar.session.menu.rename')} /> : null}<DialogFooter><Button variant="outline" onClick={() => setDialog(null)}>{t('chat.formCard.cancel')}</Button><Button disabled={writeDisabled || (dialog === 'rename' && !renameValue.trim())} variant={dialog === 'delete' ? 'destructive' : 'default'} onClick={() => {
+    <Dialog open={!disabled && dialog !== null} onOpenChange={(open) => { if (!open) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialog === 'rename' ? t('sessions.sidebar.session.menu.rename') : dialog === 'delete' ? t('sessions.sidebar.dialogs.deleteSession.title') : h('rebind')}</DialogTitle><DialogDescription>{dialog === 'rebind' ? h('rebindConfirm') : dialog === 'delete' ? t('sessions.sidebar.dialogs.deleteSession.single', { sessionTitle: activeSnapshot?.session.title ?? '' }) : activeSnapshot?.session.id}</DialogDescription></DialogHeader>{dialog === 'rename' ? <Input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} aria-label={t('sessions.sidebar.session.menu.rename')} /> : null}<DialogFooter><Button variant="outline" onClick={() => setDialog(null)}>{t('chat.formCard.cancel')}</Button><Button disabled={writeDisabled || (dialog === 'rename' && !renameValue.trim())} variant={dialog === 'delete' ? 'destructive' : 'default'} onClick={() => {
       if (dialog === 'rebind' && resolved && selectedId) { const expected = selectedId; void mutate('rebind', { target: resolved.target, sessionId: selectedId }, driverCreateSchema, 'rebind').then((value) => { if (value && alive.current && selectedRef.current === expected) { setDialog(null); setReload((n) => n + 1); } }); }
       else if (dialog === 'rename') void act('rename', { title: renameValue.trim() }).then((complete) => { if (complete && alive.current) setDialog(null); });
       else if (dialog === 'delete') void act('delete', {}).then((complete) => { if (complete && alive.current) setDialog(null); });
@@ -561,11 +562,13 @@ function ConversationMessage({ record, streaming, live, writable, onFork, expand
   }, []);
   const expandMessage = React.useCallback(() => setExpanded(true), []);
   const [copyState, setCopyState] = React.useState<'copied' | 'error' | null>(null);
+  const [actionsOpen, setActionsOpen] = React.useState(false);
+  React.useEffect(() => { if (attachmentSource.active === false) setActionsOpen(false); }, [attachmentSource.active]);
   const active = streaming && message.role === 'assistant' && message.time.completed === undefined && message.finish === undefined;
   const text = record.parts.filter((part) => part.type === 'text').map((part) => part.text).join('\n');
   const actions = message.role === 'user' || message.role === 'assistant' ? <div className="mt-1 flex items-center gap-1">
     {copyState ? <span role="status" className="typography-micro text-muted-foreground">{t(copyState === 'copied' ? 'chat.messageBody.toast.copied' : 'mobile.files.toast.copyFailed')}</span> : null}
-    <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="size-8 text-muted-foreground" aria-label={t('chat.messageBody.actions.moreActions')}><Icon name="more" className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+    <DropdownMenu open={attachmentSource.active !== false && actionsOpen} onOpenChange={setActionsOpen}><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" disabled={attachmentSource.active === false} className="size-8 text-muted-foreground" aria-label={t('chat.messageBody.actions.moreActions')}><Icon name="more" className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
       <DropdownMenuLabel><time dateTime={new Date(message.time.created).toISOString()}>{new Date(message.time.created).toLocaleString(locale)}</time></DropdownMenuLabel>
       {text ? <DropdownMenuItem onClick={() => { void copyTextToClipboard(text).then((result) => setCopyState(result.ok ? 'copied' : 'error')).catch(() => setCopyState('error')); }}><Icon name="file-copy" className="size-4" />{t('chat.messageBody.actions.copyMessage')}</DropdownMenuItem> : null}
       {writable ? <DropdownMenuItem onClick={onFork}><Icon name="git-branch" className="size-4" />{t('chat.messageBody.actions.fork')}</DropdownMenuItem> : null}

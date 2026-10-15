@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { z } from 'zod';
 import { isCapacitorApp } from '@/lib/platform';
 import { Button } from '@/components/ui/button';
@@ -43,41 +43,57 @@ export function HerdrApp({ initialPairing, initialError }: { initialPairing: Pai
   const { t, locale, locales, label, setLocale } = useI18n();
   const [connection, setConnection] = useState<Connection | null>(() => initialError ? null : savedConnections()[0] ?? null);
   const [connectOpen, setConnectOpen] = useState(!!initialPairing || !!initialError);
+  const currentConnection = useRef(connection);
+  currentConnection.current = connection;
   const [flow] = useState(() => new HerdrConnectionController({ initialize: initializeConnections, list: savedConnections, redeem, save: saveConnection }, result => {
+    currentConnection.current = result;
     setConnection(result); setConnectOpen(false);
   }, {
     server: initialPairing?.server ?? (!isCapacitorApp() && /^https?:$/.test(window.location.protocol) ? window.location.origin : ''),
     pairing: initialPairing, error: initialError,
   }));
+  useSyncExternalStore(flow.subscribe, flow.getSnapshot);
   useEffect(() => { flow.setActive(true); return () => flow.setActive(false); }, [flow]);
   const backHandler = useRef<(() => boolean) | null>(null);
   const installBackHandler = useCallback((handler: (() => boolean) | null) => { backHandler.current = handler; }, []);
   const connectionPage = useRef({ open: connectOpen, connected: !!connection });
   connectionPage.current = { open: connectOpen, connected: !!connection };
   const closeConnection = useCallback(() => {
-    if (['editing', 'save-failed'].includes(flow.getSnapshot().phase)) setConnectOpen(false);
+    if (currentConnection.current && flow.isRejected(currentConnection.current)) return;
+    if (['editing', 'save-failed'].includes(flow.getSnapshot().phase)) { connectionPage.current.open = false; setConnectOpen(false); }
   }, [flow]);
   const nativeBack = useCallback(() => {
     if (closeTopmostBackLayer()) return true;
-    if (connectionPage.current.open && connectionPage.current.connected) { closeConnection(); return true; }
+    if (connectionPage.current.open) {
+      if (currentConnection.current && flow.isRejected(currentConnection.current)) return false;
+      if (connectionPage.current.connected) { closeConnection(); return true; }
+      return false;
+    }
     return backHandler.current?.() || false;
-  }, [closeConnection]);
-  const nativePairing = useCallback((url: string) => { flow.acceptLink(url); setConnectOpen(true); }, [flow]);
+  }, [closeConnection, flow]);
+  const requireAuthentication = useCallback((rejected: Connection) => {
+    const current = currentConnection.current;
+    if (!current || current.server !== rejected.server || current.token !== rejected.token) return;
+    flow.requireAuthentication(rejected, connectionPage.current.open);
+    connectionPage.current.open = true;
+    setConnectOpen(true);
+  }, [flow]);
+  const nativePairing = useCallback((url: string) => { connectionPage.current.open = true; flow.acceptLink(url); setConnectOpen(true); }, [flow]);
   useHerdrNative(nativeBack, nativePairing);
   const [dark, setDark] = useState(() => localStorage.getItem('openherdr.theme') !== 'light');
   useEffect(() => { if (connection) return; new CSSVariableGenerator().apply(dark ? darkTheme : lightTheme); localStorage.setItem('openherdr.theme', dark ? 'dark' : 'light'); }, [dark, connection]);
   const languageControls = <select className={dropdownTriggerVariants()} value={locale} onChange={event => { const next = locales.find(item => item === event.target.value); if (next) void setLocale(next); }} aria-label={t('settings.appearance.language.label')}>{locales.map(item => <option key={item} value={item}>{label(item)}</option>)}</select>;
   const commonControls = <><Button variant="ghost" size="icon" aria-label={t(dark ? 'contextPanel.browser.device.schemeLight' : 'contextPanel.browser.device.schemeDark')} onClick={() => setDark(!dark)}><Icon name={dark ? 'lightbulb' : 'flashlight'} className="size-4" /></Button>{languageControls}</>;
 
-  const welcome = <ConnectionWelcome controller={flow} toolbar={connection ? languageControls : commonControls} onClose={connection ? closeConnection : null} />;
+  const welcome = <ConnectionWelcome controller={flow} toolbar={connection ? languageControls : commonControls} onClose={connection && !flow.isRejected(connection) ? closeConnection : null} />;
   if (!connection) return welcome;
-  return <><div hidden={connectOpen}><ConnectedApp visible={!connectOpen} installBackHandler={installBackHandler} key={`${connection.server}:${connection.token}`} connection={connection} languageControls={languageControls} disconnect={async () => { await forgetConnection(connection.server); flow.refreshSaved(); setConnection(null); }} changeServer={() => { flow.refreshSaved(); setConnectOpen(true); }} /></div>{connectOpen && welcome}</>;
+  return <><div hidden={connectOpen}><ConnectedApp visible={!connectOpen} installBackHandler={installBackHandler} key={connection.server} connection={connection} onAuthenticationRequired={requireAuthentication} languageControls={languageControls} disconnect={async () => { await forgetConnection(connection.server); flow.refreshSaved(); currentConnection.current = null; setConnection(null); }} changeServer={() => { connectionPage.current.open = true; flow.refreshSaved(); setConnectOpen(true); }} /></div>{connectOpen && welcome}</>;
 }
 
-function ConnectedApp({ visible, installBackHandler, connection, languageControls, disconnect, changeServer }: { visible: boolean; installBackHandler: (handler: (() => boolean) | null) => void; connection: Connection; languageControls: React.ReactNode; disconnect: () => Promise<void>; changeServer: () => void }) {
+function ConnectedApp({ visible, installBackHandler, connection, onAuthenticationRequired, languageControls, disconnect, changeServer }: { visible: boolean; installBackHandler: (handler: (() => boolean) | null) => void; connection: Connection; onAuthenticationRequired: (connection: Connection) => void; languageControls: React.ReactNode; disconnect: () => Promise<void>; changeServer: () => void }) {
   const { t } = useI18n();
   const h = useHerdrText();
-  const [transport] = useState(() => new HerdrTransport(connection));
+  const transport = useMemo(() => new HerdrTransport(connection, undefined, onAuthenticationRequired), [connection, onAuthenticationRequired]);
   const [machine, setMachine] = useState('local');
   const [workspaceId, setWorkspaceId] = useState('');
   const [tabId, setTabId] = useState('');
@@ -157,7 +173,7 @@ function ConnectedApp({ visible, installBackHandler, connection, languageControl
   const machines = usePolling(readMachines, visible, 15000);
   const readInfo = useCallback((signal: AbortSignal) => transport.request('/api/herdr/info', infoSchema, { signal }), [transport]);
   const info = usePolling(readInfo, visible, 30000);
-  const preferences = useHerdrPreferences(transport, isMobile ? 'mobile' : 'web');
+  const preferences = useHerdrPreferences(transport, isMobile ? 'mobile' : 'web', visible);
   const [prefersDark, setPrefersDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
     const query = window.matchMedia('(prefers-color-scheme: dark)');

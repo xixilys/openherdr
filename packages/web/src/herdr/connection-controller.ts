@@ -17,6 +17,7 @@ type ConnectionState = {
   saved: Connection[];
   intakeRevision: number;
   savingSaved: string | null;
+  authRequiredServer: string | null;
 };
 
 /** Owns one-use redemption and the credential that must be saved afterward. */
@@ -27,9 +28,10 @@ export class HerdrConnectionController {
   private confirmed: Connection | null = null;
   private queuedIntent: PairingIntent | null = null;
   private active = true;
+  private rejected = new Map<string, string>();
 
   constructor(private operations: ConnectionOperations, private onConnected: (connection: Connection) => void, initial: { server: string; pairing: Pairing | null; error: string | null }) {
-    this.state = { ...initial, pairingText: '', phase: 'editing', saved: operations.list(), intakeRevision: 0, savingSaved: null };
+    this.state = { ...initial, pairingText: '', phase: 'editing', saved: operations.list(), intakeRevision: 0, savingSaved: null, authRequiredServer: null };
   }
   getSnapshot = (): ConnectionState => this.state;
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => this.listeners.delete(listener); };
@@ -39,6 +41,14 @@ export class HerdrConnectionController {
     this.listeners.forEach(listener => listener());
   }
   private get locked(): boolean { return this.inFlight || this.confirmed !== null; }
+  isRejected(connection: Connection): boolean { return this.rejected.get(connection.server) === connection.token; }
+  requireAuthentication(connection: Connection, preserveIntent: boolean): void {
+    if (this.isRejected(connection)) return;
+    this.rejected.set(connection.server, connection.token);
+    if (!this.locked && !preserveIntent) {
+      this.update({ authRequiredServer: connection.server, server: connection.server, pairing: null, pairingText: '', error: null, intakeRevision: this.state.intakeRevision + 1 });
+    } else this.update({ authRequiredServer: connection.server });
+  }
   setServer(server: string): void { if (!this.locked) this.update({ server, error: null }); }
   setPairingText(pairingText: string): void {
     if (this.locked) return;
@@ -88,10 +98,11 @@ export class HerdrConnectionController {
       const connection = this.confirmed;
       this.update({ phase: 'saving' });
       await this.operations.save(connection);
+      if (this.isRejected(connection)) throw new Error('unauthorized');
       this.confirmed = null;
-      this.update({ phase: 'editing', saved: this.operations.list(), pairing: null, pairingText: '' });
       const next = this.queuedIntent;
       this.queuedIntent = null;
+      this.update({ phase: 'editing', saved: this.operations.list(), pairing: null, pairingText: '', authRequiredServer: next ? this.state.authRequiredServer : null });
       if (next) this.applyIntent(next);
       else if (this.active) this.onConnected(connection);
     } catch (error) {
@@ -106,12 +117,17 @@ export class HerdrConnectionController {
   async selectSaved(server: string): Promise<void> {
     if (this.locked) return;
     const connection = this.operations.list().find(item => item.server === server);
-    if (!connection) return;
+    if (!connection || this.isRejected(connection)) return;
     this.inFlight = true;
     this.update({ phase: 'saving', error: null, savingSaved: server });
     try {
       await this.operations.save(connection);
-      this.update({ phase: 'editing', saved: this.operations.list(), server, pairing: null, pairingText: '', savingSaved: null });
+      if (this.isRejected(connection)) {
+        this.update({ phase: 'editing', savingSaved: null });
+        if (this.queuedIntent) { const next = this.queuedIntent; this.queuedIntent = null; this.applyIntent(next); }
+        return;
+      }
+      this.update({ phase: 'editing', saved: this.operations.list(), server, pairing: null, pairingText: '', savingSaved: null, authRequiredServer: null });
       const next = this.queuedIntent;
       this.queuedIntent = null;
       if (next) this.applyIntent(next);

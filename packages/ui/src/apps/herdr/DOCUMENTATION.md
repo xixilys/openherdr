@@ -143,3 +143,9 @@ scope and freshness, native command and skill routing, preserved text/files/
 delivery, no dispatch on lookup failure or changed drafts/owners, null command
 receipts and durable unknown-delivery locks. These are DOM/request tests, not
 Android runtime or provider acceptance.
+
+The shared Welcome saved rows accept an optional caller-owned `disabled` flag.
+The original wrapper leaves it unset. Herdr uses it for a credential the server
+has rejected; the controller also rejects that activation. The notice reuses the
+original localized expired-device message. Same-origin token replacement keeps
+the Herdr shell owner and its existing window/chat state.

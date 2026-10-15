@@ -28,6 +28,7 @@ export interface HerdrConversationAttachmentsProps {
   directory: string | null;
   theme: Theme;
   isMobile: boolean;
+  active?: boolean;
   compact?: boolean;
   className?: string;
   onOpenExternal: (url: string) => void;
@@ -171,19 +172,19 @@ const releaseResource = (resource: AttachmentResource) => {
   if (resource.state.kind === 'ready' && resource.state.previewUrl) URL.revokeObjectURL(resource.state.previewUrl);
 };
 
-export function HerdrConversationAttachments({ files, transport, owner, target, directory, theme, isMobile, compact = true, className, onOpenExternal }: HerdrConversationAttachmentsProps) {
+export function HerdrConversationAttachments({ files, transport, owner, target, directory, theme, isMobile, active = true, compact = true, className, onOpenExternal }: HerdrConversationAttachmentsProps) {
   const { t } = useI18n();
   const h = useHerdrText();
   const scope = JSON.stringify([transport.connection.server, owner, target?.machine, target?.paneId, directory]);
-  const live = React.useRef({ scope, transport });
-  live.current = { scope, transport };
+  const live = React.useRef({ scope, transport, active });
+  live.current = { scope, transport, active };
   const resources = React.useRef(new Map<string, AttachmentResource>());
   const downloads = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const [, invalidate] = React.useReducer((value: number) => value + 1, 0);
   const [popup, setPopup] = React.useState<{ scope: string; id: string; source: FilePart } | null>(null);
   const [downloadError, setDownloadError] = React.useState<string | null>(null);
   const fileEntries = React.useMemo(() => files.map((file, index) => ({ id: `${index}:${file.id}`, file })), [files]);
-  const current = React.useCallback((resource: AttachmentResource) => !resource.controller.signal.aborted && live.current.scope === resource.scope && live.current.transport === resource.transport, []);
+  const current = React.useCallback((resource: AttachmentResource) => live.current.active && !resource.controller.signal.aborted && live.current.scope === resource.scope && live.current.transport === resource.transport, []);
 
   React.useEffect(() => {
     const ownedResources = resources.current;
@@ -195,7 +196,7 @@ export function HerdrConversationAttachments({ files, transport, owner, target, 
       for (const [url, timer] of ownedDownloads) { clearTimeout(timer); URL.revokeObjectURL(url); }
       ownedDownloads.clear();
     };
-  }, [scope, transport]);
+  }, [scope, transport, active]);
 
   const startResource = React.useCallback((id: string, resource: AttachmentResource) => {
     if (resource.state.kind !== 'idle' || !current(resource)) return;
@@ -215,6 +216,7 @@ export function HerdrConversationAttachments({ files, transport, owner, target, 
 
   // Reconcile scalar file fields, so a caller recreating its array never rereads bytes.
   React.useEffect(() => {
+    if (!active) return;
     if (popup?.scope === scope && !fileEntries.some(({ id, file }) => id === popup.id && sameFile(file, popup.source))) setPopup(null);
     const selected = new Set(fileEntries.map(({ id }) => id));
     for (const [id, resource] of resources.current) {
@@ -242,7 +244,7 @@ export function HerdrConversationAttachments({ files, transport, owner, target, 
         invalidate();
       }
     }
-  }, [directory, fileEntries, popup, scope, startResource, target, transport]);
+  }, [active, directory, fileEntries, popup, scope, startResource, target, transport]);
 
   const displayed = fileEntries.map(({ id, file }) => {
     const resource = resources.current.get(id);
@@ -255,7 +257,7 @@ export function HerdrConversationAttachments({ files, transport, owner, target, 
     }
     return { item, source: file, resource, state };
   });
-  const selected = popup?.scope === scope ? displayed.find(({ item, source }) => item.id === popup.id && sameFile(source, popup.source)) : undefined;
+  const selected = active && popup?.scope === scope ? displayed.find(({ item, source }) => item.id === popup.id && sameFile(source, popup.source)) : undefined;
   const selectedContent = selected?.state.kind === 'ready' ? selected.state.content : null;
   const gallery = displayed.flatMap(({ item, state }) => state.kind === 'ready' && state.content.kind === 'image' && item.previewUrl ? [{ url: item.previewUrl, filename: state.content.provenance === 'current-file' ? `${item.name} · ${h('currentFile')}` : item.name, mimeType: state.content.mime, size: item.size }] : []);
 
@@ -280,7 +282,7 @@ export function HerdrConversationAttachments({ files, transport, owner, target, 
 
   return <>
     <MessageAttachmentsView items={displayed.map(({ item }) => item)} compact={compact} className={className} onOpen={(item) => {
-      if (live.current.scope !== scope || live.current.transport !== transport) return;
+      if (!live.current.active || live.current.scope !== scope || live.current.transport !== transport) return;
       const entry = displayed.find((value) => value.item.id === item.id);
       if (entry?.state.kind === 'ready' && entry.state.content.kind === 'external') { onOpenExternal(entry.state.content.url); return; }
       if (!entry) return;

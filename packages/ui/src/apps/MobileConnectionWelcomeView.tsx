@@ -11,7 +11,7 @@ export type MobileConnectionWelcomeViewProps = {
   replacementForm?: React.ReactNode;
   scan: { supported: boolean; scanning: boolean; busy: boolean; hint: React.ReactNode; onScan: () => void };
   error?: React.ReactNode;
-  saved: readonly { id: string; label: string; detail: string; connecting: boolean }[];
+  saved: readonly { id: string; label: string; detail: string; connecting: boolean; disabled?: boolean }[];
   onSaved: (id: string) => void;
   disabled: boolean;
   manualOpen: boolean;
@@ -70,7 +70,7 @@ export const MobileConnectionWelcomeView: React.FC<MobileConnectionWelcomeViewPr
                     <button
                       key={connection.id}
                       type="button"
-                      disabled={disabled}
+                      disabled={disabled || connection.disabled}
                       className="flex min-h-14 w-full items-center gap-3 border-b border-border/70 px-3.5 py-2.5 text-start last:border-b-0 hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-70"
                       onClick={() => onSaved(connection.id)}
                     >

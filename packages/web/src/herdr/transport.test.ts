@@ -30,6 +30,40 @@ describe('pairing and endpoint boundary', () => {
 });
 
 describe('authenticated Herdr requests', () => {
+  test('only an explicit Herdr credential rejection requests authentication, including streams', async () => {
+    const connection = { server: 'https://work.example', token: 'private-device' };
+    const rejected: typeof connection[] = [];
+    const transport = new HerdrTransport(connection, undefined, value => rejected.push(value));
+    const responses = [
+      Response.json({ error: { code: 'unauthorized', message: 'Rejected' } }, { status: 401 }),
+      Response.json({ error: { code: 'conversation_request_refused', message: 'Upstream rejected' } }, { status: 401 }),
+      new Response('<html>Unauthorized</html>', { status: 401 }),
+      Response.json({ error: { code: 'unauthorized', message: 'Forbidden' } }, { status: 403 }),
+      new Response('Cloudflare unavailable', { status: 530 }),
+    ];
+    for (const response of responses) {
+      // SAFETY: The transport uses only fetch's callable request interface.
+      globalThis.fetch = (async () => response) as typeof fetch;
+      await expect(transport.request('/api/herdr/info', snapshotSchema)).rejects.toBeInstanceOf(TransportError);
+    }
+    expect(rejected).toEqual([connection]);
+    // SAFETY: The stream request uses the same callable fetch interface.
+    globalThis.fetch = (async () => Response.json({ error: { code: 'unauthorized', message: 'Rejected' } }, { status: 401 })) as typeof fetch;
+    await expect(transport.streamResponse('/api/herdr/conversations/events', { signal: new AbortController().signal })).rejects.toBeInstanceOf(TransportError);
+    expect(rejected).toEqual([connection, connection]);
+  });
+  test('an aborted owner cannot report a delayed credential rejection', async () => {
+    const signal = new AbortController();
+    let rejections = 0;
+    // SAFETY: This deferred fixture only implements the callable fetch interface.
+    globalThis.fetch = (async () => {
+      signal.abort();
+      return Response.json({ error: { code: 'unauthorized', message: 'Rejected' } }, { status: 401 });
+    }) as typeof fetch;
+    const transport = new HerdrTransport({ server: 'https://work.example', token: 'old-device' }, undefined, () => { rejections += 1; });
+    await expect(transport.request('/api/herdr/info', snapshotSchema, { signal: signal.signal })).rejects.toBeInstanceOf(TransportError);
+    expect(rejections).toBe(0);
+  });
   test('binds requests to the selected server with bearer headers and abort signal', async () => {
     let received: { url: string; init?: RequestInit } | undefined;
     // SAFETY: This stub accepts fetch inputs and returns a Response or rejection; the transport never calls Bun fetch.preconnect.

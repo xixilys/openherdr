@@ -43,6 +43,17 @@ camera, Back and secure-vault runtime acceptance remain separate from source and
 browser checks. iOS scanner packaging stays unsupported if the existing plugin
 cannot be registered without a package-manager migration.
 
+The active follow-up restores the original expired-device recovery through that
+Welcome view. Only an HTTP 401 carrying OpenHerdr's `unauthorized` code rejects
+the current credential. The app pauses private views, requires explicit pairing
+or a different saved connection, and saves the replacement before activation.
+Replacing a token on the same origin retains the selected window, chat draft and
+pending delivery. Network failures and upstream conversation authorization errors
+retain the existing connection. Browser/PWA, hosted mobile and the separate
+Capacitor app share this flow. Original Electron and VS Code keep their existing
+application and authentication behavior. Android secure-storage and system Back
+acceptance remain separate from DOM fixtures and browser execution.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and
@@ -219,6 +230,16 @@ and the existing user configuration has a private backup. The human separately
 authorized installation and normal hook trust. They remain deferred while the
 existing-task monitoring path is checked. Keep the transcript reader
 unimplemented until a real identity is available.
+
+The expired-device recovery follow-up uses the shared Welcome notice and keeps
+same-origin window/chat state while replacing its transport. Real test CF
+revocation and explicit pairing returned to Kansas `w2:p2`; the final asset
+`herdr-D8G2xhGi.js` restored its saved binding on reload. It passes 78 focused
+cases and the final static gate. The rebuilt APK has exact web-asset readback,
+with native interaction still unverified. Details and per-build limits are in
+STATUS.md and the native validation document. A cold page reload still starts
+at Local; retaining a running app's selection through re-pairing does not add
+persisted target selection.
 
 ## Validation and safe experiments
 

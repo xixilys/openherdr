@@ -1,6 +1,30 @@
 # Native build validation
 
-## Latest connection-flow artifact
+## Latest expired-device recovery artifact
+
+The APK is 40,701,131 bytes and packages `herdr-D8G2xhGi.js`. Its HTML and
+entry match the web build exactly in `.tmp/auth-recovery-apk.json`. The scanner
+registry and 12 native libraries remain packaged. The original Web build passed.
+The final Herdr build, asset preparation, Android sync and Gradle build passed;
+Gradle took 13 seconds using the same task-owned cache and NDK 27.1 init script.
+Logs are `.tmp/auth-recovery-android-build.log` and
+`.tmp/auth-recovery-android-final-build.log`. No shared SDK setting changed.
+
+The actual 412x915 test CF browser recovered from revocation of its exact owned
+client, explicitly paired again and returned to the same Kansas `w2:p2` canvas.
+That flow used `herdr-bYTF49Ox.js`. A behavior-preserving branch rewrite satisfied
+lint afterward. The final `herdr-D8G2xhGi.js` browser reload restored the newly
+saved binding and read-only output without another pairing. The test added no
+Herdr mutation receipt. Its clients were revoked after validation; the default
+browser binding, bridge, tunnel and user agents were preserved.
+
+Independent DOM tests cover saved-write failure, save-only retry, draft and
+unknown-delivery retention, stale authentication responses and hidden private
+portals. These are browser storage and fixture results. This APK has not been
+installed or interactively tested. Native KeyStore, Android Back, camera/scan
+and physical-phone acceptance remain unverified.
+
+## Previous connection-flow artifact
 
 The debug APK is 40,701,131 bytes and packages `herdr-4D0XehLa.js`. HTML and
 entry bytes match the web build in `.tmp/connection-apk.json`. Its native

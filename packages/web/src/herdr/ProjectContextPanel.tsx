@@ -242,7 +242,7 @@ export function ProjectContextPanel({ transport, machine, paneId, active = true,
         return <KnowledgeCard key={plan.id} entryId={plan.id} label={plan.title} onOpen={() => void openEntry(entry)} header={<span className="truncate typography-ui-label" dir="auto">{plan.title}</span>} actions={deleteAction(entry)} footer={<span className="typography-micro text-muted-foreground">{formatKnowledgeDate(plan.createdAt)}</span>} />;
       })}</ul> : null}
     </div>}
-    <Dialog open={confirm?.target === target} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
+    <Dialog open={active && !disabled && confirm?.target === target} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
       <DialogContent><DialogHeader><DialogTitle>{confirm?.kind === 'delete' ? t('filesView.dialog.delete.title') : t('filesView.unsaved.title')}</DialogTitle><DialogDescription>{confirm?.kind === 'delete' ? t('filesView.dialog.delete.description', { name: confirm.entry.title }) : t('filesView.unsaved.description')}</DialogDescription></DialogHeader>
         <DialogFooter><Button variant="outline" onClick={() => setConfirm(null)}>{t('dialog.common.actions.cancel')}</Button><Button variant="destructive" disabled={blocked} onClick={() => { const action = confirm; setConfirm(null); if (action?.target !== target) return; if (action.kind === 'delete') void remove(action.entry); else reload(); }}>{confirm?.kind === 'delete' ? t('filesView.dialog.delete.confirm') : t('filesView.unsaved.discard')}</Button></DialogFooter>
       </DialogContent>

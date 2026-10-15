@@ -22,9 +22,9 @@ export function ConnectionWelcome({ controller, toolbar, onClose }: { controller
   const locked = state.phase !== 'editing';
   const cancelScan = useCallback(() => { scanAbort.current?.abort(); }, []);
   useEffect(() => {
-    if (state.pairing || state.error) setManualOpen(true);
+    if (state.pairing || state.error || state.authRequiredServer) setManualOpen(true);
     cancelScan();
-  }, [state.intakeRevision, state.pairing, state.error, cancelScan]);
+  }, [state.intakeRevision, state.pairing, state.error, state.authRequiredServer, cancelScan]);
   useEffect(() => () => scanAbort.current?.abort(), []);
   const scan = async () => {
     if (scanAbort.current || locked) return;
@@ -62,6 +62,6 @@ export function ConnectionWelcome({ controller, toolbar, onClose }: { controller
   </form>;
   return <>
     {scanning && <MobileQrScannerOverlay onCancel={cancelScan} hint={h('pairingHint')} />}
-    <MobileConnectionWelcomeView logo={<span className="flex size-[72px] items-center justify-center"><img src="/openherdr.svg" width={72} height={72} alt="OpenHerdr" /></span>} title={h('connectTitle')} scan={{ supported: scanSupported, scanning, busy, hint: h('pairingHint'), onScan: () => void scan() }} error={error} saved={state.saved.map(item => ({ id: item.server, label: item.server, detail: '', connecting: state.savingSaved === item.server }))} onSaved={server => { setScanError(null); void controller.selectSaved(server); }} disabled={locked || scanning} manualOpen={manualOpen} onToggleManual={() => { if (!locked) setManualOpen(current => !current); }} manualForm={manualForm} toolbar={<><div className="flex items-center justify-center gap-2">{toolbar}</div>{onClose && <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>{t('mobile.instances.cancelEdit')}</Button>}</>} />
+    <MobileConnectionWelcomeView logo={<span className="flex size-[72px] items-center justify-center"><img src="/openherdr.svg" width={72} height={72} alt="OpenHerdr" /></span>} title={h('connectTitle')} notice={state.authRequiredServer ? <p role="status" className="w-full rounded-[18px] border border-border bg-surface-elevated px-3.5 py-3 typography-small text-foreground">{t('mobile.connect.notice.authExpired', { label: state.authRequiredServer })}</p> : null} scan={{ supported: scanSupported, scanning, busy, hint: h('pairingHint'), onScan: () => void scan() }} error={error} saved={state.saved.map(item => ({ id: item.server, label: item.server, detail: '', connecting: state.savingSaved === item.server, disabled: controller.isRejected(item) }))} onSaved={server => { setScanError(null); void controller.selectSaved(server); }} disabled={locked || scanning} manualOpen={manualOpen} onToggleManual={() => { if (!locked) setManualOpen(current => !current); }} manualForm={manualForm} toolbar={<><div className="flex items-center justify-center gap-2">{toolbar}</div>{onClose && <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>{t('mobile.instances.cancelEdit')}</Button>}</>} />
   </>;
 }

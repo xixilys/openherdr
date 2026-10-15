@@ -30,7 +30,50 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current connection-flow increment
+## Current expired-device recovery increment
+
+Only HTTP 401 with OpenHerdr's parsed `unauthorized` error enters recovery.
+Welcome pauses the current private views and their reads, explains that access
+expired or was revoked, disables the rejected saved credential and offers no
+Cancel back to private content. Explicit pairing saves the replacement before
+activation; storage failure retains the confirmed result for save-only retry.
+A newer link survives an older operation, and a late old request cannot replace
+a newer connection. Same-origin token replacement retains the selected window,
+chat draft and unknown delivery record without replaying a mutation.
+
+Conversation/model dialogs, history/message menus, note confirmations and
+attachment previews follow their owner's visibility. Hidden attachments reject
+open/download and cancel pending reads. Original drawer exit animations retain
+hidden, non-interactive DOM, without retaining the private attachment portal.
+
+The focused result is 78 passing cases: 37 transport/controller, 12 independent
+auth-recovery DOM, 14 attachment/chat regression and 15 existing Welcome/monitor
+cases. The independent reviewer found persistence/intake and portal errors;
+the final source resolves them. The initial static gate rejected a new conditional
+empty-object spread. Its equivalent explicit branch passes the final gate,
+including types, lint, Knip zero findings and no new anti-slop findings.
+
+The actual 412x915 browser used the existing test Cloudflare origin. A pairing
+record identified its exact owned client before revocation. The app showed the
+expired notice, disabled saved credential, hid its prior window and offered no
+Cancel. Explicit replacement pairing returned to Kansas workspace `w2`, pane
+`w2:p2`, with a real canvas and read-only observer. No terminal input, agent start
+or conversation creation occurred. This flow used `herdr-bYTF49Ox.js`, before
+the behavior-preserving branch cleanup required by lint. The default bridge,
+existing services, tunnel and user agents were preserved. Browser artifacts and
+receipts stay private under `.tmp/auth-recovery/`.
+
+The original Web build and Android build passed. The final APK is 40,701,131 bytes with `herdr-D8G2xhGi.js`;
+its packaged HTML and entry match the web build exactly. The final rebuild
+passed in 13 seconds. The actual final-asset browser reload restored the new
+saved binding and a read-only canvas without pairing again. A full reload
+starts at Local; this increment retains the selected pane across same-origin
+credential replacement within the running app. Native KeyStore,
+system Back, camera and physical-phone interaction remain unverified. Full
+Android feature/UI parity and persistent named Cloudflare configuration remain
+unfinished.
+
+## Previous connection-flow increment
 
 OpenHerdr now uses the original Welcome presentation for manual pairing and
 saved origins. Its Server URL entry reopens that screen, pauses the underlying

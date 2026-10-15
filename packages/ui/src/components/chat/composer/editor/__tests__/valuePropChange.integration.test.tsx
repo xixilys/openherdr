@@ -3,6 +3,7 @@ import { Window } from 'happy-dom';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ComposerEditor, type ComposerChange, type ComposerEditorHandle } from '../ComposerEditor';
+import { createComposerEditorViewStore } from '../viewStore';
 import type { ComposerLanguageContext } from '../../language/tokenize';
 
 const languageContext: ComposerLanguageContext = {
@@ -64,4 +65,35 @@ describe('composer change reports text set through the value prop', () => {
         expect(changes).toHaveLength(2);
         expect(changes[1]).toMatchObject({ value: `${conflictPrompt}\n#`, fromValueProp: false });
     });
+    test('a translated label updates the live and retained editor without replacing text or selection', async () => {
+        const store = createComposerEditorViewStore();
+        const show = (label?: string, visible = true) => act(async () => root.render(visible
+            ? <ComposerEditor ref={editor} viewStore={store} value="Unsent draft" languageContext={languageContext}
+                aria-label={label} onChange={() => {}} />
+            : null));
+        try {
+            await act(async () => root.render(null));
+            await show('اسأل الوكيل');
+            const content = host.querySelector('.cm-content');
+            await act(async () => { editor.current?.setSelection(3); editor.current?.focus(); });
+            await show('Ask the agent');
+            expect(host.querySelector('.cm-content') === content).toBe(true);
+            expect(content?.getAttribute('aria-label')).toBe('Ask the agent');
+            expect(content?.getAttribute('role')).toBe('textbox');
+            expect(content?.getAttribute('aria-multiline')).toBe('true');
+            expect(editor.current?.getValue()).toBe('Unsent draft');
+            expect(editor.current?.getSelection()).toEqual({ start: 3, end: 3 });
+            await show(undefined);
+            expect(content?.hasAttribute('aria-label')).toBe(false);
+            await show(undefined, false);
+            await show('Ask the agent again');
+            expect(host.querySelector('.cm-content') === content).toBe(true);
+            expect(content?.getAttribute('aria-label')).toBe('Ask the agent again');
+            expect(editor.current?.getSelection()).toEqual({ start: 3, end: 3 });
+        } finally {
+            await show(undefined, false);
+            store.view?.destroy();
+        }
+    });
+
 });

@@ -443,6 +443,7 @@ const conversationsWith = (overrides = {}) => ({
   list: async () => ({ protocol: conversationProtocol, target: conversationTarget, sessions: [conversationSession], complete: true, failures: [] }),
   read: async () => ({ protocol: conversationProtocol, target: conversationTarget, session: conversationSession, messages: { data: [], cursor: {} } }),
   catalog: async () => ({ protocol: conversationProtocol, target: conversationTarget, models: [], agents: [], authoritative: false }),
+  registry: async ({ sessionId, kind }) => ({ protocol: conversationProtocol, target: conversationTarget, sessionId, kind, [kind]: [] }),
   create: async () => ({ protocol: conversationProtocol, target: conversationTarget, session: conversationSession }),
   act: async ({ sessionId, action }) => ({ protocol: conversationProtocol, target: conversationTarget, sessionId, action, result: null }),
   async *events() { yield { protocol: conversationProtocol, type: 'conversation.resync', target: conversationTarget, sessionId: conversationSession.id }; },
@@ -465,6 +466,32 @@ test('conversation HTTP applies bearer, strict request scope and Origin before s
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { protocol: conversationProtocol, target: conversationTarget, native: null });
   assert.equal(calls, 1);
+});
+
+test('conversation registry is an authenticated strict read without mutation receipts', async () => {
+  let calls = 0; let fail = false;
+  const conversations = conversationsWith({ registry: async ({ target, sessionId, kind, signal }) => {
+    calls++; assert.deepEqual(target, conversationTarget); assert.equal(sessionId, conversationSession.id); assert.ok(signal instanceof AbortSignal);
+    if (fail) throw new ApiError(502, 'conversation_upstream_unavailable', 'The registry is unavailable');
+    return { protocol: conversationProtocol, target, sessionId, kind, [kind]: kind === 'commands' ? [{ name: 'review' }] : [{ id: 'actual-folder', name: 'inspect' }] };
+  } });
+  const f = await fixture(undefined, { conversations });
+  const request = { target: conversationTarget, sessionId: conversationSession.id, kind: 'commands' };
+  assert.equal((await f.request('/api/herdr/conversations/registry', { body: { request } })).status, 401);
+  const { token } = await f.pair();
+  assert.equal((await f.request('/api/herdr/conversations/registry', { token, origin: 'https://evil.example', body: { request } })).status, 403);
+  for (const invalid of [{ ...request, kind: 'unknown' }, { ...request, directory: '/private' }, { target: conversationTarget, kind: 'commands' }]) {
+    assert.equal((await f.request('/api/herdr/conversations/registry', { token, body: { request: invalid } })).status, 400);
+  }
+  assert.equal(calls, 0);
+  for (const kind of ['commands', 'skills']) {
+    const response = await f.request('/api/herdr/conversations/registry', { token, body: { request: { ...request, kind } } });
+    assert.equal(response.status, 200); assert.equal((await response.json())[kind].length, 1);
+  }
+  fail = true;
+  const failed = await f.request('/api/herdr/conversations/registry', { token, body: { request } });
+  assert.equal(failed.status, 502); assert.equal((await failed.json()).error.code, 'conversation_upstream_unavailable');
+  await assert.rejects(fs.stat(path.join(f.stateDir, 'receipts.jsonl')), (error) => error.code === 'ENOENT');
 });
 
 test('conversation create and actions return full results but persist only minimal receipt metadata', async () => {

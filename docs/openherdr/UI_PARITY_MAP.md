@@ -95,8 +95,48 @@ the normal viewport were restored afterward. The receipt is
 Focused regressions passed for the composer 9, shared box frame 1 and pure pill 6.
 The original pill 8, conversation 1 and file-return 3 also passed. The final
 combined gate is `.tmp/check-expanded-composer-release.log`; the original web
-build passed. Fullscreen input, agent/command/file autocomplete, physical native
+build passed. The original phone footer has no fullscreen control; its focus-mode
+control belongs to the desktop branch. Do not invent a mobile control from that
+desktop action. Agent/file autocomplete, the separate `$` picker, physical native
 IME, system Back and native sharing remain unfinished or unverified.
+
+### Native slash commands
+
+`CommandAutocompleteView` now owns the original list presentation, including
+ranking, badges, keyboard selection, touch movement handling, mobile height and
+popup animation. The original wrapper retains its stores, built-ins, directory
+and extension aggregation. Herdr supplies only native commands through its
+controlled view, without initializing the original OpenCode application.
+
+The conversation registry loads only when opening a slash picker or classifying
+a slash submission. It names the current session, coordinator, target identity
+and directory. Failed reads differ from successful empty data. A source switch
+or later draft edit cancels classification before dispatch. Submission checks
+commands first, then skills, then ordinary text, retaining files and delivery.
+Native command success returns no fabricated inbox item; both send paths confirm
+only the captured draft revision and retain unknown-delivery locks.
+
+The 412x915 HTTPS browser on `herdr-CcyH2USZ.js` exercised opening and
+closing the picker, Enter selection into the draft, arguments and one real native
+execution. One expanded command template and one
+`OPENHERDR_NATIVE_COMMAND_OK ARGUMENT_E2E_OK` reply appeared, and the sent draft
+cleared. Arabic/English editor labels updated with the draft retained. Settings,
+the empty draft and normal viewport were restored. Receipts are
+`.tmp/slash-browser-validation.json` and `.tmp/slash-registry-runtime.json`;
+public captures are `assets/command-picker.png` and `assets/command-response.png`.
+
+After the final gate fixes, `herdr-CIO7wjLL.js` reloaded the same genuine response
+and native candidate without another model request. The temporary draft was
+cleared and the normal viewport restored. The final receipt preserves the
+execution build separately from this final-bundle check.
+
+Focused checks pass 14 composer, 17 slash-controller, 8 original ranking and
+3 controlled-editor tests, plus 23 service and 36 HTTP tests. Independent source
+review found and resolved a native-writer takeover during the registry await;
+both affected send paths recheck ownership before dispatch. A regression confirms
+zero sends after takeover. The shared editor also updates its accessible label
+without recreating the retained editor view. These checks do not establish
+Android touch, IME or system Back acceptance.
 
 ### Files and editor
 
@@ -215,18 +255,18 @@ Full parity should be accepted by original feature and actual user flow, not by 
 
 ## Current artifact and remaining acceptance
 
-The expanded-composer debug APK is 15,738,094 bytes and contains
-`herdr-CF2mEnjj.js`; its bundled HTML exactly matches the built web HTML.
-`.tmp/expanded-composer-apk.json` records the artifact. The normal full mobile
-command encountered a native filesystem-enumeration hang. The successful APK
-came from an isolated Gradle invocation with its own home/project cache and
-read-only copied dependencies, with filesystem watching and the daemon disabled.
-The log `.tmp/android-expanded-composer-isolated-online.log` reports
-`BUILD SUCCESSFUL in 2m 49s`, with all 213 tasks executed.
+The slash debug APK is 17,136,001 bytes and contains `herdr-CIO7wjLL.js`; its
+bundled HTML and entry asset exactly match the built web files.
+`.tmp/slash-apk.json` records the artifact. Web build, native asset preparation
+and Capacitor sync passed. The Gradle invocation reused the task-owned isolated
+home/project cache and copied read-only dependencies, with filesystem watching
+and the daemon disabled. The offline build in `.tmp/android-slash-final-build.log`
+reports success in 10 seconds, with 213 tasks, 27 executed and 186 up-to-date.
 
 This latest APK has not been installed or tested interactively on Android.
 The preceding file-navigation artifact used `herdr-BDGqP9Kp.js`; the older
 `herdr-BEKetIzv.js` build supplies the native Connect and cold-start observations
-in `packages/mobile/openherdr/VALIDATION.md`. Fullscreen/autocomplete input,
-complete editor/Git behavior, connected native interaction and the wider original
-application parity remain unfinished.
+in `packages/mobile/openherdr/VALIDATION.md`. The expanded-composer APK used
+`herdr-CF2mEnjj.js`. Remaining pickers/editing actions, complete editor/Git behavior,
+connected native interaction and the wider original application parity are
+unfinished.

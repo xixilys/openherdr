@@ -16,17 +16,21 @@ export const conversationResolveRequest = z.strictObject({ target });
 export const conversationListRequest = z.strictObject({ target, ...page });
 export const conversationReadRequest = z.strictObject({ target, sessionId: id, ...page });
 export const conversationCatalogRequest = z.strictObject({ target });
+export const conversationRegistryRequest = z.strictObject({ target, sessionId: id, kind: z.enum(['commands', 'skills']) });
 const modelRefSchema = z.strictObject({ id, providerID: id, variant: z.string().min(1).max(200).optional() });
 export const conversationCreateRequest = z.strictObject({ target, title: z.string().min(1).max(200).optional() });
 const dataFile = z.strictObject({
-  uri: z.string().max(12 * 1024 * 1024).regex(/^data:(?:text\/plain|image\/(?:png|jpeg|gif|webp)|application\/pdf);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
+  uri: z.string().max(12 * 1024 * 1024).regex(/^data:(?:text\/plain|image\/(?:png|jpeg|gif|webp)|application\/pdf);base64,[A-Za-z0-9+/]*={0,2}$/).refine((value) => (value.length - value.indexOf(',') - 1) % 4 === 0, 'Invalid base64 length'),
   name: z.string().min(1).max(255).regex(/^[^/\\\x00-\x1f]+$/),
 });
 const fields = { target, sessionId: id };
+const attachments = { files: z.array(dataFile).max(10).optional(), delivery: z.enum(['steer', 'queue']).optional() };
+const attachmentLimit = (input) => (input.files ?? []).reduce((n, file) => n + file.uri.length, 0) <= 12 * 1024 * 1024;
+const skills = z.array(z.strictObject({ id: z.string().min(1).max(4096) })).max(10).refine((items) => new Set(items.map((item) => item.id)).size === items.length, 'Skill IDs must be unique');
 const action = (name, input) => z.strictObject({ ...fields, action: z.literal(name), input });
 const empty = z.strictObject({}).default({});
 export const conversationActionRequest = z.discriminatedUnion('action', [
-  action('prompt', z.strictObject({ text: z.string().max(256 * 1024), files: z.array(dataFile).max(10).optional(), delivery: z.enum(['steer', 'queue']).optional() }).refine((p) => p.text.trim() || p.files?.length, 'A prompt needs text or files').refine((p) => (p.files ?? []).reduce((n, f) => n + f.uri.length, 0) <= 12 * 1024 * 1024, 'Attachments exceed 12 MiB')),
+  action('prompt', z.strictObject({ text: z.string().max(256 * 1024), ...attachments, skills: skills.optional() }).refine((p) => p.text.trim() || p.files?.length, 'A prompt needs text or files').refine(attachmentLimit, 'Attachments exceed 12 MiB')),
   action('abort', empty), action('rename', z.strictObject({ title: z.string().min(1).max(200) })),
   action('delete', empty), action('model', modelRefSchema), action('agent', z.strictObject({ agent: id })),
   action('permission', z.strictObject({ requestId: id, decision: z.enum(['once', 'always', 'reject']), message: z.string().max(4096).optional() })),
@@ -34,7 +38,7 @@ export const conversationActionRequest = z.discriminatedUnion('action', [
   action('form_cancel', z.strictObject({ formId: id })),
   action('fork', z.strictObject({ messageId: id.optional() })),
   action('revert_stage', z.strictObject({ messageId: id })), action('revert_clear', empty), action('revert_commit', empty),
-  action('compact', empty), action('command', z.strictObject({ command: id, arguments: z.string().max(65536).optional() })),
+  action('compact', empty), action('command', z.strictObject({ command: z.string().min(1).max(4096), arguments: z.string().max(65536).optional(), ...attachments }).refine(attachmentLimit, 'Attachments exceed 12 MiB')),
   action('skill', z.strictObject({ skill: id })),
 ]);
 export const conversationEventsRequest = z.strictObject({ target, sessionId: id });

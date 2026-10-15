@@ -520,6 +520,13 @@ export const ComposerEditor = React.forwardRef<ComposerEditorHandle, ComposerEdi
             content.setAttribute('autocapitalize', autoCapitalize);
         }, [autoCapitalize, autoCorrect, spellCheck]);
 
+        const ariaLabel = props['aria-label'];
+        React.useEffect(() => {
+            const content = viewRef.current?.contentDOM;
+            if (ariaLabel) content?.setAttribute('aria-label', ariaLabel);
+            else content?.removeAttribute('aria-label');
+        }, [ariaLabel]);
+
         /**
          * The composer box is bigger than its text: it carries padding, and in
          * focus mode it fills the surface. Clicking that empty space has always

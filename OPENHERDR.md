@@ -148,9 +148,25 @@ keyboard shell, viewport pin and frame. Its actual browser flow includes
 multiline input, collapse/return, one real response and preserved old-message
 reading position. The rebuilt APK packages `herdr-CF2mEnjj.js` with no native
 interactive acceptance yet. Fullscreen editing and autocomplete remain in scope.
-The next direction remains native conversation identity and read-only Codex
-history, with the current source limitations recorded in the parity plan. Keep
-those tasks tied to the full Android experience; do not extend the tool-detail branch into an open-ended series of small display tests.
+The current increment restores native `/` command selection and submission
+through the original autocomplete presentation. Load commands only when the
+picker or slash submission needs them, using the selected conversation's real
+coordinator and directory. Submission checks commands first, then skills, then
+ordinary text, preserving attachments, delivery and the captured draft revision.
+Failed registry reads retain the draft. Unknown mutation outcomes remain locked.
+The actual 412x915 HTTPS browser selected and executed one harmless native command
+with an argument, showed its expanded template and one real reply, and cleared
+the sent draft. The current APK packages `herdr-CIO7wjLL.js`; it has no native
+interactive acceptance. The separate `$` picker and other original composer
+actions remain in scope.
+
+Native conversation identity and read-only Codex history remain required, but
+the current Herdr panes expose no verified session reference. A matching cwd
+does not authorize a binding. Resume that branch when an authoritative reference
+or an explicitly owned native fixture is available. Original mobile source has
+no fullscreen control in its footer, so do not add one by guessing. Keep this
+work tied to the full Android experience; do not extend the tool-detail branch
+into an open-ended series of small display tests.
 
 ## Validation and safe experiments
 

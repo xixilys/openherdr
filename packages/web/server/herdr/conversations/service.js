@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { ApiError } from '../contracts.js';
 import { createConversationRuntime } from './runtime.js';
 import {
-  conversationResolveRequest, conversationListRequest, conversationReadRequest, conversationCatalogRequest,
+  conversationResolveRequest, conversationListRequest, conversationReadRequest, conversationCatalogRequest, conversationRegistryRequest,
   conversationCreateRequest, conversationActionRequest, conversationEventsRequest,
   conversationHistoryListRequest, conversationHistoryReadRequest, conversationRebindRequest,
   paneRecordSchema, sessionRecordSchema, messagePageSchema, eventRecordSchema,
@@ -28,6 +28,8 @@ const agentsSchema = z.object({ data: z.array(z.object({
   id: z.string(), name: z.string(), description: z.string().optional(), model: z.object({ id: z.string(), providerID: z.string(), variant: z.string().optional() }).optional(),
   mode: z.enum(['primary', 'subagent', 'all']), hidden: z.boolean(), color: z.string().optional(),
 })) });
+const commandsSchema = z.object({ data: z.array(z.object({ name: z.string().min(1), description: z.string().optional() })) });
+const skillsSchema = z.object({ data: z.array(z.object({ id: z.string().min(1).max(4096), name: z.string().min(1), description: z.string().optional() })) });
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const capability = (writable) => ({
@@ -228,6 +230,15 @@ export async function createConversationService({ bridge, stateDir, runtime: pro
       await verify(scope, signal);
       return { protocol, target: scope.target, models: modelsSchema.parse(models).data, agents: agentsSchema.parse(agents).data, authoritative: false, completeness: 'OpenCode agent catalogs can be partial while location plugins activate; catalog events request a fresh read' };
     }),
+    registry: wrap(conversationRegistryRequest, async ({ target, sessionId, kind }, signal) => {
+      const scope = await authoritative(target); const source = await getSession(scope, sessionId, signal);
+      const location = { directory: scope.root };
+      const entries = kind === 'commands'
+        ? commandsSchema.parse(await source.client.command.list({ location }, { signal })).data
+        : skillsSchema.parse(await source.client.skill.list({ location }, { signal })).data;
+      await verify(scope, signal);
+      return { protocol, target: scope.target, sessionId, kind, [kind]: entries };
+    }),
     create: wrap(conversationCreateRequest, async ({ target, title }, signal, dispatch) => { requireIdentity(target); return create(await authoritative(target), title, signal, dispatch); }),
     act: wrap(conversationActionRequest, async ({ target, sessionId, action, input }, signal, dispatch) => {
       requireIdentity(target); const scope = await authoritative(target); const source = await getSession(scope, sessionId, signal, true);
@@ -251,6 +262,15 @@ export async function createConversationService({ bridge, stateDir, runtime: pro
         const forms = z.array(pendingForm).parse(await client.session.form.list({ sessionID }, options));
         if (!forms.some((f) => f.id === input.formId && f.sessionID === sessionID)) throw new ApiError(409, 'conversation_form_settled', 'This form is no longer pending in the selected session');
       }
+      if (action === 'command') {
+        const commands = commandsSchema.parse(await client.command.list({ location: { directory: scope.root } }, options)).data;
+        if (!commands.some((command) => command.name === input.command)) throw new ApiError(409, 'conversation_command_unavailable', 'This command is no longer available in the selected conversation');
+      }
+      if (action === 'prompt' && input.skills?.length) {
+        const available = skillsSchema.parse(await client.skill.list({ location: { directory: scope.root } }, options)).data;
+        if (input.skills.some((skill) => !available.some((entry) => entry.id === skill.id))) throw new ApiError(409, 'conversation_skill_unavailable', 'A selected skill is no longer available in this conversation');
+      }
+      if (action === 'command' || (action === 'prompt' && input.skills?.length)) await noNativeWriter(scope, sessionId);
       await verify(scope, signal);
       dispatch();
       let result;
@@ -277,7 +297,7 @@ export async function createConversationService({ bridge, stateDir, runtime: pro
         case 'revert_clear': await client.session.revert.clear({ sessionID }, options); break;
         case 'revert_commit': await client.session.revert.commit({ sessionID }, options); break;
         case 'compact': result = await client.session.compact({ sessionID }, options); break;
-        case 'command': await client.session.command({ sessionID, name: input.command, text: input.arguments ?? '' }, options); break;
+        case 'command': await client.session.command({ sessionID, name: input.command, text: input.arguments ?? '', files: input.files, delivery: input.delivery }, options); break;
         case 'skill': await client.session.skill({ sessionID, id: input.skill }, options); break;
       }
       await verify(scope, signal);

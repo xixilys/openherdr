@@ -17,7 +17,7 @@ import { filesRequest, gitRequest, readPaneFiles, readPaneGit } from './content.
 import { hostOperations, parseHostRequest, isHostMutation, executeHostOperation } from './host-operations.js';
 import { createHerdrPreferences, preferencesReadRequest, preferencesUpdateRequest } from './preferences.js';
 import { createHerdrProjectContext, parseProjectContextRequest, isProjectContextMutation } from './project-context.js';
-import { conversationTargetSchema, conversationResolveRequest, conversationListRequest, conversationReadRequest, conversationCatalogRequest, conversationCreateRequest, conversationActionRequest, conversationEventsRequest, conversationHistoryListRequest, conversationHistoryReadRequest, conversationRebindRequest } from './conversations/contracts.js';
+import { conversationTargetSchema, conversationResolveRequest, conversationListRequest, conversationReadRequest, conversationCatalogRequest, conversationRegistryRequest, conversationCreateRequest, conversationActionRequest, conversationEventsRequest, conversationHistoryListRequest, conversationHistoryReadRequest, conversationRebindRequest } from './conversations/contracts.js';
 
 const APP = { app: 'openherdr', version: '0.1.0' };
 const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
@@ -28,6 +28,7 @@ const conversationRoutes = {
   list: conversationListRequest,
   read: conversationReadRequest,
   catalog: conversationCatalogRequest,
+  registry: conversationRegistryRequest,
   create: conversationCreateRequest,
   act: conversationActionRequest,
   events: conversationEventsRequest,

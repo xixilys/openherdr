@@ -109,7 +109,7 @@ existing writable/foreground checks. Send and queue are guarded separately from
 abort availability and unknown-delivery mutation locks.
 
 This increment covers the original floating expansion. Fullscreen editing,
-agent/command/file autocomplete and voice remain separate work. The original
+agent/file autocomplete and voice remain separate work. The original
 OpenCode web, Electron, VS Code and mobile wrappers keep their state and editor
 behavior around the shared box. The Herdr browser, hosted mobile and Capacitor
 client use this controller; Herdr remains outside the VS Code webview.
@@ -294,3 +294,44 @@ eligibility, picker restoration, keyboard-hide intent, hidden/changed owners,
 file cancellation, tablet expansion and shared Back-layer order. These DOM
 checks do not establish Android IME, real system Back, keyboard geometry,
 native picker behavior or fullscreen/autocomplete parity.
+
+## Native slash commands
+
+`ConversationComposer` passes only real native commands to the original
+`CommandAutocompleteView`. Typing the original leading-slash trigger opens it;
+restoring a draft or ordinary typing does not fetch a registry. Each opening
+loads commands once. Query changes rank that result locally. Submission takes a
+fresh command list, independently of the picker result, because a command may
+have changed since selection. These reads use the selected target's verified
+server, machine, pane identity and conversation. Opening a model or attachment
+picker closes candidates and uses the existing keyboard handoff.
+
+`ConversationPanel` reads `/api/herdr/conversations/registry` only for this
+selected conversation. Ordinary prompts make no registry request. A slash
+submit first matches the native command name with the original literal-space,
+case-sensitive parser. A command match sends one `command` action with the
+original arguments, files and queue delivery. Successful no-match then loads
+skills by name; a match sends one prompt with the complete original text, files,
+delivery and real skill ID. Successful no-match in both lists sends the original
+plain prompt. A failed necessary lookup shows the error, retains the draft and
+files and dispatches nothing. There is no `skill` action or automatic mutation
+retry.
+
+Classification captures draft identity, revision, source identity and transport.
+New typing, hiding, delivery locks or owner changes cancel it. Before dispatch,
+the current owner, revision and write access must still match. A synchronous
+submission controller prevents a second gesture from starting another lookup
+or dispatch. Command actions accept their real null result, without inventing
+an inbox user message or a queued-prompt notice. Confirmed completion refreshes
+actual history and acknowledges only the captured draft revision for the same
+source. Unknown delivery retains the existing durable mutation lock.
+
+The original web, Electron, VS Code and mobile command containers retain their
+existing built-in and extension behavior around the shared view. The dedicated
+Herdr browser, hosted mobile and Capacitor composer use the native-only list;
+Herdr remains outside the VS Code webview. DOM tests cover selection and Back
+ordering, while real Android keyboard and system Back still require acceptance.
+`ConversationSlash.vitest.tsx` checks actual controller requests and drafts,
+including lazy counts, command/skill/plain routing, files/delivery, failures,
+source and draft changes, fresh registry classification, null action replies
+and unknown-delivery single dispatch.

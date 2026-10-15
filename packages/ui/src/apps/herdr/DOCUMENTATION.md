@@ -115,3 +115,13 @@ and changed owners, native cancel events, tablet expansion and Back-layer order.
 The real conversation tests also retain permission/form priority, stream recovery
 and chat-to-file reading position around this editor. Native keyboard, file
 picker and Android system Back behavior still require device acceptance.
+
+Native slash candidates use the original command view with explicit native
+registry input. `ConversationComposer.vitest.tsx` covers lazy opening, original
+ranking and geometry, arrows/Ctrl+N/P/Tab/Enter, IME, loading/error/empty states,
+Back priority, picker handoff and stale-source cancellation. The actual
+`ConversationPanel` in `ConversationSlash.vitest.tsx` verifies registry request
+scope and freshness, native command and skill routing, preserved text/files/
+delivery, no dispatch on lookup failure or changed drafts/owners, null command
+receipts and durable unknown-delivery locks. These are DOM/request tests, not
+Android runtime or provider acceptance.

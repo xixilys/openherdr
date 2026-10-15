@@ -216,6 +216,27 @@ content/session eligibility for sending and queueing. The frame loads no session
 provider or config data. Floating position, transcript clearance and keyboard
 expansion remain with the owning composer slot.
 
+## Native command presentation
+
+`../CommandAutocomplete.tsx` remains the original OpenCode container for
+session eligibility, built-in commands, directory commands and extensions.
+`../CommandAutocompleteView.tsx` owns their existing ranking, row geometry,
+badges, touch selection, keyboard selection and mobile height clamp. It accepts
+the registry and mobile mode explicitly and loads no runtime stores. The
+original container re-exports its existing command and handle types.
+`CommandAutocompletePopupView` retains the zero-height anchor and shared glass
+enter/exit motion for controllers that do not mount the other autocomplete kinds.
+Loading or failed source reads use an explicit status node; only a successful
+empty list renders the existing empty-result message.
+
+The dedicated Herdr controller supplies native commands only. Its list opens
+from the original leading-slash trigger, refreshes once per opening and closes
+before model/attachment picker handoff. IME bypasses selection and submission;
+arrows, Ctrl+N/P, Tab and Enter select through the existing handle. Escape and
+Back dismiss candidates before blurring the editor. Selection inserts `/name `
+and keeps focus in the real editor. Skills are resolved at submission, without
+adding them or unavailable local/extension commands to this slash list.
+
 ## Floating composer
 
 In a normal session view the composer slot is an absolute layer over the
@@ -401,6 +422,11 @@ copy.
   to the language means adding it here, once.
 
 ## The editor
+
+The editor's translated `aria-label` follows prop changes on the current
+content element and on a retained view's return. Updating it preserves the
+view, draft, selection and other content attributes.
+
 
 `editor/bidi.ts` gives each rendered logical line native `dir="auto"` and
 enables CodeMirror's `perLineTextDirection`, so browser layout and cursor

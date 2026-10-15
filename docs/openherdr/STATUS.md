@@ -16,8 +16,9 @@ published integration revision was `c1b07b395`. The current chat presentation
 iteration follows that baseline; complete native interaction remains pending.
 The shared tool/attachment/form source increment is `965f2f346`, verified on
 public main. The file-navigation increment is published at `0d2415a30`. It serves
-`herdr-BDGqP9Kp.js` in its historical APK. The current expanded-composer
-increment serves and packages `herdr-CF2mEnjj.js`.
+`herdr-BDGqP9Kp.js` in its historical APK. The expanded-composer increment used
+`herdr-CF2mEnjj.js`. The current slash increment serves and packages
+`herdr-CIO7wjLL.js`.
 
 ## Integrated source
 
@@ -49,6 +50,11 @@ increment serves and packages `herdr-CF2mEnjj.js`.
 - The local OpenCode 2 driver supplies real messages, streaming, model/agent
   selection, permissions/forms, attachments, history and explicit rebind.
   Existing native sessions remain read-only when a verified binding exists.
+  The current slash increment shares the original command-list presentation.
+  Its registry is loaded on demand for the selected conversation and directory.
+  Submission checks native commands, then skills, then ordinary text, keeping
+  attachments, delivery and the captured draft revision. Required lookup
+  failures preserve the draft. The separate `$` picker is not integrated yet.
 - Application preferences retain profile/per-surface scope, actual selected
   themes, font settings and original Android send-key behavior. Passive
   refresh does not resolve a settings conflict. Remote fonts require a current
@@ -137,6 +143,24 @@ increment serves and packages `herdr-CF2mEnjj.js`.
   delayed reads after a confirmed write. Independent review verified those
   corrections. Standalone Herdr imports and real Markdown rendering issue no
   legacy OpenCode initialization requests.
+- The slash backend passes 23 service tests and 36 HTTP tests. Independent
+  review found a native-writer takeover during registry lookup; both affected
+  send paths now recheck before dispatch and the regression confirms zero sends.
+  An actual public HTTPS read found the fixture command in its owned session,
+  omitted private skill fields, rejected a stale target and rejected a revoked
+  temporary client. That read sent no model request or terminal input.
+- The 412x915 HTTPS browser selected the native fixture command with
+  Enter, retained draft/focus after Escape, and sent it once with an argument.
+  The transcript contains one expanded native template and one actual
+  `OPENHERDR_NATIVE_COMMAND_OK ARGUMENT_E2E_OK` response. The sent draft cleared.
+  The editor label followed an Arabic/English round trip while retaining its
+  draft; English, the empty draft and normal viewport were restored afterward.
+  Captures are `assets/command-picker.png` and `assets/command-response.png`.
+  Focused checks pass 14 composer, 17 slash-controller, 8 original command-ranking
+  and 3 editor-property tests. Independent source review has no remaining P1/P2.
+  The command executed on `herdr-CcyH2USZ.js`. After the final gate fixes,
+  `herdr-CIO7wjLL.js` reloaded the same real reply and native candidate without
+  another model request; its temporary draft was cleared.
 - Combined type-check, lint, dead-code and anti-slop checks passed. The web
   build and Android debug build succeeded. The Android build command now
   rebuilds web source before copying it, so it cannot silently package an old UI.
@@ -148,14 +172,15 @@ increment serves and packages `herdr-CF2mEnjj.js`.
   That native sample used `herdr-BEKetIzv.js`. The latest file-navigation APK
   packages `herdr-BDGqP9Kp.js`; its HTML matches the web build byte for byte.
   That file-navigation APK was not installed or interactively tested on Android.
-  The current expanded-composer APK packages `herdr-CF2mEnjj.js`, is 15,738,094
-  bytes and exactly matches the current web HTML. It also has no native
-  interactive acceptance. The ordinary mobile command rebuilt web assets and
-  synchronized Capacitor, then hung in Gradle native filesystem enumeration.
-  Its canceled attempt and the subsequent shared-cache lock failure are retained.
-  A per-invocation isolated Gradle home/project cache with a copied read-only
-  dependency cache and filesystem watching disabled built successfully in
-  2m 49s, with all 213 tasks executed. No shared cache or mount was modified.
+  The previous expanded-composer APK packaged `herdr-CF2mEnjj.js` at 15,738,094
+  bytes. The current slash APK packages `herdr-CIO7wjLL.js` at 17,136,001 bytes;
+  its HTML and entry asset exactly match the current web build. It has not been
+  installed or interactively accepted on Android. Web build, native asset
+  preparation and Capacitor sync passed. Reusing the isolated Gradle home,
+  project cache and copied read-only dependency cache built offline in 10 seconds,
+  with 213 tasks, 27 executed and 186 up-to-date. No shared cache or mount changed.
+  The earlier filesystem-enumeration hang and shared-cache failure remain in
+  the expanded-composer build logs.
   One cold-start sample of the older build returned Activity success in 5.246 seconds, still showed
   a blank loading frame at 7.573 seconds, and displayed Connect in a later capture
   within 29 seconds. The exact visible-ready time and cause remain unknown.
@@ -218,10 +243,21 @@ The file-navigation source and runtime limits were sent to dot in message
 `bb75e874-dd29-4305-a958-a61fc7eec032`. Storage acceptance is confirmed;
 reading and another review are unconfirmed. The current UI increment restores
 the original pill-to-expanded composer interaction, with shared input editing
-and presentation. Fullscreen editing and autocomplete remain unfinished, as
-does native connected interaction.
+and presentation. The slash increment now adds native command autocomplete and
+the original command/skill/plain send routing. The separate `$` picker, agent
+and file autocomplete, remaining original editing actions and native connected
+interaction remain unfinished.
 
 The old task Gradle daemon remained in the operating system's exiting state
 and retained its shared journal lock after cancellation. The successful build
 used isolated caches. The build logs and process diagnostics are retained in
 `.tmp/`; no claim is made that the original Gradle environment recovered.
+
+The slash increment's final combined gate passed in
+`.tmp/check-slash-release-v3.log`. The first runs found test typing/lint issues,
+two new code-rule findings and a damaged shared Knip cache. The source issues
+were corrected; the same pinned Knip 5.80.0 ran from a task-owned temporary cache.
+No project dependency or shared cache was changed. The current default bridge
+serves `herdr-CIO7wjLL.js` on port 4318 and passed public health, bearer rejection,
+authenticated snapshot, temporary-client revocation and post-revocation rejection.
+That check sent no terminal input.

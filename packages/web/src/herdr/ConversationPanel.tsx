@@ -4,6 +4,7 @@ import { Button } from '@openchamber/ui/components/ui/button';
 import { Input } from '@openchamber/ui/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@openchamber/ui/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@openchamber/ui/components/ui/dialog';
+import type { CommandInfo } from '@openchamber/ui/components/chat/CommandAutocompleteView';
 import { Icon } from '@openchamber/ui/components/icon/Icon';
 import { MobileOverlayPanel } from '@openchamber/ui/components/ui/MobileOverlayPanel';
 import { MobileSessionSwitcherView } from '@openchamber/ui/apps/MobileSessionSwitcherView';
@@ -28,7 +29,7 @@ import { setNativeImagePasteEnabled, subscribeToNativeImagePastes } from '@openc
 import type { ModelRef } from '@openchamber/ui/lib/opencode/model';
 import {
   driverResolveSchema, driverListSchema, driverHistoryListSchema, driverReadSchema, driverHistoryReadSchema,
-  driverCatalogSchema, driverCreateSchema, driverActionSchema, driverPromptSchema, driverForkSchema, driverEventSchema,
+  driverCatalogSchema, driverRegistrySchema, driverCreateSchema, driverActionSchema, driverPromptSchema, driverForkSchema, driverEventSchema,
   mergeConversationMessages, type ConversationSnapshot, type ConversationRecord, type ConversationCatalog,
 } from '@openchamber/ui/lib/opencode/herdr-driver';
 import { type HerdrTransport, type PendingDelivery, type HerdrJsonValue, snapshotSchema, infoSchema } from './transport';
@@ -37,6 +38,7 @@ import { conversationDrafts, draftIdentity, reconcileConversationTail, prepareCo
 import { trackConversationMutation, type ConversationMutationRequest } from './conversation-actions';
 import { ConversationTool } from './ConversationTool';
 import { ConversationComposer } from './ConversationComposer';
+import { classifyConversationSlash } from './conversation-slash';
 import { ConversationForm } from './ConversationForm';
 import { HerdrConversationAttachments, type HerdrConversationAttachmentsProps } from './conversation-attachments';
 import { workspaceFilePath, type WorkspaceFileRequest } from './workspace-navigation';
@@ -83,6 +85,8 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const [streamError, setStreamError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [classifyingDraft, setClassifyingDraft] = React.useState<{ key: string; revision: number } | null>(null);
+  const submission = React.useRef<AbortController | null>(null);
   const [preparingKey, setPreparingKey] = React.useState<string | null>(null);
   const [reading, setReading] = React.useState(false);
   const [reload, setReload] = React.useState(0);
@@ -109,6 +113,34 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const preparing = preparingKey === draftKey;
   const writeDisabled = disabled || mutationBlocked || busy || !metadata || !resolved;
   const writable = !writeDisabled && activeSnapshot?.access === 'owned' && !!activeSnapshot.target;
+  const writableRef = React.useRef(writable); writableRef.current = writable;
+  const registryError = React.useRef(fallbackError); registryError.current = fallbackError;
+  const registryIdentity = activeSnapshot?.target?.identity;
+  const classifying = classifyingDraft?.key === draftKey && classifyingDraft.revision === draft.revision;
+  React.useEffect(() => {
+    setClassifyingDraft(null);
+    return () => { submission.current?.abort(); submission.current = null; };
+  }, [draftKey, draft.revision, disabled, mutationBlocked, registryIdentity, transport]);
+  const readRegistry = React.useCallback(async (kind: 'commands' | 'skills', signal: AbortSignal) => {
+    const source = snapshotRef.current;
+    if (!source?.target || source.access !== 'owned' || source.session.id !== selectedId || source.target.identity !== registryIdentity || !writableRef.current) throw new Error(registryError.current);
+    const target = source.target;
+    const schema = driverRegistrySchema.refine((value) => value.kind === kind && value.sessionId === selectedId
+      && value.target.machine === machine && value.target.paneId === paneId && value.target.identity === target.identity);
+    const value = await transport.request(endpoint('registry'), schema, { method: 'POST', body: JSON.stringify({ request: { target, sessionId: selectedId, kind } }), signal });
+    signal.throwIfAborted();
+    return value;
+  }, [machine, paneId, registryIdentity, selectedId, transport]);
+  const loadCommands = React.useCallback(async (signal: AbortSignal): Promise<CommandInfo[]> => {
+    const registry = await readRegistry('commands', signal);
+    if (registry.kind !== 'commands') throw new Error(registryError.current);
+    return registry.commands.map((command, index) => ({ ...command, id: `opencode:${index}:${command.name}`, source: 'opencode' }));
+  }, [readRegistry]);
+  const loadSkills = React.useCallback(async (signal: AbortSignal) => {
+    const registry = await readRegistry('skills', signal);
+    if (registry.kind !== 'skills') throw new Error(registryError.current);
+    return registry.skills;
+  }, [readRegistry]);
   const selectedBound = !!selectedId && !!bound?.sessions.some((item) => item.session.id === selectedId);
   const hasSnapshot = !!activeSnapshot;
 
@@ -323,12 +355,38 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
     return true;
   };
   const send = async () => {
-    const target = activeSnapshot?.target; if (!writable || activeSnapshot?.capabilities.prompt !== true || preparing || preparation.current?.key === draftKey || !target || !selectedId || (!draft.text.trim() && !draft.files.length)) return;
-    const captured = { key: draftKey, revision: draft.revision, sessionId: selectedId };
-    const result = await mutate('act', { target, sessionId: selectedId, action: 'prompt', input: { text: draft.text, files: draft.files.map(({ uri, name }) => ({ uri, name })), delivery: 'queue' } }, driverPromptSchema, 'prompt');
-    if (!result) return;
-    conversationDrafts.acknowledge(captured.key, captured.revision);
-    if (alive.current && selectedRef.current === captured.sessionId) { setNotice(h('enqueued')); following.current = true; setAtLatest(true); setLiveEpoch((n) => n + 1); }
+    const target = activeSnapshot?.target;
+    if (submission.current || !writable || preparing || preparation.current?.key === draftKey || !target || !selectedId || (!draft.text.trim() && !draft.files.length)) return;
+    const captured = { key: draftKey, revision: draft.revision, sessionId: selectedId, text: draft.text,
+      files: draft.files.map(({ uri, name }) => ({ uri, name })), transport, identity: target.identity };
+    const controller = new AbortController(); submission.current = controller;
+    const ownerMatches = () => alive.current && ownerTransport.current === captured.transport && selectedRef.current === captured.sessionId
+      && snapshotRef.current?.target?.identity === captured.identity;
+    const canDispatch = () => !controller.signal.aborted && ownerMatches() && writableRef.current
+      && conversationDrafts.get(captured.key).revision === captured.revision;
+    try {
+      if (captured.text.startsWith('/')) setClassifyingDraft({ key: captured.key, revision: captured.revision });
+      const plan = await classifyConversationSlash(captured.text, { commands: loadCommands, skills: loadSkills }, controller.signal);
+      if (!canDispatch()) return;
+      const capabilities = snapshotRef.current?.capabilities;
+      if (plan.kind === 'command' ? capabilities?.commands !== true : capabilities?.prompt !== true || (plan.skills && capabilities.skills !== true)) {
+        setError(fallbackError); return;
+      }
+      const promptInput = { text: captured.text, files: captured.files, delivery: 'queue' };
+      const result = plan.kind === 'command'
+        ? await mutate('act', { target, sessionId: captured.sessionId, action: 'command', input: { command: plan.command, arguments: plan.arguments, files: captured.files, delivery: 'queue' } }, driverActionSchema, 'command')
+        : await mutate('act', { target, sessionId: captured.sessionId, action: 'prompt', input: plan.skills ? { ...promptInput, skills: plan.skills } : promptInput }, driverPromptSchema, 'prompt');
+      if (!result) return;
+      // A replaced source can reuse a pane and session id. It cannot clear this draft.
+      if (!ownerMatches()) return;
+      conversationDrafts.acknowledge(captured.key, captured.revision);
+      setNotice(plan.kind === 'command' ? null : h('enqueued'));
+      following.current = true; setAtLatest(true); setLiveEpoch((n) => n + 1);
+    } catch (reason) {
+      if (!controller.signal.aborted && ownerMatches()) setError(reason instanceof Error ? reason.message : fallbackError);
+    } finally {
+      if (submission.current === controller) { submission.current = null; if (alive.current) setClassifyingDraft(null); }
+    }
   };
   const attach = React.useCallback(async (files: File[]) => {
     preparation.current?.controller.abort(); const controller = new AbortController(); preparation.current = { key: draftKey, controller };
@@ -403,7 +461,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   </div>;
   const liveActivity = activityFresh && eventsConnected;
   const running = liveActivity && activeSnapshot?.history === null && activeSnapshot.activity?.type === 'running';
-  const canSend = writable && !preparing && activeSnapshot?.capabilities.prompt === true && (!!draft.text.trim() || draft.files.length > 0);
+  const canSend = writable && !preparing && !classifying && (activeSnapshot?.capabilities.prompt === true || activeSnapshot?.capabilities.commands === true) && (!!draft.text.trim() || draft.files.length > 0);
   const modelLabel = selectedModel?.name ?? activeSnapshot?.session.model?.id ?? t('chat.modelControls.selectModel');
   const agentLabel = catalog?.agents.find((item) => item.id === activeSnapshot?.session.agent)?.name ?? activeSnapshot?.session.agent ?? t('chat.modelControls.selectAgent');
   const closePicker = () => { setPicker(null); setPickerQuery(''); };
@@ -449,6 +507,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
         <ScrollToBottomView visible={!atLatest} onClick={() => { following.current = true; setAtLatest(true); if (timeline.current) timeline.current.scrollTop = timeline.current.scrollHeight; }} />
         <ConversationComposer key={conversationOwner}
           text={draft.text} writable={writable} hidden={disabled} isMobile={!!navigation || isMobileSurfaceRuntime()} pickerOpen={picker !== null}
+          loadCommands={loadCommands}
           ariaLabel={h('draftPlaceholder')} preferences={preferences} attachmentFiles={draft.files}
           onTextChange={(text) => conversationDrafts.update(draftKey, (previous) => ({ ...previous, text }))}
           onAttach={(files) => { void attach(files); }}
@@ -459,8 +518,8 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
           agent={{ label: agentLabel, onChoose: () => setPicker('agent'), disabled: !writable || !activeSnapshot.capabilities.agentSelection, color: activeSnapshot.session.agent?.toLowerCase() === 'build' ? 'var(--status-success)' : undefined }}
 
           statusRow={running && atLatest && !hasRequest ? <div role="status" className="mb-2"><div className="oc-surface-floating inline-flex h-7 max-w-full items-center gap-2 whitespace-nowrap rounded-full ps-2 pe-3"><Icon name="code-ai" className="size-3.5 shrink-0" /><span className="truncate typography-meta">{modelLabel} · {t('chat.todo.inProgress')}</span></div></div> : undefined}
-          topRow={preparing || unsupported.length || (catalog && (!catalog.models.length || !catalog.agents.length) && !catalog.authoritative) ? <div className="border-b border-border/40 px-3 py-2 typography-meta text-muted-foreground">
-            {preparing ? <p role="status">{t('common.loading')}</p> : null}
+          topRow={preparing || classifying || unsupported.length || (catalog && (!catalog.models.length || !catalog.agents.length) && !catalog.authoritative) ? <div className="border-b border-border/40 px-3 py-2 typography-meta text-muted-foreground">
+            {preparing || classifying ? <p role="status">{t('common.loading')}</p> : null}
             {catalog && (!catalog.models.length || !catalog.agents.length) && !catalog.authoritative ? <p>{h('catalogLoading')}</p> : null}
             {unsupported.length && selectedModel ? <p className="text-[var(--status-warning-text)]">{t('chat.chatInput.toast.unsupportedAttachmentModalities', { model: selectedModel.name, modalities: [...new Set(unsupported.map((item) => item.modality))].join(', '), files: unsupported.map((item) => item.attachment.name).join(', ') })}</p> : null}
           </div> : undefined}

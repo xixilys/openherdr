@@ -41,6 +41,7 @@ Request schemas are exported from `conversations/contracts.js`:
 | `conversationListRequest` | `cursor?`, `limit?` from 1 to 100 |
 | `conversationReadRequest` | `sessionId`, `cursor?`, `limit?` |
 | `conversationCatalogRequest` | none |
+| `conversationRegistryRequest` | `sessionId`, `kind:'commands'|'skills'` |
 | `conversationCreateRequest` | `title?` |
 | `conversationActionRequest` | `sessionId`, `action`, `input` |
 | `conversationEventsRequest` | `sessionId` |
@@ -121,6 +122,19 @@ excluded. `authoritative:false` identifies the known OpenCode cold-agent
 catalog behavior. Read it again when the same location announces a catalog
 event. No provider configuration is written.
 
+`registry` returns `{protocol,target,sessionId,kind,commands}` or
+`{protocol,target,sessionId,kind,skills}`. The authenticated HTTP read is
+`POST /api/herdr/conversations/registry` with the usual `{request}` envelope.
+Commands expose native `name` and optional `description`. Skills expose native
+`id`, `name` and optional `description`; their paths and contents are excluded.
+The read uses the selected session's registered or private coordinator and its
+verified directory, then checks the target again before returning. A failed or
+malformed lookup throws. It never becomes a successful empty registry.
+
+Load this registry only when opening the slash picker or classifying a slash
+submission. OpenCode's directory-scoped command read can initialize that
+directory's MCP servers, so it is excluded from the initial model/agent catalog.
+
 `create` returns `{protocol,target,session,access:'owned',capabilities}`.
 `act` returns `{protocol,target,sessionId,action,result}`. The prompt result is
 the real OpenCode inbox item. It confirms enqueue, while live execution and
@@ -130,7 +144,7 @@ assistant messages establish completion. Void operations return `result:null`.
 
 | `action` | `input` |
 | --- | --- |
-| `prompt` | `{text,files?:[{uri,name}],delivery?:'steer'|'queue'}` |
+| `prompt` | `{text,files?:[{uri,name}],delivery?:'steer'|'queue',skills?:[{id}]}` |
 | `abort` | `{}` |
 | `rename` | `{title}` |
 | `delete` | `{}` |
@@ -142,12 +156,26 @@ assistant messages establish completion. Void operations return `result:null`.
 | `fork` | `{messageId?}`; an optional ID selects the upstream `before` boundary |
 | `revert_stage` | `{messageId}` |
 | `revert_clear`, `revert_commit`, `compact` | `{}` |
-| `command` | `{command,arguments?}` |
+| `command` | `{command,arguments?,files?:[{uri,name}],delivery?:'steer'|'queue'}` |
 | `skill` | `{skill}` |
 
 Permissions and forms must still be pending in the same session. OpenCode
 validates form answers. Model and agent selection changes only the selected
 owned session. It does not change global defaults or configure providers.
+
+Slash submission follows the original order. A current command-name match sends
+one `command` action. Otherwise a successful skill-name lookup sends one prompt
+with the full `/skill arguments` text and its real skill ID. Only successful
+nonmatches from both registries allow an ordinary prompt. A required lookup
+failure retains the draft and sends nothing. The independent `skill` action
+does not replace a skill attached to a prompt.
+
+Command names accept native strings up to 4096 characters and must still exist
+in the current registry before dispatch. A prompt accepts at most 10 unique
+skill IDs and checks them against the same directory's current registry. Both
+paths preserve attachments and delivery. After these awaited lookups, the
+service rechecks whether another Herdr pane owns the session, then verifies the
+selected target immediately before dispatch. Unknown outcomes are never retried.
 
 Attachments use the official prompt `files` data URI protocol. Accepted MIME
 types are `text/plain`, PNG, JPEG, GIF, WebP and PDF. Names cannot contain path

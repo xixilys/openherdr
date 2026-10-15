@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import React, { act } from 'react';
 import { EditorView } from '@codemirror/view';
 import { Window } from 'happy-dom';
+import type { CommandInfo } from '@/components/chat/CommandAutocompleteView';
 import type { Root } from 'react-dom/client';
 
 let dom: Window;
@@ -15,10 +16,12 @@ let writable: boolean;
 let running: boolean;
 let canQueue: boolean;
 let pickerOpen: boolean;
+let commandLoader: ((signal: AbortSignal) => Promise<CommandInfo[]>) | undefined;
 let sends: number;
 let queues: number;
 let attachments: { name: string }[];
 let requests: string[];
+let frameObserver: (() => void) | undefined;
 const drafts = new Map<string, string>();
 const wait = async (ms = 450) => { for (let elapsed = 0; elapsed < ms; elapsed += 25) await act(async () => { await new Promise(resolve => setTimeout(resolve, Math.min(25, ms - elapsed))); }); };
 const content = () => host.querySelector<HTMLElement>('.cm-content');
@@ -49,18 +52,19 @@ beforeEach(async () => {
   const { createRoot } = await import('react-dom/client');
   const { I18nProvider } = await import('@/lib/i18n');
   const { ConversationComposer } = await import('../../../../web/src/herdr/ConversationComposer');
+  commandLoader = undefined; frameObserver = undefined;
   scope = 'server/local/pane/identity/session-a'; hidden = false; writable = true; running = false; canQueue = true; pickerOpen = false; sends = 0; queues = 0; attachments = [];
   drafts.clear(); drafts.set(scope, 'Unsent draft');
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
-  const paint = () => root.render(<I18nProvider><section data-composer-bound><ConversationComposer key={scope}
+  const paint = () => root.render(<I18nProvider><React.Profiler id="composer-frame" onRender={() => { frameObserver?.(); }}><section data-composer-bound><ConversationComposer key={scope}
     text={drafts.get(scope) ?? ''} onTextChange={(text) => { drafts.set(scope, text); paint(); }}
     attachmentFiles={attachments} onAttach={(files) => { attachments = files.map(file => ({ name: file.name })); }}
     onEditorFocus={() => {}} onEditorBlur={() => {}} writable={writable} hidden={hidden} isMobile pickerOpen={pickerOpen}
-    ariaLabel="Prompt" isRunning={running} canSend={writable} canQueue={writable && canQueue} canAbort={false}
+    loadCommands={commandLoader} ariaLabel="Prompt" isRunning={running} canSend={writable} canQueue={writable && canQueue} canAbort={false}
     onSend={() => { sends++; }} onQueue={() => { queues++; }} onAbort={() => {}}
     model={{ label: 'Actual model', onChoose: () => { pickerOpen = true; paint(); }, disabled: !writable }}
     agent={{ label: 'Actual agent', onChoose: () => {}, disabled: !writable }}
-  ><div data-request-dock role="dialog">Actual permission</div></ConversationComposer></section></I18nProvider>);
+  ><div data-request-dock role="dialog">Actual permission</div></ConversationComposer></section></React.Profiler></I18nProvider>);
   render = () => act(async () => { paint(); });
   await render();
 });
@@ -183,4 +187,106 @@ test('returning to an unlocked pill opens its own file picker once without expan
   expect(host.querySelector('input[type="file"]')).toBe(input);
   expect(drafts.get(scope)).toBe('Unsent draft');
   expect(sends).toBe(0); expect(queues).toBe(0);
+});
+
+const nativeCommand = (name: string): CommandInfo => ({ id: `native:${name}`, name, source: 'opencode', description: `Native ${name}` });
+const writeText = (text: string) => act(async () => { const editor = view(); editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text } }); });
+const commandPopup = () => host.querySelector('[data-command-autocomplete]');
+const candidateRows = () => [...(commandPopup()?.querySelectorAll<HTMLElement>('.cursor-pointer') ?? [])];
+const composerKey = (key: string, modifiers: KeyboardEventInit = {}) => act(async () => { content()?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...modifiers })); });
+
+test('native commands load only on a typed slash opening and retain original keyboard selection and insertion', async () => {
+  let loads = 0;
+  commandLoader = async () => { loads++; return [nativeCommand('zeta'), nativeCommand('alpha')]; };
+  await render(); await expand(); expect(loads).toBe(0);
+  await writeText('/'); await wait(40);
+  expect(loads).toBe(1);
+  expect(candidateRows().map(row => row.querySelector('.typography-ui-label')?.textContent)).toEqual(['/alpha', '/zeta']);
+  expect(commandPopup()?.classList.contains('max-w-[450px]')).toBe(true);
+  await composerKey('n', { ctrlKey: true });
+  expect(candidateRows()[1]?.classList.contains('bg-interactive-selection')).toBe(true);
+  await composerKey('p', { ctrlKey: true });
+  expect(candidateRows()[0]?.classList.contains('bg-interactive-selection')).toBe(true);
+  await composerKey('ArrowUp');
+  await composerKey('Tab'); await wait(25);
+  expect(view().state.doc.toString()).toBe('/zeta ');
+  expect(document.activeElement).toBe(content()); expect(sends).toBe(0); expect(queues).toBe(0);
+  expect(commandPopup()).toBeNull();
+  await writeText('/'); await wait(40); expect(loads).toBe(2);
+  await composerKey('Enter', { isComposing: true });
+  expect(sends).toBe(0); expect(queues).toBe(0);
+  expect(view().state.doc.toString()).not.toBe('/alpha ');
+  expect(view().state.doc.toString()).not.toBe('/zeta ');
+  await writeText('/'); await wait(40);
+  await composerKey('ArrowDown'); await composerKey('Enter'); await wait(25);
+  expect(view().state.doc.toString()).toBe('/zeta ');
+  expect(sends).toBe(0); expect(loads).toBe(3);
+});
+
+test('Back dismisses native candidates before the keyboard; overlay handoff preserves the slash draft', async () => {
+  const { closeTopmostBackLayer } = await import('@/lib/mobileBackLayers');
+  let loads = 0;
+  commandLoader = async () => { loads++; return [nativeCommand('verify')]; };
+  await render(); await expand(); await writeText('/ver'); await wait(40);
+  await act(async () => { expect(closeTopmostBackLayer()).toBe(true); }); await wait(25);
+  expect(commandPopup()).toBeNull(); expect(document.activeElement).toBe(content());
+  expect(view().state.doc.toString()).toBe('/ver');
+  await writeText('/verify'); await wait(40); expect(loads).toBe(2);
+  await act(async () => host.querySelector<HTMLButtonElement>('[title="Actual model"]')?.click());
+  expect(pickerOpen).toBe(true); await wait(25); expect(commandPopup()).toBeNull();
+  pickerOpen = false; await render(); await wait();
+  expect(document.activeElement).toBe(content()); expect(view().state.doc.toString()).toBe('/verify');
+  expect(loads).toBe(2); expect(sends).toBe(0);
+});
+
+test('registry errors are explicit and never render a successful empty command list', async () => {
+  let loads = 0;
+  commandLoader = async () => { loads++; if (loads === 1) throw new Error('Native registry unavailable'); return []; };
+  await render(); await expand(); await writeText('/'); await wait(40);
+  expect(commandPopup()?.querySelector('[role="alert"]')?.textContent).toBe('Native registry unavailable');
+  expect(commandPopup()?.textContent).not.toContain('No commands found');
+  await composerKey('Enter', { ctrlKey: true }); expect(sends).toBe(0);
+  await composerKey('Escape'); await wait(25);
+  await writeText('/other'); await wait(40);
+  expect(loads).toBe(2); expect(commandPopup()?.textContent).toContain('No commands found');
+  expect(commandPopup()?.querySelector('[role="alert"]')).toBeNull();
+  await composerKey('Enter', { ctrlKey: true }); expect(sends).toBe(0);
+  expect(drafts.get(scope)).toBe('/other'); expect(sends).toBe(0);
+});
+
+test('a changed source cancels pending candidates and cannot publish their old command names', async () => {
+  let reply: (items: CommandInfo[]) => void = () => {};
+  const signals: AbortSignal[] = [];
+  commandLoader = (next) => { signals.push(next); return new Promise(resolve => { reply = resolve; }); };
+  await render(); await expand(); await writeText('/'); await wait(25);
+  expect(commandPopup()?.querySelector('[role="status"]')).not.toBeNull();
+  await composerKey('Enter', { ctrlKey: true }); expect(sends).toBe(0); expect(queues).toBe(0);
+  scope = 'server/ssh/pane/changed-source/session-b'; drafts.set(scope, 'Other owner'); await render();
+  expect(signals[0]?.aborted).toBe(true);
+  await act(async () => reply([nativeCommand('stale-only')])); await wait(25);
+  expect(commandPopup()).toBeNull(); expect(drafts.get(scope)).toBe('Other owner');
+  await expand(); expect(view().state.doc.toString()).toBe('Other owner');
+});
+
+test('the first layout of each command opening shows loading before passive registry effects', async () => {
+  const gate = () => { let resolve: (items: CommandInfo[]) => void = () => {}; const promise = new Promise<CommandInfo[]>(done => { resolve = done; }); return { promise, resolve: (items: CommandInfo[]) => resolve(items) }; };
+  let pending = gate();
+  commandLoader = () => pending.promise;
+  await render(); await expand();
+  let frames: string[] = [];
+  frameObserver = () => { const popup = commandPopup(); if (popup) frames.push(popup.textContent ?? ''); };
+  await writeText('/');
+  expect(frames.length).toBeGreaterThan(0);
+  expect(frames[0]).toContain('Loading...');
+  expect(frames[0]).not.toContain('No commands found');
+  await act(async () => pending.resolve([nativeCommand('old-name')]));
+  await wait(25);
+  await composerKey('Escape'); await wait(25);
+  pending = gate(); frames = [];
+  await writeText('/old');
+  expect(frames.length).toBeGreaterThan(0);
+  expect(frames[0]).toContain('Loading...');
+  expect(frames[0]).not.toContain('/old-name');
+  await act(async () => pending.resolve([]));
+  await wait(25);
 });

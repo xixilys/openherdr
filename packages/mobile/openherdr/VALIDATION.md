@@ -1,9 +1,42 @@
 # Native build validation
 
-## Latest expanded-composer artifact
+## Latest native-command artifact
 
-The current debug APK is 15,738,094 bytes and packages `herdr-CF2mEnjj.js`.
-Its `assets/public/index.html` exactly matches the current web build, and the
+The current debug APK is 17,136,001 bytes and packages `herdr-CIO7wjLL.js`.
+Its `assets/public/index.html` and entry asset exactly match the current web
+build. `.tmp/slash-apk.json` records the check. The existing package identity,
+versionCode and native source are unchanged. This APK has not been installed or
+interactively tested on Android.
+
+Web build, native asset preparation and Capacitor Android sync passed. Gradle
+8.14.3 reused the task-owned isolated home/project cache and copied read-only
+dependency cache from the preceding composer build. The invocation used
+`--offline --no-daemon --no-watch-fs`. `.tmp/android-slash-final-build.log` reports
+success in 10 seconds with 213 tasks, 27 executed and 186 up-to-date. No dependency
+declaration, global configuration, shared cache or mount was changed.
+
+The actual 412x915 HTTPS browser selected a real fixture command through the
+original list, retained its draft after Escape, selected with Enter, supplied
+an argument and executed once. One expanded native command template and one
+`OPENHERDR_NATIVE_COMMAND_OK ARGUMENT_E2E_OK` response appeared; the sent draft
+cleared. Arabic/English editor labels followed the language round trip with
+the draft retained. English, the empty draft and normal viewport were restored.
+`.tmp/slash-browser-validation.json` records these checks. Public captures are
+`docs/openherdr/assets/command-picker.png` and `command-response.png`.
+
+The single command executed on `herdr-CcyH2USZ.js` before the final gate fixes.
+The final `herdr-CIO7wjLL.js` browser then reloaded the same real response and
+native candidate without a second model request. Its temporary draft was cleared
+and normal viewport restored. The receipt records both builds separately.
+
+These browser checks do not establish native touch, IME, system Back, file
+picker/sharing, rotation or connection recovery. The separate `$` picker,
+agent/file autocomplete and remaining original application parity are unfinished.
+
+## Previous expanded-composer artifact
+
+The expanded-composer debug APK was 15,738,094 bytes and packaged `herdr-CF2mEnjj.js`.
+Its `assets/public/index.html` exactly matched that web build, and the
 referenced bundle is present. `.tmp/expanded-composer-apk.json` records the check.
 Package identity and native source are unchanged. This APK has not been installed
 or interactively tested on Android.

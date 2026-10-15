@@ -79,6 +79,7 @@ sending and never guesses another session.
 | Agents | Start supported installed CLI agents and prompt a named agent in its pane |
 | Machines | Local session and enabled saved SSH profiles |
 | Conversations | Real local OpenCode history, message paging, live events, prompt/abort, model/agent selection, permissions, forms and inline attachments |
+| Native slash commands | Original candidate list, scoped live lookup and command/skill/plain submission with attachments and delivery retained |
 | Files | Local/saved-SSH browsing, search, manual editing, create/rename/delete, upload/download, revision conflicts and image/binary preview |
 | Git | Local/saved-SSH status, diff, stage/unstage, commit, history and branch/checkout |
 | Worktrees | Native Herdr list/create/open/remove, with dirty-removal refusal |
@@ -117,8 +118,21 @@ non-bottom reading position through the Files round trip. One bounded real
 prompt returned `OPENHERDR_EXPANDED_INPUT_OK` exactly once and cleared the sent
 draft. Arabic inspection confirmed mirrored model/agent controls; the browser
 was then restored to English with the test draft cleared. The receipt is
-`.tmp/expanded-composer-browser.json`. Physical native IME, system Back, sharing,
-fullscreen input and autocomplete remain unverified or unfinished.
+`.tmp/expanded-composer-browser.json`. Physical native IME, system Back and sharing
+remain unverified.
+
+Typing `/` opens the original command list for this conversation's actual
+directory. Choosing a command inserts it into the draft; submission reads the
+current registry again. Commands take precedence over skills. A skill-name match
+attaches its real ID to one prompt with the full original text, files and delivery.
+Two successful nonmatches send ordinary text. A failed lookup retains the draft.
+Unknown delivery stays locked and is not retried.
+
+The actual 412x915 HTTPS browser selected and executed one harmless fixture
+command with an argument. The transcript showed one expanded native template and
+one `OPENHERDR_NATIVE_COMMAND_OK ARGUMENT_E2E_OK` reply; the sent draft cleared.
+The receipt is `.tmp/slash-browser-validation.json`. The separate `$` skill picker,
+agent/file autocomplete and the remaining original editing actions are unfinished.
 
 Tool file actions now open the shared original mobile Files browser and existing
 host editor with a captured conversation identity and canonical root. The editor
@@ -136,14 +150,17 @@ directory were cleaned up. These results are recorded in
 `.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
 and `.tmp/untracked-ssh-acceptance.json`.
 
-The latest Android debug APK is 15,738,094 bytes and includes
-`herdr-CF2mEnjj.js`, with its bundled HTML matching the web build. It has not been
+The latest Android debug APK is 17,136,001 bytes and includes
+`herdr-CIO7wjLL.js`, with its bundled HTML and entry asset matching the web build. It has not been
 installed or tested interactively on Android. Older native Connect/cold-start
 observations belong to `herdr-BEKetIzv.js`; the previous file-navigation APK used
 `herdr-BDGqP9Kp.js`. Complete editor/Git behavior, connected native interaction
 and full original-feature parity remain unfinished. The earlier browser download
 completion is still unknown. Build details and the isolated Gradle recovery are
 recorded in [native validation](../../packages/mobile/openherdr/VALIDATION.md).
+
+![Native command picker](assets/command-picker.png)
+![Native command response](assets/command-response.png)
 
 Ordinary workspaces need a trusted project-root registration before project context
 is available. Pane cwd changes never choose another notes owner. Worktrees of

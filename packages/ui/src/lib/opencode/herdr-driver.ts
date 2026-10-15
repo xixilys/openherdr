@@ -89,6 +89,11 @@ export const driverForkSchema = z.object({ protocol, target: driverTargetSchema,
 export const driverPromptSchema = z.object({ protocol, target: driverTargetSchema, sessionId: id, action: z.literal('prompt'), result: z.object({ id, sessionID: id, type: z.literal('user'), time: z.object({ created: z.number() }), delivery: z.enum(['steer', 'queue']) }) });
 export const driverCatalogSchema = z.object({ protocol, target: driverTargetSchema, models: z.array(z.object({ id, providerID: id, modelID: id.optional(), name: z.string(), enabled: z.boolean(), variants: z.array(z.object({ id })), capabilities: z.object({ tools: z.boolean(), input: z.array(z.string()), output: z.array(z.string()) }), limit: z.object({ context: z.number(), output: z.number(), input: z.number().optional() }) })), agents: z.array(z.object({ id, name: z.string(), description: z.string().optional(), hidden: z.boolean(), mode: z.enum(['primary', 'subagent', 'all']) })), authoritative: z.boolean(), completeness: z.string() });
 export type ConversationCatalog = z.infer<typeof driverCatalogSchema>;
+export const driverRegistrySchema = z.discriminatedUnion('kind', [
+  z.object({ protocol, target: driverTargetSchema, sessionId: id, kind: z.literal('commands'), commands: z.array(z.object({ name: z.string().min(1), description: z.string().optional() })) }),
+  z.object({ protocol, target: driverTargetSchema, sessionId: id, kind: z.literal('skills'), skills: z.array(z.object({ id: z.string().min(1).max(4096), name: z.string().min(1), description: z.string().optional() })) }),
+]);
+export type ConversationRegistry = z.infer<typeof driverRegistrySchema>;
 export const driverEventSchema = z.discriminatedUnion('type', [
   z.object({ protocol, type: z.literal('conversation.resync'), target: driverTargetSchema, sessionId: id }),
   z.object({ protocol, type: z.literal('conversation.event'), target: driverTargetSchema, sessionId: id, event: z.object({ type: z.string(), id: z.string().optional(), data: z.json().optional() }) }),

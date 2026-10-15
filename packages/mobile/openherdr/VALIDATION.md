@@ -1,6 +1,27 @@
 # Native build validation
 
-## Latest expired-device recovery artifact
+## Latest cold-window restoration artifact
+
+The debug APK is 40,701,131 bytes and packages `herdr-ATkpLUV8.js`. Its HTML and
+entry match the web build exactly in `.tmp/cold-monitor-apk.json`. The scanner
+registry and 12 native libraries remain packaged. The preserved first phone-test
+copy still contains `herdr-D8G2xhGi.js` and has not been replaced.
+
+The Herdr web build, native asset preparation, Android sync and Gradle build
+passed. Gradle used the existing task-owned cache and NDK 27.1 init script,
+finishing in 12 seconds with 245 tasks, 27 executed and 218 up-to-date.
+The log is `.tmp/android-cold-monitor-build.log`. No shared SDK setting changed.
+
+The actual 412x915 default CF browser restored its saved connection and Kansas
+task-overview window after reload. A subsequent manual selection and reload
+restored the workers window. Both showed real output and a read-only observer;
+there was no new pairing or bridge/tunnel restart. Pure and independent DOM
+tests cover stale targets, late reads, origin separation and unknown delivery.
+These are browser/source checks. This APK has not been installed or interactively
+tested; Android process-death restoration, KeyStore, system Back, camera and
+physical-phone acceptance remain unverified.
+
+## Previous expired-device recovery artifact
 
 The APK is 40,701,131 bytes and packages `herdr-D8G2xhGi.js`. Its HTML and
 entry match the web build exactly in `.tmp/auth-recovery-apk.json`. The scanner
@@ -316,7 +337,7 @@ The final native client uses the secure-storage plugin, awaits persistence and
 refuses a browser-storage fallback. Empty-vault startup succeeded; a credential
 write/relaunch roundtrip has not been exercised. The browser and server control
 checks are recorded separately in `docs/openherdr/STATUS.md`. No push
-notifications or camera scanner are included. Release signing and store upload
+notifications or camera scanner were included in that baseline. Release signing and store upload
 were not performed.
 
 ## Branding and UI access follow-up
@@ -324,3 +345,17 @@ were not performed.
 Native launcher icons and launch images derive from `packages/web/public-herdr/openherdr.svg`, using the existing Sharp dependency. The generator is `generate-icons.mjs`. Verified the iOS icon is opaque 1024x1024, all 10 Android legacy/round icon sizes match their densities, and all 5 adaptive foreground images are 108dp at the corresponding density. Both final builds include these assets.
 
 Computer Use opened Xcode 27's DeviceHub application and inspected its actual window and File/View menus. The Devices window reports `No Devices`; it does not expose the running custom simulator set. No native taps, pairing or control were performed through DeviceHub. The installed `serve-sim` helper resolves its default device set, so it also does not expose this isolated set through its normal interface. No global device-set configuration or tooling was changed to work around this limitation.
+
+## Preserved first physical-device test package
+
+The human requested an APK for camera testing. The local fixed copy is
+`build/openherdr-test1-726029ba6.apk`, matching the supplied debug APK byte for
+byte. It is 40,701,131 bytes and contains `herdr-D8G2xhGi.js`. Future builds can
+replace `android/app/build/outputs/apk/debug/app-debug.apk` while this copy stays
+available. It is a local ignored build artifact, not a store release.
+
+Android's installed `apksigner` verifies the fixed APK. Package inspection reports
+`dev.openherdr.mobile`, versionName `0.1.0`, versionCode `2`, min SDK 24 and target
+SDK 36, with CAMERA and arm64-v8a/armeabi-v7a/x86/x86_64 libraries. This establishes
+package/signature properties, not installation or a successful camera scan.
+No physical-device result has been received.

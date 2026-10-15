@@ -273,22 +273,14 @@ Full parity should be accepted by original feature and actual user flow, not by 
 
 ## Current artifact and remaining acceptance
 
-The current monitor debug APK is 17,140,452 bytes and contains `herdr-BLLJAMLv.js`; its
-bundled HTML and entry asset exactly match the built web files.
-`.tmp/window-monitor-apk.json` records the artifact. Web build, native asset preparation
-and Capacitor sync passed. The Gradle invocation reused the task-owned isolated
-home/project cache and copied read-only dependencies, with filesystem watching
-and the daemon disabled. The offline build in `.tmp/android-window-monitor-final-build.log`
-reports success in 10 seconds, with 213 tasks, 27 executed and 186 up-to-date.
+[STATUS.md](STATUS.md) records the current source, browser results and remaining
+feature scope. [Native validation](../../packages/mobile/openherdr/VALIDATION.md)
+records the latest APK and the limits of each earlier native observation.
+The fixed first phone-test copy is `openherdr-test1-726029ba6.apk`; future debug
+builds do not replace it. No physical camera result has been received.
 
-This latest APK has not been installed or tested interactively on Android.
-The current CF browser restored its saved binding and displayed all four
-machines, agent panes and ordinary Kansas dashboards. A real successful-frame
-layout/reconnect loop was corrected and rechecked in that browser. Native Back,
-IME and lifecycle acceptance remain separate.
-The preceding file-navigation artifact used `herdr-BDGqP9Kp.js`; the older
-`herdr-BEKetIzv.js` build supplies the native Connect and cold-start observations
-in `packages/mobile/openherdr/VALIDATION.md`. The expanded-composer APK used
-`herdr-CF2mEnjj.js`. Remaining pickers/editing actions, complete editor/Git behavior,
-connected native interaction and the wider original application parity are
-unfinished.
+The actual Cloudflare browser has displayed Local, WSL, JP API and Kansas,
+including ordinary dashboards. Its saved-origin and explicit credential-recovery
+flows work in that browser. Native Back, IME, secure storage, camera and lifecycle
+remain separate acceptance items. Complete editor/Git behavior and the wider
+original application parity remain unfinished.

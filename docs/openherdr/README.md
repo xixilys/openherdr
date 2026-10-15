@@ -183,19 +183,21 @@ directory were cleaned up. These results are recorded in
 `.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
 and `.tmp/untracked-ssh-acceptance.json`.
 
-The latest Android debug APK is 17,140,452 bytes and includes
-`herdr-BLLJAMLv.js`, with its bundled HTML and entry asset matching the web build. It has not been
-installed or tested interactively on Android. Older native Connect/cold-start
-observations belong to `herdr-BEKetIzv.js`; the previous file-navigation APK used
-`herdr-BDGqP9Kp.js`. Complete editor/Git behavior, connected native interaction
-and full original-feature parity remain unfinished. The earlier browser download
-completion is still unknown. Build details and the isolated Gradle recovery are
-recorded in [native validation](../../packages/mobile/openherdr/VALIDATION.md).
+The first physical-device test copy is `openherdr-test1-726029ba6.apk`, stored
+locally under `packages/mobile/openherdr/build/` so later debug builds cannot
+overwrite it. The human has requested it for scanning; installation and a camera
+result have not been confirmed. [Native validation](../../packages/mobile/openherdr/VALIDATION.md)
+records package properties, the latest builds and the separate earlier native
+observations. Complete editor/Git behavior, connected native interaction and
+full original-feature parity remain unfinished. The earlier browser download
+completion is still unknown.
 
 The window monitor passed the actual 412x915 browser flow through Cloudflare
 HTTPS on Local, WSL, JP API and Kansas. Existing agent windows and ordinary
 Kansas dashboards displayed real output. Reloading the same origin restored
-the saved binding without another pairing. Screen observation and visible text
+the saved binding without another pairing. The current cold-window increment
+also restores the last verified window; actual reloads retained the task overview
+and then a manually selected workers window. Screen observation and visible text
 remain separate read-only choices. These browser checks do not establish native
 Android pairing or lifecycle behavior.
 
@@ -212,7 +214,8 @@ voice, multirun, isolated spaces, extension panels and source-control review
 remain in the complete-replication scope in [the plan](ANDROID_PARITY_PLAN.md).
 They are not completed by this increment. Android pairing intake accepts a
 precise `openherdr://connect` link and still requires confirmation in the app.
-A camera scanner and closed-app push delivery are not configured.
+Android includes the QR scanner; physical camera use remains unverified.
+Closed-app push delivery is not configured.
 
 If input delivery is uncertain, the app keeps the draft and blocks further
 mutations. Check delivery inspects the saved receipt without resending. Inspect

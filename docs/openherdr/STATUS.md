@@ -30,7 +30,43 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current expired-device recovery increment
+## Current cold-window restoration increment
+
+Monitor remembers the last verified machine, workspace, tab, pane and terminal
+for each server origin. It reads that hint before choosing a default machine,
+then waits for a successful current machine list and matching snapshot before
+opening output. Read failures retain the hint. Confirmed removal or a different
+terminal clears the stale hint and leaves the view unavailable until explicit
+selection. User navigation wins over late restoration. Credential replacement
+on the same origin retains the running selection and does not reapply the hint.
+The metadata contains no credential, output or draft; blocked storage does not
+prevent navigation. Terminal controls and uncertain input are never restored.
+
+Four pure tests pass. Twenty independent actual-app DOM cases pass across the
+initial 19-case run and one added same-machine pending-inspection case. Existing
+auth-recovery, monitor and pane tests pass 26/26. Coverage includes fresh-read
+gating, colliding IDs, ancestry/terminal replacement, failed reads, different
+origins, token replacement, blocked storage and no pending-mutation replay.
+Independent source review found no remaining P1/P2. The final combined gate
+passes type-check, lint, Knip and the anti-slop check in
+`.tmp/check-cold-monitor-final.log`.
+
+The actual 412x915 browser used the existing default Cloudflare origin and
+saved credential. Reload restored Kansas / Claude US / task overview; after
+manual selection, a second reload restored the workers window. Both displayed
+real output through a read-only observer. No re-pairing, bridge/tunnel restart,
+terminal input, agent start or conversation creation was performed. Private
+captures and the browser record stay under `.tmp/cold-monitor/`.
+
+The Herdr web build, asset preparation, Capacitor sync and Android debug build
+passed. The APK is 40,701,131 bytes and packages `herdr-ATkpLUV8.js`; HTML and
+entry bytes match the web build in `.tmp/cold-monitor-apk.json`. The preserved
+first phone-test copy remains the D8G2xhGi build. The new APK has not been
+installed or interactively tested. Native KeyStore, Android process death,
+system Back and camera acceptance remain unverified. Full Android parity and
+persistent named Cloudflare configuration remain unfinished.
+
+## Previous expired-device recovery increment
 
 Only HTTP 401 with OpenHerdr's parsed `unauthorized` error enters recovery.
 Welcome pauses the current private views and their reads, explains that access
@@ -66,8 +102,8 @@ receipts stay private under `.tmp/auth-recovery/`.
 The original Web build and Android build passed. The final APK is 40,701,131 bytes with `herdr-D8G2xhGi.js`;
 its packaged HTML and entry match the web build exactly. The final rebuild
 passed in 13 seconds. The actual final-asset browser reload restored the new
-saved binding and a read-only canvas without pairing again. A full reload
-starts at Local; this increment retains the selected pane across same-origin
+saved binding and a read-only canvas without pairing again. At that revision,
+a full reload started at Local; this increment retained the selected pane across same-origin
 credential replacement within the running app. Native KeyStore,
 system Back, camera and physical-phone interaction remain unverified. Full
 Android feature/UI parity and persistent named Cloudflare configuration remain

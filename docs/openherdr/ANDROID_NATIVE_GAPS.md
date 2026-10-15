@@ -1,46 +1,44 @@
-# Android native review
+# Android native integration and remaining checks
 
-This review reads the current OpenHerdr shell, the original Android shell, the shared mobile helpers, and the installed Capacitor 8.4.1/plugin sources. Android is the primary app target. No emulator actions, production edits, or builds were performed during this review. Source presence does not establish runtime parity.
+Android is the primary OpenHerdr application. This document describes current
+source integration and the device checks still needed. The initial-shell gap
+review is superseded: the app now includes lifecycle, Back, pairing links,
+scanner, file-share and image-paste bridges. See [STATUS.md](STATUS.md) and
+[the native validation record](../../packages/mobile/openherdr/VALIDATION.md)
+for the builds and runtime checks actually completed.
 
-The OpenHerdr app currently registers only SecureStorage. Its `MainActivity` is an empty `BridgeActivity` subclass. The original app registers app-local image-paste and file-share bridges, inflates a custom WebView, declares `adjustResize`, and uses shared JavaScript hooks for keyboard, bars, back handling, and resume.
+## Current integration
 
-## Current differences
-
-| Behavior | Original implementation | Current OpenHerdr behavior and required work |
+| Capability | Source owner and behavior | Remaining acceptance |
 | --- | --- | --- |
-| Keyboard and IME | `packages/mobile/android/.../MainActivity.java`, `AndroidManifest.xml`, and `packages/ui/src/apps/mobileNativeChrome.ts` coordinate native resize, keyboard events, and status bars. | No explicit `windowSoftInputMode="adjustResize"`; Keyboard/App/StatusBar are excluded by the native plugin allowlist. Generic text input exists. Add explicit resize behavior and the required installed plugins, then verify composer visibility with the keyboard open. Avoid copying iOS keyboard choreography into Android. |
-| Mobile Enter | `packages/ui/src/components/chat/composer/keyboardPolicy.ts:11` requires Ctrl/Meta+Enter on mobile. Ordinary Enter inserts a newline. | `packages/web/src/herdr/HerdrApp.tsx:233` sends on unshifted Enter on every platform, with an existing IME-composition guard. This differs from the original mobile composer and can execute remote input while the user expects a newline. Reuse the mobile keyboard policy if the intended interaction is the original composer behavior; preserve the composition guard and explicit Send button. |
-| Native image paste | `OpenChamberWebView.java` declares `image/*` to the IME on API 25+, receives `InputContentInfo`, bounds reads to 64 MiB, sniffs image bytes, and emits `openchamber-native-image-paste`. `ImagePastePlugin.java` narrows this declaration to composer focus. | The default Capacitor WebView has no such IME content declaration. There are no app-local paste classes or registered ImagePaste plugin, and Herdr's textarea has no image attachment consumer. Copying Java classes alone would advertise a paste the UI cannot handle. |
-| Download/share | `FileSharePlugin.java` accepts `{fileName,mimeType,data}` with base64 bytes, writes app cache, and grants the selected recipient a FileProvider URI. `packages/ui/src/lib/nativeFileShare.ts` supplies the JS adapter. | A FileProvider exists but no FileShare plugin or JS share/download action is wired. `ContentPanel.tsx` only lists files and renders bounded text. Native `<a download>`/blob download parity is absent. |
-| Deep links | Shared `deepLinkNavigation.ts` listens to `App.appUrlOpen` for OpenCode/session-specific intents. | Neither original nor OpenHerdr Android manifest currently declares a VIEW/BROWSABLE scheme. OpenHerdr has no App plugin listener or cold-launch URL handling. Pasting a full pairing link is the implemented connection workflow. Existing OpenCode deep-link routing must not be imported unchanged for Herdr. |
-| Android Back | `useNativeAndroidBackButton` invokes the shell's layer handler, then `App.minimizeApp()`. `MobileApp.tsx:370` closes a focused popup, overlay, plan/surface, workspace, or sessions drawer before minimizing. | No App plugin and no Herdr back listener. Default Activity behavior remains; drawer/dialog-aware navigation has not been implemented. Merely including App is insufficient: its installed native callback consumes Back, and without a JS listener only calls WebView history when history exists. Add the listener in the same change. |
-| Pause/resume | `useNativeMobileLifecycle` combines native `appStateChange`/`resume` with visibility changes, firing once after inactivity. `MobileApp.tsx` also debounces `online` and re-probes the active connection. | `usePolling.ts` and `LiveTerminal.tsx` react to document visibility only. They do not subscribe to native app activity or `online`. Polling retries failures; the raw frame observer does not restart after a foreground network failure until another visibility/resize event. A same-identity resume/online refresh is needed; mutations must never be replayed. |
-| Credentials | Existing secure-storage plugin supplies native encrypted storage. | Implemented in `packages/ui/src/lib/herdr-credentials.ts` and `packages/web/src/herdr/transport.ts`. Native connections use `SecureStorage.get/set`; saves complete before connected UI state. Android native source uses AES/GCM with an AndroidKeyStore key and app-specific SharedPreferences. `allowBackup=false` is already set. Android pairing/write/relaunch still needs actual verification. |
-| Process death and pending sends | Mobile runtime recovery must preserve unknown delivery outcomes. | `transport.ts:184` stores pending receipt metadata in `sessionStorage`. It contains request/target IDs, not the prompt or bearer. An Android process/WebView recreation can discard it while native credentials survive. This does not automatically replay the mutation, but may lose the gate that prevents a user from manually repeating an uncertain command. Decide a durable pending-metadata store and verify kill/relaunch with an in-flight request. |
+| QR pairing | `openherdr/capacitor.config.json` and the generated Android registry include MLKit. The manifest declares camera permission and optional camera hardware. Shared `apps/mobileQrScan.ts` requests permission and uses QR-only `startScan`, `barcodesScanned`, `scanError` and `stopScan`. `ConnectionWelcome.tsx` previews the resolved server and requires Connect. | Physical camera permission, CameraX preview, scan result, cancellation and successful pairing. The installed plugin API matches the adapter; this does not prove the camera works on a device. |
+| Scanner overlay | `MobileQrScannerOverlay.tsx` makes the WebView transparent and hides other page content while CameraX renders behind it. Back, backgrounding and cancellation stop the scan and restore page styles. | Real WebView/CameraX composition, denied permission, Back and background/foreground transitions. |
+| Deep links | The manifest declares only `openherdr://connect`. `herdr-native.ts` handles warm URLs and the launch URL; `transport.ts` validates the route and payload. A warm event supersedes a delayed cold-launch URL. Intake requires explicit confirmation and sends no terminal input. | OS delivery on a cold and warm app, form preview, malformed links and unchanged credential ownership after cancellation. |
+| Back and lifecycle | `HerdrApp.tsx` supplies the layer/connection/panel handler. `herdr-native.ts` reuses native Back, chrome and lifecycle hooks, pauses reads on app inactivity and resumes against the selected owner. | Actual Android Back order, minimizing, suspend/resume and foreground network recovery. |
+| Keyboard and bars | The manifest uses `adjustResize`. App, Keyboard and StatusBar are included; `MainActivity.java` installs `HerdrStatusBarPlugin` after generated registration. SystemBars handles CSS insets. Shared native chrome retains Android resize behavior. | Phone/tablet portrait and landscape, real IME, safe areas, status/navigation bars and target-SDK edge-to-edge behavior. |
+| Enter | Both Terminal controls and the structured composer use the original `shouldSubmitEnter` policy. On mobile, Enter inserts a newline and Ctrl/Meta+Enter sends; composition guards remain. Monitor has no input composer and its observation textarea is read-only. | CJK IME composition, hardware-keyboard shortcuts and actual native keyboard geometry. |
+| File sharing | `MainActivity` registers `FileSharePlugin`. Herdr Files and conversation attachments use `nativeFileShare.ts`; the plugin writes only the `shared-files/` cache and grants one FileProvider URI to the selected recipient. | Android chooser, cancellation and actual receipt of the complete bytes by another application. Opening a share sheet alone is insufficient. |
+| IME image paste | `ImagePastePlugin` and `OpenHerdrWebView` are installed through `MainActivity` and its layout. `ConversationPanel` consumes the shared paste event only while a writable attachment composer owns focus. | An actual supported IME image, bounded decoding, attachment preparation and real agent receipt through its supported conversation driver. Ordinary terminal-only agents do not gain image ingestion from this bridge. |
+| Device credentials | `herdr-credentials.ts` uses the installed native secure-storage plugin. Android encrypts stored values with a KeyStore key; backup is disabled. Saving must finish before connection activation and storage failure has no browser-token fallback. | Physical pairing, KeyStore write/read, force-stop/relaunch, revocation and explicit re-pairing. Browser storage fixtures do not prove KeyStore behavior. |
+| Pending mutations | `transport.ts` stores each server's pending metadata through a separate native-vault key, or browser localStorage. It reads the former sessionStorage record only for migration and persists it before clearing that legacy copy. Unknown delivery remains blocked and is never automatically resent. | Android process death while a request is unresolved, followed by restored metadata and the actual receipt check. |
 
-## Minimal safe reuse
+The packaged scanner uses the installed MLKit 8.1.0 API with Capacitor 8.4.1.
+Source inspection found no method/event mismatch. In the first device scan,
+the unresolved factor is actual camera/WebView presentation and permission
+handling. Keep the preserved first test APK available while investigating any
+reported device result.
 
-The following shell work is independent of agent/provider semantics:
+## Features still missing or outside current Android acceptance
 
-1. Add the already-installed `@capacitor/app` and `@capacitor/keyboard` to `openherdr/capacitor.config.json`'s `includePlugins`. Include the already-installed StatusBar plugin only if reusing its APIs. Capacitor 8 also registers its built-in `SystemBars` plugin, which can manage bar styles without adding that plugin. Pair App inclusion with Herdr back/resume listeners in the same iteration.
-2. Add explicit `adjustResize` to the OpenHerdr Activity. Keep the existing resize/fold configuration flags and test phone portrait, landscape, and keyboard-open dimensions. The original native chrome hook intentionally skips manual keyboard inset transforms on Android.
-3. Reuse `useNativeAndroidBackButton`, `useNativeMobileLifecycle`, and `closeTopmostBackLayer` with Herdr-owned state handlers. Do not pass OpenCode session/provider reinitialization logic into the new app. Herdr's handler should close its active dialog, sidebar, file detail/panel, then minimize according to the agreed navigation order.
-4. Use a focused Android chrome integration rather than copying the entire `useNativeMobileChrome` hook. That hook also owns iOS choreography, hardware-keyboard state, and upstream layout classes. Capacitor's installed `SystemBars.java:265` injects `--safe-area-inset-*` variables for WebView compatibility; Herdr CSS currently uses only `env(safe-area-inset-*)`. Check the actual emulator WebView version and use the injected values as appropriate, especially on target SDK 36 edge-to-edge windows.
+Push notifications have no OpenHerdr registration/delivery path. The original
+OpenChamber Firebase IDs, push keys and subscription infrastructure are separate.
+Voice and the other original feature families remain tracked in
+[ANDROID_PARITY_PLAN.md](ANDROID_PARITY_PLAN.md). iOS scanning is unavailable in
+the current OpenHerdr SwiftPM project; its URL scheme is declared but has not
+received new iOS runtime acceptance.
 
-These file/image operations need both the shell bridge and a working Herdr feature consumer:
-
-- Copy `FileSharePlugin.java` into `dev/openherdr/mobile`, change its Java package, register it before `super.onCreate`, and reuse `shareFileFromNativeApp`. The existing provider authority already derives from the app ID. Limit its paths to the app's `shared-files` cache when this is its only consumer. The current template exposes broad external/cache roots, though the provider remains unexported and individual grants still control access. A text preview can be shared as text from already-fetched content; complete binary downloads need a bounded authenticated server download path.
-- Copy `ImagePastePlugin.java` and `OpenChamberWebView.java` into the new package, rename the class if desired, update its XML tag, and override Activity `load()` to inflate the custom layout before `super.load()`. Register ImagePaste before `super.onCreate`. `nativeImagePaste.ts` owns the existing event contract. Keep image paste disabled until a focused Herdr composer can consume it. The current text-only `pane.send_input`/`agent.prompt` contract has no image attachment/upload operation; a server upload and agent-specific attachment mechanism must be designed before enabling this capability. Do not send base64 to a shell as a substitute.
-- A pairing-only `openherdr://` entry can be added deliberately with VIEW/DEFAULT/BROWSABLE intent handling plus `App.appUrlOpen` and installed `App.getLaunchUrl()` for cold launch. Parse only the expected pairing payload, do not log its secret, and present the server and explicit Connect action. Opening a link must never send a prompt or dispatch terminal input.
-
-## Boundaries to preserve
-
-Do not copy the original `network_security_config.xml` wholesale. It globally permits cleartext and trusts user-installed CAs, and the original Capacitor config also enables mixed content. OpenHerdr's HTTPS Cloudflare path works with the new shell's stricter defaults. Any required LAN HTTP support needs a deliberate constrained design and a matching test.
-
-Do not copy PushKeyPlugin, PushSealKey, SealedPushMessagingService, Firebase settings, notification permissions, camera/MLKit, microphone permissions, or OpenCode-specific URL actions merely to make manifests look alike. These require actual product/server behavior, permissions and, for push, a working server subscription and delivery path. Existing OpenChamber registrations, IDs, keys and settings remain separate.
-
-## Android runtime checks still needed
-
-The coordinator owns the Android emulator and actual UI actions. Check the built app's native pairing and credential write, force-stop/relaunch restoration, revoke, keyboard-open composer, CJK IME composition and Enter behavior, Android Back with each overlay, background/foreground recovery, Wi-Fi/offline/online recovery while foregrounded, process death during an unknown mutation, and file/image sharing once those consumers exist. A successful APK build establishes compilation and packaging only.
-
-The previous final APK build succeeded with SDK 36 and Java 21, and its 28 bundled web files matched the final web output at that time. Android runtime and the newly requested complete-replication work remain separate from that build result.
+OpenHerdr keeps HTTPS for its packaged connection path. Its native shell does
+not open a server, create a tunnel, import SSH keys or change model-provider
+configuration. Existing browser/server authorization and enterprise network
+policy continue to enforce access. A successful build does not settle any
+physical-device check listed above.

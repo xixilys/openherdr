@@ -28,6 +28,7 @@ import { useHerdrPreferences } from './useHerdrPreferences';
 import { applyHerdrPreferencesAppearance, resolveHerdrTheme } from './preferences-appearance';
 import { HerdrConnectionController } from './connection-controller';
 import { ConnectionWelcome } from './ConnectionWelcome';
+import { clearLastTarget, matchesLastTarget, readLastTarget, rememberLastTarget, type LastTarget } from './last-target';
 import { HerdrMobileShell } from '@openchamber/ui/apps/herdr/HerdrMobileShell';
 import { MobileWorkspaceDrawerView, type MobileWorkspacePanel } from '@/apps/MobileWorkspaceDrawerView';
 import { HerdrTransport, TransportError, clearPendingDelivery, deliveryReceiptSchema, loadPendingDelivery, clientsSchema, credentialStorageKind, forgetConnection, infoSchema, machinesSchema, initializeConnections, readSchema, redeem, savedConnections, saveConnection, snapshotSchema, worktreesSchema, type Connection, type Mutation, type Pairing, type PendingDelivery, type NativeMutationResult } from './transport';
@@ -36,6 +37,7 @@ import './herdr.css';
 type Panel = 'terminal' | 'worktrees' | 'devices' | 'files' | 'changes' | 'context';
 type Action = { kind: 'workspace.create' | 'workspace.rename' | 'tab.create' | 'tab.rename' | 'pane.rename' | 'agent.start' | 'worktree.create' | 'worktree.open'; title: string; target?: string; value: string } | { kind: 'workspace.close' | 'tab.close' | 'pane.close' | 'revoke' | 'worktree.remove'; title: string; target: string };
 type DeliveryState = { kind: 'loading' } | { kind: 'clear' } | { kind: 'pending'; record: PendingDelivery } | { kind: 'storageError' };
+type TargetRestore = { kind: 'pending' | 'unavailable'; target: LastTarget };
 const lightTheme = requireTheme(lightDefinition);
 const darkTheme = requireTheme(darkDefinition);
 
@@ -94,10 +96,18 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   const { t } = useI18n();
   const h = useHerdrText();
   const transport = useMemo(() => new HerdrTransport(connection, undefined, onAuthenticationRequired), [connection, onAuthenticationRequired]);
-  const [machine, setMachine] = useState('local');
-  const [workspaceId, setWorkspaceId] = useState('');
-  const [tabId, setTabId] = useState('');
-  const [paneId, setPaneId] = useState('');
+  const [restore, setRestore] = useState<TargetRestore | null>(() => {
+    const target = readLastTarget(connection.server);
+    return target ? { kind: 'pending', target } : null;
+  });
+  const restoreOwner = useRef(restore);
+  restoreOwner.current = restore;
+  const lastTargetAttempt = useRef(restore ? JSON.stringify(restore.target) : null);
+  const cancelRestore = useCallback(() => { restoreOwner.current = null; setRestore(null); }, []);
+  const [machine, setMachine] = useState(() => restore?.target.machine ?? 'local');
+  const [workspaceId, setWorkspaceId] = useState(() => restore?.target.workspaceId ?? '');
+  const [tabId, setTabId] = useState(() => restore?.target.tabId ?? '');
+  const [paneId, setPaneId] = useState(() => restore?.target.paneId ?? '');
   const [panel, setPanel] = useState<Panel>('files');
   const [mainView, setMainView] = useState<'monitor' | 'chat'>('monitor');
   const [chatVisited, setChatVisited] = useState(false);
@@ -169,7 +179,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   }, [installBackHandler, action, busy, drawer, workspaceOpen, settingsOpen]);
   const scope = `${machine}:${workspaceId}:${tabId}:${paneId}`;
   const scopeRef = useRef(scope); scopeRef.current = scope;
-  const readMachines = useCallback((signal: AbortSignal) => transport.request('/api/herdr/machines', machinesSchema, { signal }), [transport]);
+  const readMachines = useCallback((signal: AbortSignal) => { void refresh; return transport.request('/api/herdr/machines', machinesSchema, { signal }); }, [transport, refresh]);
   const machines = usePolling(readMachines, visible, 15000);
   const readInfo = useCallback((signal: AbortSignal) => transport.request('/api/herdr/info', infoSchema, { signal }), [transport]);
   const info = usePolling(readInfo, visible, 30000);
@@ -187,16 +197,33 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   useEffect(() => { applyHerdrPreferencesAppearance(preferences.state.values, { prefersDark, allowRemoteFonts }); }, [preferences.state.values, prefersDark, allowRemoteFonts]);
   const commonControls = <><Button variant="ghost" size="icon" disabled={!preferences.state.snapshot || preferences.state.saving} aria-label={t(dark ? 'contextPanel.browser.device.schemeLight' : 'contextPanel.browser.device.schemeDark')} onClick={() => { preferences.controller.change({ useSystemTheme: false, themeId: dark ? preferences.state.values.lightThemeId : preferences.state.values.darkThemeId }); void preferences.controller.save(); }}><Icon name={dark ? 'lightbulb' : 'flashlight'} className="size-4" /></Button>{languageControls}</>;
   const settingsContent = <PreferencesPanel model={preferences} allowRemoteFonts={allowRemoteFonts} />;
-  const readSnapshot = useCallback((signal: AbortSignal) => { void refresh; return transport.rpc(machine, 'session.snapshot', {}, snapshotSchema, signal).then(result => ({ ...result.snapshot, readAt: Date.now() })); }, [transport, machine, refresh]);
-  const snapshot = usePolling(readSnapshot, visible, 3000, machine);
+  const knownMachine = !!machines.data && !machines.error && !machines.loading && machines.data.machines.some(item => item.id === machine);
+  const readSnapshot = useCallback((signal: AbortSignal) => { void refresh; return transport.rpc(machine, 'session.snapshot', {}, snapshotSchema, signal).then(result => ({ ...result.snapshot, readAt: Date.now(), transport })); }, [transport, machine, refresh]);
+  const snapshot = usePolling(readSnapshot, visible && (!restore || knownMachine), 3000, machine);
+  const freshSnapshot = snapshot.data?.transport === transport && !snapshot.error && !snapshot.loading;
   const workspaces = snapshot.data?.workspaces ?? [];
   const workspace = workspaces.find(item => item.workspace_id === workspaceId);
   const tabs = snapshot.data?.tabs.filter(item => item.workspace_id === workspace?.workspace_id) ?? [];
   const tab = tabs.find(item => item.tab_id === tabId);
   const panes = snapshot.data?.panes.filter(item => item.tab_id === tab?.tab_id) ?? [];
-  const pane = panes.find(item => item.pane_id === paneId);
+  const pane = restore ? undefined : panes.find(item => item.pane_id === paneId);
   useEffect(() => {
-    if (!snapshot.data) return;
+    if (!restore || restore.kind !== 'pending' || restoreOwner.current !== restore || machine !== restore.target.machine) return;
+    if (!machines.data || machines.error || machines.loading) return;
+    if (knownMachine && (!snapshot.data || !freshSnapshot)) return;
+    if (knownMachine && snapshot.data && matchesLastTarget(restore.target, machine, snapshot.data)) {
+      restoreOwner.current = null;
+      setRestore(null);
+      return;
+    }
+    clearLastTarget(connection.server);
+    lastTargetAttempt.current = null;
+    const unavailable: TargetRestore = { kind: 'unavailable', target: restore.target };
+    restoreOwner.current = unavailable;
+    setRestore(unavailable);
+  }, [restore, machine, machines.data, machines.error, machines.loading, knownMachine, snapshot.data, freshSnapshot, connection.server]);
+  useEffect(() => {
+    if (restore || !snapshot.data) return;
     // A receipt can predate parent metadata. Recover only the exact pane.
     if (paneId && (!workspaceId || !tabId)) {
       const exactPane = snapshot.data.panes.find(item => item.pane_id === paneId);
@@ -223,7 +250,16 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
       const first = snapshot.data.panes.find(item => item.tab_id === tabId);
       if (first) setPaneId(first.pane_id);
     }
-  }, [snapshot.data, workspaceId, tabId, paneId]);
+  }, [restore, snapshot.data, workspaceId, tabId, paneId]);
+  useEffect(() => {
+    if (restore || !pane || !snapshot.data || !freshSnapshot || !knownMachine || !foreground || mainView !== 'monitor' || workspaceOpen || drawer || settingsOpen) return;
+    const target: LastTarget = { machine, workspaceId, tabId, paneId: pane.pane_id, terminalId: pane.terminal_id };
+    if (!matchesLastTarget(target, machine, snapshot.data)) return;
+    const key = JSON.stringify(target);
+    if (lastTargetAttempt.current === key) return;
+    lastTargetAttempt.current = key;
+    rememberLastTarget(connection.server, target);
+  }, [restore, pane, snapshot.data, freshSnapshot, knownMachine, foreground, mainView, workspaceOpen, drawer, settingsOpen, machine, workspaceId, tabId, connection.server]);
   const agent = snapshot.data?.agents.find(item => item.pane_id === pane?.pane_id);
   const effectivePaneId = pane?.pane_id ?? '';
   const readOutput = useCallback((signal: AbortSignal) => transport.rpc(machine, 'pane.read', { pane_id: effectivePaneId, source: 'recent', format: 'text', strip_ansi: true, lines: 500 }, readSchema, signal).then(result => ({ ...result.read, terminalId: pane?.terminal_id })), [transport, machine, effectivePaneId, pane?.terminal_id]);
@@ -238,8 +274,8 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   useEffect(() => { if (follow && output.current) output.current.scrollTop = output.current.scrollHeight; }, [validOutput?.revision, follow]);
   const openMonitor = () => { setMainView('monitor'); setPanel('files'); setWorkspaceOpen(false); setDrawer(false); setConversationSwitcherOpen(false); setAction(null); };
   const openChat = () => { setChatVisited(true); setMainView('chat'); setWorkspaceOpen(false); setDrawer(false); };
-  const switchMachine = (next: string) => { openMonitor(); setMachine(next); setWorkspaceId(''); setTabId(''); setPaneId(''); setDraft(''); setNotice(null); setAction(null); };
-  const chooseWorkspace = (next: string) => { setMainView('monitor'); setPanel('files'); setWorkspaceOpen(false); setWorkspaceId(next); setTabId(''); setPaneId(''); setDraft(''); setNotice(null); };
+  const switchMachine = (next: string) => { cancelRestore(); openMonitor(); setMachine(next); setWorkspaceId(''); setTabId(''); setPaneId(''); setDraft(''); setNotice(null); setAction(null); };
+  const chooseWorkspace = (next: string) => { cancelRestore(); setMainView('monitor'); setPanel('files'); setWorkspaceOpen(false); setWorkspaceId(next); setTabId(''); setPaneId(''); setDraft(''); setNotice(null); };
   const resolveDelivery = async (record: PendingDelivery): Promise<boolean> => {
     try {
       if (!await clearPendingDelivery(record.server, record.requestId)) {
@@ -302,6 +338,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   const selectCreatedWorktree = (value: NativeMutationResult) => {
     setAction(null);
     if (!value.workspace || !value.tab || !value.root_pane) return;
+    cancelRestore();
     setWorkspaceId(value.workspace.workspace_id);
     setTabId(value.tab.tab_id);
     setPaneId(value.root_pane.pane_id);
@@ -344,6 +381,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   const newWorkspace = () => openAction({ kind: 'workspace.create', title: h('newWorkspace'), value: '' });
   const destructive = action && ['workspace.close','tab.close','pane.close','revoke','worktree.remove'].includes(action.kind);
   const selectPane = (id: string) => {
+    cancelRestore();
     const next = snapshot.data?.panes.find(item => item.pane_id === id);
     if (!next) return;
     const owner = snapshot.data?.tabs.find(item => item.tab_id === next.tab_id);
@@ -358,6 +396,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   const hostPending = delivery.kind === 'pending' && /^(files|git|conversation|context)\./.test(delivery.record.method);
   const inspectPending = () => {
     if (delivery.kind !== 'pending') return;
+    cancelRestore();
     const record = delivery.record;
     setMachine(record.machine); setWorkspaceId(record.workspaceId); setTabId(record.tabId); setPaneId(record.paneId);
     if (record.method.startsWith('conversation.')) openChat();
@@ -373,7 +412,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   const snapshotStale = !!snapshot.data && (!!snapshot.error || !foreground);
   const selectedTitle = <span className="flex min-w-0 flex-col"><span dir="auto" className="truncate">{tab?.label ?? pane?.label ?? pane?.title ?? workspace?.label ?? t('herdr.monitor.title')}</span><span dir="auto" className="truncate typography-micro text-muted-foreground">{machineLabel}{workspace ? ` · ${workspace.label}` : ''}</span></span>;
   const sidebar = <div className="herdr-sidebar-body">
-    <div className="herdr-machine"><Icon name="computer" className="size-4" /><select className={dropdownTriggerVariants()} value={machine} onChange={event => switchMachine(event.target.value)} aria-label={h('machines')}><option value="local">{machines.data?.machines.find(item => item.id === 'local')?.label ?? t('desktopHostSwitcher.instance.local')}</option>{machines.data?.machines.filter(item => item.id !== 'local').map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
+    <div className="herdr-machine"><Icon name="computer" className="size-4" /><select className={dropdownTriggerVariants()} value={machine} onChange={event => switchMachine(event.target.value)} aria-label={h('machines')}><option value="local">{machines.data?.machines.find(item => item.id === 'local')?.label ?? t('desktopHostSwitcher.instance.local')}</option>{machine !== 'local' && !machines.data?.machines.some(item => item.id === machine) && <option value={machine} disabled>{machine} · {t('common.unavailable')}</option>}{machines.data?.machines.filter(item => item.id !== 'local').map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
     <div className="herdr-sidebar-actions flex flex-col gap-1">
       <Button variant="ghost" aria-pressed={mainView === 'monitor' && !workspaceOpen} onClick={openMonitor}><Icon name="computer" className="size-4" />{t('herdr.monitor.title')}</Button>
       <Button variant="ghost" aria-pressed={mainView === 'chat' && !workspaceOpen} onClick={openChat}><Icon name="chat-1" className="size-4" />{h('conversations')}</Button>
@@ -382,13 +421,13 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
     </div>
     {snapshotStale && snapshot.data ? <p className="herdr-banner herdr-warning" role="status">{t('herdr.monitor.stale', { time: new Date(snapshot.data.readAt).toLocaleString() })}</p> : null}
     <div className="herdr-search"><Icon name="search" className="size-4" /><Input inputSize="compact" value={query} onChange={event => setQuery(event.target.value)} aria-label={h('workspaces')} placeholder={h('workspaces')} /></div>
-    <nav className="herdr-workspace-list">{workspaces.filter(item => item.label.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map(item => <div key={item.workspace_id}><Button variant="ghost" className={`herdr-workspace ${workspaceId === item.workspace_id ? 'is-selected' : ''}`} aria-pressed={workspaceId === item.workspace_id} onClick={() => chooseWorkspace(item.workspace_id)}><Icon name="folder" className="size-4" /><span dir="auto">{item.label}</span><i className={`herdr-status ${item.agent_status}`} title={item.agent_status} /></Button>{workspaceId === item.workspace_id && snapshot.data?.tabs.filter(child => child.workspace_id === item.workspace_id).map(child => <div key={child.tab_id} className="herdr-session-group"><Button variant="ghost" className="herdr-workspace" aria-pressed={tabId === child.tab_id} onClick={() => { setMainView('monitor'); setPanel('files'); setWorkspaceOpen(false); setTabId(child.tab_id); setPaneId(''); setDraft(''); }}><Icon name="terminal" className="size-4" /><span dir="auto">{child.label}</span></Button>{snapshot.data?.panes.filter(row => row.tab_id === child.tab_id).map(row => <Button key={row.pane_id} variant="ghost" className={`herdr-workspace ${paneId === row.pane_id ? 'is-selected' : ''}`} aria-pressed={paneId === row.pane_id} onClick={() => selectPane(row.pane_id)}><Icon name="chat-1" className="size-4" /><span dir="auto">{row.label ?? row.title ?? row.pane_id}</span><i className={`herdr-status ${row.agent_status}`} title={row.agent_status} /></Button>)}</div>)}</div>)}{snapshot.loading && <p className="herdr-muted">{t('common.loading')}</p>}{!snapshot.loading && !snapshot.error && workspaces.length === 0 && <p className="herdr-muted">{h('noWorkspaces')}</p>}</nav>
+    <nav className="herdr-workspace-list">{workspaces.filter(item => item.label.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map(item => <div key={item.workspace_id}><Button variant="ghost" className={`herdr-workspace ${workspaceId === item.workspace_id ? 'is-selected' : ''}`} aria-pressed={workspaceId === item.workspace_id} onClick={() => chooseWorkspace(item.workspace_id)}><Icon name="folder" className="size-4" /><span dir="auto">{item.label}</span><i className={`herdr-status ${item.agent_status}`} title={item.agent_status} /></Button>{workspaceId === item.workspace_id && snapshot.data?.tabs.filter(child => child.workspace_id === item.workspace_id).map(child => <div key={child.tab_id} className="herdr-session-group"><Button variant="ghost" className="herdr-workspace" aria-pressed={tabId === child.tab_id} onClick={() => { cancelRestore(); setMainView('monitor'); setPanel('files'); setWorkspaceOpen(false); setTabId(child.tab_id); setPaneId(''); setDraft(''); }}><Icon name="terminal" className="size-4" /><span dir="auto">{child.label}</span></Button>{snapshot.data?.panes.filter(row => row.tab_id === child.tab_id).map(row => <Button key={row.pane_id} variant="ghost" className={`herdr-workspace ${paneId === row.pane_id ? 'is-selected' : ''}`} aria-pressed={paneId === row.pane_id} onClick={() => selectPane(row.pane_id)}><Icon name="chat-1" className="size-4" /><span dir="auto">{row.label ?? row.title ?? row.pane_id}</span><i className={`herdr-status ${row.agent_status}`} title={row.agent_status} /></Button>)}</div>)}</div>)}{snapshot.loading && <p className="herdr-muted">{t('common.loading')}</p>}{!snapshot.loading && !snapshot.error && workspaces.length === 0 && <p className="herdr-muted">{h('noWorkspaces')}</p>}</nav>
 
   </div>;
   const terminalContent = visible && workspaceOpen && panel === 'terminal' ? <div className="herdr-panel-body">{banners}
     <div className="herdr-row flex-wrap px-3 py-2"><Button variant="outline" size="sm" onClick={newWorkspace} disabled={mutationBlocked || !!error}><Icon name="add" className="size-4" />{h('newWorkspace')}</Button></div>
-    <div className="herdr-row flex-wrap px-3 py-2"><Button variant="ghost" size="sm" disabled={!workspace || mutationBlocked} onClick={() => workspace && openAction({ kind: 'workspace.rename', title: t('sessions.sidebar.session.menu.rename'), target: workspace.workspace_id, value: workspace.label })}><Icon name="edit" className="size-4" />{t('sessions.sidebar.session.menu.rename')}</Button><Button variant="ghost" size="sm" disabled={!workspace || mutationBlocked} onClick={() => workspace && openAction({ kind: 'workspace.close', title: workspace.label, target: workspace.workspace_id })}><Icon name="close" className="size-4" />{t('mobile.surface.closeAria')}</Button></div>        <div className="herdr-terminal-tabs">{tabs.map(item => <Button key={item.tab_id} variant="ghost" size="sm" aria-pressed={tab?.tab_id === item.tab_id} onClick={() => { setTabId(item.tab_id); setPaneId(''); setDraft(''); setNotice(null); }}><Icon name="terminal" className="size-4" /><span dir="auto">{item.label}</span></Button>)}<Button variant="ghost" size="icon" disabled={!workspace || mutationBlocked || !!error} aria-label={t('terminalView.tabs.newTabTitle')} onClick={() => openAction({ kind: 'tab.create', title: t('terminalView.tabs.newTabTitle'), value: '' })}><Icon name="add" className="size-4" /></Button><span className="herdr-spacer" />{tab && <><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('terminalView.tabs.menu.rename')} onClick={() => openAction({ kind: 'tab.rename', title: t('terminalView.tabs.menu.rename'), target: tab.tab_id, value: tab.label })}><Icon name="edit" className="size-4" /></Button><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('contextPanel.tab.menu.close')} onClick={() => openAction({ kind: 'tab.close', title: tab.label, target: tab.tab_id })}><Icon name="close" className="size-4" /></Button></>}</div>
-        <div className="herdr-pane-toolbar"><div className="herdr-row"><select className={dropdownTriggerVariants()} value={effectivePaneId} disabled={panes.length === 0} onChange={event => { setPaneId(event.target.value); setDraft(''); setNotice(null); }} aria-label={h('target')}>{!pane && <option value="" disabled>{t('common.unavailable')}</option>}{panes.map(item => <option key={item.pane_id} value={item.pane_id}>{item.label ?? item.title ?? item.terminal_title_stripped ?? item.pane_id}</option>)}</select>{pane && <span className="herdr-muted herdr-desktop-only">{pane.agent_status}</span>}</div><div className="herdr-row">{pane && <><Button variant="ghost" size="icon" disabled={mutationBlocked || !!error} title={h('split')} aria-label={h('split')} onClick={() => void mutate({ method: 'pane.split', params: { target_pane_id: pane.pane_id, direction: 'right', focus: false } })}><Icon name="layout-column" className="size-4" /></Button><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('terminalView.tabs.menu.rename')} onClick={() => openAction({ kind: 'pane.rename', title: t('terminalView.tabs.menu.rename'), target: pane.pane_id, value: pane.label ?? '' })}><Icon name="edit" className="size-4" /></Button><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('contextPanel.tab.menu.close')} onClick={() => openAction({ kind: 'pane.close', title: pane.label ?? pane.pane_id, target: pane.pane_id })}><Icon name="close" className="size-4" /></Button></>}</div></div>
+    <div className="herdr-row flex-wrap px-3 py-2"><Button variant="ghost" size="sm" disabled={!workspace || mutationBlocked} onClick={() => workspace && openAction({ kind: 'workspace.rename', title: t('sessions.sidebar.session.menu.rename'), target: workspace.workspace_id, value: workspace.label })}><Icon name="edit" className="size-4" />{t('sessions.sidebar.session.menu.rename')}</Button><Button variant="ghost" size="sm" disabled={!workspace || mutationBlocked} onClick={() => workspace && openAction({ kind: 'workspace.close', title: workspace.label, target: workspace.workspace_id })}><Icon name="close" className="size-4" />{t('mobile.surface.closeAria')}</Button></div>        <div className="herdr-terminal-tabs">{tabs.map(item => <Button key={item.tab_id} variant="ghost" size="sm" aria-pressed={tab?.tab_id === item.tab_id} onClick={() => { cancelRestore(); setTabId(item.tab_id); setPaneId(''); setDraft(''); setNotice(null); }}><Icon name="terminal" className="size-4" /><span dir="auto">{item.label}</span></Button>)}<Button variant="ghost" size="icon" disabled={!workspace || mutationBlocked || !!error} aria-label={t('terminalView.tabs.newTabTitle')} onClick={() => openAction({ kind: 'tab.create', title: t('terminalView.tabs.newTabTitle'), value: '' })}><Icon name="add" className="size-4" /></Button><span className="herdr-spacer" />{tab && <><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('terminalView.tabs.menu.rename')} onClick={() => openAction({ kind: 'tab.rename', title: t('terminalView.tabs.menu.rename'), target: tab.tab_id, value: tab.label })}><Icon name="edit" className="size-4" /></Button><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('contextPanel.tab.menu.close')} onClick={() => openAction({ kind: 'tab.close', title: tab.label, target: tab.tab_id })}><Icon name="close" className="size-4" /></Button></>}</div>
+        <div className="herdr-pane-toolbar"><div className="herdr-row"><select className={dropdownTriggerVariants()} value={effectivePaneId} disabled={panes.length === 0} onChange={event => { cancelRestore(); setPaneId(event.target.value); setDraft(''); setNotice(null); }} aria-label={h('target')}>{!pane && <option value="" disabled>{t('common.unavailable')}</option>}{panes.map(item => <option key={item.pane_id} value={item.pane_id}>{item.label ?? item.title ?? item.terminal_title_stripped ?? item.pane_id}</option>)}</select>{pane && <span className="herdr-muted herdr-desktop-only">{pane.agent_status}</span>}</div><div className="herdr-row">{pane && <><Button variant="ghost" size="icon" disabled={mutationBlocked || !!error} title={h('split')} aria-label={h('split')} onClick={() => void mutate({ method: 'pane.split', params: { target_pane_id: pane.pane_id, direction: 'right', focus: false } })}><Icon name="layout-column" className="size-4" /></Button><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('terminalView.tabs.menu.rename')} onClick={() => openAction({ kind: 'pane.rename', title: t('terminalView.tabs.menu.rename'), target: pane.pane_id, value: pane.label ?? '' })}><Icon name="edit" className="size-4" /></Button><Button variant="ghost" size="icon" disabled={mutationBlocked} aria-label={t('contextPanel.tab.menu.close')} onClick={() => openAction({ kind: 'pane.close', title: pane.label ?? pane.pane_id, target: pane.pane_id })}><Icon name="close" className="size-4" /></Button></>}</div></div>
         {terminal.error && <div className="herdr-banner herdr-error" role="alert">{terminal.error.message}</div>}
         <div className="herdr-terminal-body">{!pane ? <div className="herdr-empty"><Icon name="terminal" className="size-10" /><h2>{workspace ? h('noPane') : h('noWorkspaces')}</h2>{!workspace && !snapshot.loading && !error && <Button disabled={mutationBlocked} onClick={newWorkspace}><Icon name="add" className="size-4" />{h('newWorkspace')}</Button>}</div> : (frames && workspaceOpen && panel === 'terminal' ? <LiveTerminal key={JSON.stringify([connection.server, machine, pane.pane_id, pane.terminal_id])} connection={transport.connection} machine={machine} paneId={pane.pane_id} theme={theme} fallback={<div className="herdr-content"><p className="herdr-content-root">{t('herdr.monitor.recentText')}</p><pre ref={output} className="herdr-output" style={{ flex: 1, minHeight: 0, height: 'auto' }} dir="ltr" tabIndex={0} aria-label={t('herdr.monitor.recentText')} onScroll={event => { const element = event.currentTarget; setFollow(element.scrollHeight - element.scrollTop - element.clientHeight < 40); }}><code>{validOutput?.text || (terminal.loading ? t('common.loading') : h('noOutput'))}</code></pre></div>} /> : <pre ref={output} className="herdr-output" dir="ltr" tabIndex={0} aria-label={t('herdr.monitor.recentText')} onScroll={event => { const element = event.currentTarget; setFollow(element.scrollHeight - element.scrollTop - element.clientHeight < 40); }}><code>{validOutput?.text || (terminal.loading ? t('common.loading') : h('noOutput'))}</code></pre>)}</div>
         {validOutput?.truncated && <p className="herdr-truncated">{h('truncated')}</p>}
@@ -406,7 +445,7 @@ function ConnectedApp({ visible, installBackHandler, connection, onAuthenticatio
   const chat = chatVisited ? <div className="herdr-chat-body">{banners}<ConversationPanel onOpenFile={request => { setRequestedFile(request); openWorkspacePanel('files'); }} theme={theme} preferences={preferences.state.values} themeMode={dark ? 'dark' : 'light'} navigation={isMobile ? { open: visible && conversationSwitcherOpen, onOpenChange: setConversationSwitcherOpen, anchorRef: conversationTitleButton, onTitleChange: updateConversationTitle } : undefined} targetMetadata={{ workspaceId, tabId, session: machine === 'local' ? info.data?.session ?? null : null }} transport={transport} machine={machine} paneId={paneId} disabled={mainView !== 'chat' || !pane || !!error || workspaceOpen || !foreground} mutationBlocked={mutationBlocked} onPendingDelivery={pendingDelivery} /></div> : null;
   const monitor = <div className="herdr-panel-body">{banners}
     {snapshotStale && snapshot.data ? <p className="herdr-banner herdr-warning" role="status">{t('herdr.monitor.stale', { time: new Date(snapshot.data.readAt).toLocaleString() })}</p> : null}
-    {pane ? <><div className="border-b border-border px-3 py-2 typography-meta text-muted-foreground" dir="auto">{workspace?.label} · {tab?.label} · {pane.label ?? pane.title ?? pane.terminal_title_stripped ?? pane.pane_id}</div><PaneMonitor transport={transport} machine={machine} pane={pane} theme={theme} active={mainView === 'monitor' && !workspaceOpen && !drawer && !settingsOpen && foreground} snapshotStale={snapshotStale} /></> : <div className="herdr-empty"><Icon name="computer" className="size-10" /><h2>{snapshot.loading ? t('common.loading') : !snapshot.data ? t('herdr.monitor.waiting') : snapshot.data.panes.length === 0 ? t('herdr.monitor.empty') : h('noPane')}</h2><Button size="sm" variant="ghost" onClick={() => setRefresh(value => value + 1)}><Icon name="refresh" className="size-4" />{t('gitView.history.refresh')}</Button></div>}
+    {pane ? <><div className="border-b border-border px-3 py-2 typography-meta text-muted-foreground" dir="auto">{workspace?.label} · {tab?.label} · {pane.label ?? pane.title ?? pane.terminal_title_stripped ?? pane.pane_id}</div><PaneMonitor transport={transport} machine={machine} pane={pane} theme={theme} active={mainView === 'monitor' && !workspaceOpen && !drawer && !settingsOpen && foreground} snapshotStale={snapshotStale} /></> : <div className="herdr-empty"><Icon name="computer" className="size-10" /><h2>{restore ? t(restore.kind === 'unavailable' || error ? 'common.unavailable' : 'herdr.monitor.waiting') : snapshot.loading ? t('common.loading') : !snapshot.data ? t('herdr.monitor.waiting') : snapshot.data.panes.length === 0 ? t('herdr.monitor.empty') : h('noPane')}</h2><Button size="sm" variant="ghost" onClick={() => setRefresh(value => value + 1)}><Icon name="refresh" className="size-4" />{t('gitView.history.refresh')}</Button></div>}
   </div>;
   const mainContent = <><div hidden={mainView !== 'monitor' || workspaceOpen} className="herdr-panel-body">{monitor}</div><div hidden={mainView !== 'chat' || workspaceOpen} className="herdr-chat-body">{chat}</div></>;
   const connectionStatus = <span className={`herdr-connection ${error ? 'has-error' : ''}`}><i className={`herdr-status ${error ? 'blocked' : 'idle'}`} />{error ? h('disconnected') : snapshot.loading ? t('common.loading') : h('connected')}</span>;

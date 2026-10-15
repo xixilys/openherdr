@@ -54,6 +54,26 @@ Capacitor app share this flow. Original Electron and VS Code keep their existing
 application and authentication behavior. Android secure-storage and system Back
 acceptance remain separate from DOM fixtures and browser execution.
 
+The current increment restores the last viewed Monitor window on a cold launch,
+matching the original mobile app's per-runtime session restoration. Save only
+the origin-scoped machine/workspace/tab/pane and terminal identity. A successful
+current machine list and snapshot must confirm the complete target before output
+starts. Failed reads retain the hint; confirmed removal or terminal replacement
+shows an unavailable target and requires explicit selection. New user navigation
+wins over restoration. Restore no Terminal controls or pending input.
+
+The actual 412x915 Cloudflare browser now reloads directly into the selected
+Kansas task-overview window, and a later manual selection of the workers window
+becomes the next restored view. The saved connection remains active without a
+new pairing. Focused tests and the combined static gate pass; the rebuilt APK
+packages this behavior. Android process-death and physical-phone execution
+remain unverified. Current artifact details are in STATUS.md and native validation.
+
+The human requested the first APK for a physical camera test. Keep
+`packages/mobile/openherdr/build/openherdr-test1-726029ba6.apk` available while
+future debug builds change. It is the supplied 726029ba6/D8G2xhGi build, not an
+additional native acceptance result. No phone result has been received yet.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and
@@ -237,9 +257,9 @@ revocation and explicit pairing returned to Kansas `w2:p2`; the final asset
 `herdr-D8G2xhGi.js` restored its saved binding on reload. It passes 78 focused
 cases and the final static gate. The rebuilt APK has exact web-asset readback,
 with native interaction still unverified. Details and per-build limits are in
-STATUS.md and the native validation document. A cold page reload still starts
-at Local; retaining a running app's selection through re-pairing does not add
-persisted target selection.
+STATUS.md and the native validation document. That revision started at Local
+after a cold page reload. The current cold-window increment adds persisted
+target selection independently of credential recovery.
 
 ## Validation and safe experiments
 

@@ -28,6 +28,37 @@ The mobile title shows the selected tab and its machine/workspace, and opens the
 window tree. It does not open a conversation switcher in Monitor. Machine
 selection remains available when a machine has no panes or a snapshot fails.
 
+Cold launch reads the last viewed Monitor target for the selected paired origin
+before choosing any default machine. `last-target.ts` owns this non-secret cache:
+one `openherdr.last-target.v1:<normalized-origin>` entry containing
+`{version:1,target:{machine,workspaceId,tabId,paneId,terminalId}}`. IDs use the
+existing 1 to 256 character bounds and the stored string is limited to 8192
+characters. It stores no labels, terminal output, credentials, conversation or
+draft content, or delivery records. Browser/PWA, hosted mobile and the separate
+Capacitor app use this same navigation cache; original Electron and VS Code
+entrypoints retain their existing runtime/session restoration.
+
+A remembered machine must appear in a successful current machine list. Only
+that machine's snapshot is requested, and a successful snapshot from the current
+transport must confirm the complete workspace/tab/pane ancestry and terminal
+occupant before any pane reader or observer mounts. Retained snapshots with an
+error, snapshots from an earlier credential, failed reads and offline state do
+not confirm restoration. Normal polling and refresh can recover a pending read.
+A successful response proving the machine, ancestry or occupant is missing
+clears its stale disk hint and keeps this launch unavailable until explicit
+selection; it does not choose Local or a replacement pane. Missing profiles
+remain an unavailable option in the machine selector.
+
+Explicit machine/workspace/tab/pane navigation or pending-delivery inspection
+immediately cancels restoration, including late snapshot completions. Changing
+credentials on the same origin keeps the in-memory choice and does not reapply
+the cache. A different origin starts with only its own hint. No usable hint keeps
+the existing first-launch selection. Restoration opens only Monitor, never
+Terminal controls, a new conversation or a pending operation. Once a complete
+verified target is actually visible in Monitor, a changed tuple is saved once;
+snapshot revisions do not cause repeated writes. Cache reads and writes are best
+effort and storage failure never blocks manual navigation or monitoring.
+
 Monitor mounts no pane composer, key bar, agent launcher or window management
 buttons. Creation, rename, close and split controls are in the explicit Terminal
 controls workspace page, along with its existing tracked mutations. Files,

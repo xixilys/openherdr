@@ -10,10 +10,13 @@ Android is the primary app. Complete feature and UI replication is in progress.
 
 Files now includes the original code editor, Find/Replace, line navigation,
 wrapping and complete code preview, with manual revision-checked saves and
-dirty-file closing. The current APK packages this flow; native interaction
-remains unverified.
+dirty-file closing. Markdown, JSON/JSONC, SVG, Mermaid and CSV/TSV also use the
+original preview controls. Markdown images and local links read the selected
+local or saved-SSH directory through the paired connection. The current APK
+packages these flows; native interaction remains unverified.
 
 <img src="docs/openherdr/assets/code-editor.png" width="300" alt="OpenHerdr code editor in a mobile-width browser, showing a task-owned test file">
+<img src="docs/openherdr/assets/artifact-markdown-ssh.png" width="300" alt="Markdown preview in a mobile-width CF browser, with an image and local CSV link from a task-owned WSL directory">
 
 This repository retains the MIT-licensed OpenChamber source and its original
 entrypoints. The upstream project documentation follows.

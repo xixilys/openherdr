@@ -183,15 +183,39 @@ forms and embeds. Chat keeps raw HTML inert. A numeric `img height` becomes
 an inline height, because Tailwind preflight's `height: auto` would beat the
 attribute.
 
-`useMarkdownLocalAssets` makes a rendered Markdown file's relative images and
-links work: images and `srcset` candidates are fetched through the runtime
-against the file's own directory (outside the workspace when the file is) and
-swapped for object URLs that are revoked with the preview; relative links
-open the target file through `useUIStore.openContextFile`, which the context
-panel and the mobile files surface both consume. A `<source
-media="(prefers-color-scheme: …)">` follows the app theme, not the OS: the
-feature is rewritten to an always-true or never-true query and re-evaluated
-when the theme changes.
+`TextArtifactViews.tsx` shares the original Markdown frame, JSON tree wrapper
+and full-panel Mermaid view. Callers own selected paths, loaded content, drafts,
+mode changes, scroll keys, search and comment actions. Markdown accepts the
+scroller ref, focus callback, font style and optional comment/search nodes; its
+search remains outside the rendered scroll container. These specialized views
+show the loaded/saved content. The separate code preview shows the current
+draft. Standalone callers supply `MarkdownPresentationContext` explicitly so
+rendering does not load the OpenCode session binding.
+
+`useMarkdownAssetBindings` binds relative images, picture/srcset candidates,
+app-theme picture selection, file links and heading fragments to one rendered
+preview. Its injected `MarkdownAssetSource` owns reference decoding, path policy
+and image reads. The source object identifies transport ownership; replacing it
+cancels the binding even when its `key` is unchanged. Navigation and error
+callbacks can change without reloading images. Reads deduplicate per resolved
+path for that preview lifetime. A successful current image binding reports its
+original reference so callers can clear only that resource's earlier failure.
+Live container/source/visibility identity is checked before applying a read,
+reporting feedback or handling navigation, including before passive cleanup.
+Disabling the view, changing its source or
+container, or unmounting aborts reads and revokes object URLs, including late
+responses. Cleanup restores substituted attributes only while they still match
+the binding's installed values, preserving a renderer's newer attributes and
+allowing unchanged HTML to load again after reopening.
+
+`useMarkdownLocalAssets` is the original runtime adapter. It resolves relative
+paths against the file directory and reads `/api/fs/raw` through runtime auth,
+including the original outside-workspace behavior. Its 30-second deadline and
+25 MiB local image limit remain unchanged. `FilesView` enables these bindings
+only while visible. Other hosts inject their own confined path and read policy;
+the shared hook never selects a runtime or broadens access. Relative links open
+files through the caller's navigation; the original controller uses
+`useUIStore.openContextFile`. Picture color-scheme queries follow the app theme.
 
 An agent can ask for a file to be shown (`file.open` on the managed
 `openchamber` tool). The server broadcasts `openchamber:file-open-request`;

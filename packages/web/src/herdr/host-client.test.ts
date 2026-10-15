@@ -17,7 +17,7 @@ function fixture() {
   return { store, transport, client: new HostClient(transport, target), storage, raw: () => raw };
 }
 function draft(): FileDraft {
-  return { server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, baseContent: 'before', content: 'phone edit', lineEnding: '\n', editVersion: 1 };
+  return { server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, baseContent: 'before', content: 'phone edit', bytes: 6, lineEnding: '\n', editVersion: 1 };
 }
 function pending(requestId: string, method = 'files.write'): PendingDelivery {
   return { requestId, server: connection.server, machine: target.machine, session: null, workspaceId: 'w1', tabId: '', paneId: target.pane_id, method };
@@ -58,6 +58,7 @@ describe('pinned file drafts', () => {
       expect(document.baseContent).toBe('first\nsecond\n');
       expect(document.content).toBe('first\nsecond\n');
       expect(document.lineEnding).toBe(lineEnding);
+      expect(document.bytes).toBe(lineEnding === '\r\n' ? 15 : 13);
       expect(document.editVersion).toBe(0);
       expect(prepareFileSave(document, f.client, '/repo', false).content).toBe(raw);
       expect(document.content).toBe(document.baseContent);
@@ -87,31 +88,51 @@ describe('pinned file drafts', () => {
       expect(document.content).not.toContain('\r');
     }
   });
+  test('loaded byte size retains BOM, Unicode and mixed separators until an acknowledged save', () => {
+    const f = fixture();
+    const raw = '\uFEFF你\r\nx\ny\rz';
+    const opened = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: raw });
+    expect(opened.baseContent).toBe('\uFEFF你\nx\ny\nz');
+    expect(opened.lineEnding).toBe('\n');
+    expect(opened.bytes).toBe(13);
+    const request = prepareFileSave(opened, f.client, '/repo', false);
+    expect(request.content).toBe('\uFEFF你\nx\ny\nz');
+    expect(opened.bytes).toBe(13);
+    const acknowledged = finishFileSave(opened, opened, { root: '/repo', path: opened.path, success: true, revision: changedHash });
+    expect(acknowledged.bytes).toBe(12);
+    expect(acknowledged.content).toBe(opened.content);
+  });
   test('large normalized drafts retain the full tail through outbound serialization', () => {
     const f = fixture();
     const raw = `\uFEFF${'large text\r\n'.repeat(25000)}TAIL`;
     const document = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: raw });
     expect(document.content.length).toBeGreaterThan(200000);
     expect(document.content.endsWith('TAIL')).toBe(true);
+    expect(document.bytes).toBe(300007);
     expect(prepareFileSave(document, f.client, '/repo', false).content).toBe(raw);
   });
   test('save acknowledgement keeps a normalized captured baseline and later edits with the original line style', () => {
     const f = fixture();
     const opened = createFileDraft({ server: connection.server, target, root: '/repo', path: 'notes.txt', revision: hash, content: '\uFEFFfirst\r\nsecond' });
-    const sent = editFileDraft(opened, '\uFEFFsaved\nsecond');
+    const sent = editFileDraft(opened, '\uFEFFchanged\nsecond');
     const request = prepareFileSave(sent, f.client, '/repo', false);
-    const later = editFileDraft(sent, '\uFEFFsaved\nnewer edit');
-    expect(request.content).toBe('\uFEFFsaved\r\nsecond');
+    const later = editFileDraft(sent, '\uFEFFchanged\nnewer edit');
+    expect(opened.bytes).toBe(16);
+    expect(sent.bytes).toBe(16);
+    expect(later.bytes).toBe(16);
+    expect(request.content).toBe('\uFEFFchanged\r\nsecond');
     const acknowledged = finishFileSave(later, sent, { root: '/repo', path: sent.path, success: true, revision: changedHash });
-    expect(acknowledged.content).toBe('\uFEFFsaved\nnewer edit');
-    expect(acknowledged.baseContent).toBe('\uFEFFsaved\nsecond');
+    expect(acknowledged.content).toBe('\uFEFFchanged\nnewer edit');
+    expect(acknowledged.baseContent).toBe('\uFEFFchanged\nsecond');
+    expect(acknowledged.bytes).toBe(18);
     expect(acknowledged.lineEnding).toBe('\r\n');
     expect(acknowledged.revision).toBe(changedHash);
     expect(acknowledged.content).not.toBe(acknowledged.baseContent);
-    expect(prepareFileSave(acknowledged, f.client, '/repo', false).content).toBe('\uFEFFsaved\r\nnewer edit');
+    expect(prepareFileSave(acknowledged, f.client, '/repo', false).content).toBe('\uFEFFchanged\r\nnewer edit');
     const clean = finishFileSave(sent, sent, { root: '/repo', path: sent.path, success: true, revision: changedHash });
     expect(clean.content).toBe(clean.baseContent);
     expect(clean.baseContent).not.toContain('\r');
+    expect(clean.bytes).toBe(18);
   });
   test('line style does not weaken root/path ownership or file revision checks', () => {
     const f = fixture();
@@ -157,6 +178,7 @@ describe('pinned file drafts', () => {
     await expect(f.client.mutate(prepareFileSave(document, f.client, '/repo', false), hostSchemas.write)).rejects.toThrow('The file changed');
     expect(document.content).toBe('phone edit');
     expect(document.revision).toBe(hash);
+    expect(document.bytes).toBe(6);
     const record = await f.store.load(connection.server);
     expect(record?.method).toBe('files.write');
     expect(record?.paneId).toBe(target.pane_id);
@@ -324,6 +346,7 @@ describe('reload, refusal and cross-tab delivery regressions', () => {
     const incoming = createFileDraft({ server: connection.server, target, root: '/repo', path: captured.path, revision: changedHash, content: 'after\nreload' });
     const accepted = acceptFileReload(captured, captured, incoming);
     expect(accepted.lineEnding).toBe('\n');
+    expect(accepted.bytes).toBe(12);
     expect(prepareFileSave(accepted, f.client, '/repo', false).content).toBe('after\nreload');
     const styleChanged: FileDraft = { ...captured, lineEnding: '\n' };
     const conflict = acceptFileReload(styleChanged, captured, incoming);
@@ -333,11 +356,12 @@ describe('reload, refusal and cross-tab delivery regressions', () => {
     expect(conflict.reloadConflict).toBe(true);
     const restored = acceptFileReload(accepted, accepted, captured);
     expect(restored.lineEnding).toBe('\r\n');
+    expect(restored.bytes).toBe(14);
     expect(prepareFileSave(restored, f.client, '/repo', false).content).toBe('before\r\nreload');
   });
   test('reload preserves typing and newer save acknowledgements made while its read was in flight', () => {
     const captured = draft();
-    const incoming = { ...captured, content: 'new disk version', baseContent: 'new disk version', revision: changedHash, editVersion: 0 };
+    const incoming = { ...captured, content: 'new disk version', baseContent: 'new disk version', bytes: 16, revision: changedHash, editVersion: 0 };
     const typed = editFileDraft(captured, 'typing during reload');
     const preserved = acceptFileReload(typed, captured, incoming);
     expect(preserved.content).toBe('typing during reload');

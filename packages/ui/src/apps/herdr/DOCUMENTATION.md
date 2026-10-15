@@ -179,3 +179,11 @@ and do not initialize the original runtime. Herdr retains its own full-text
 drafts, root/revision checks, manual save, conflict handling and close intent.
 The shared CodeMirror read-only state governs both typing and mutation commands;
 Find remains available in a read-only document.
+
+The text-artifact path also shares the original `TextArtifactViews` frame,
+rendered Markdown search, JSON tree, Mermaid controls, SVG image view and table
+view. Herdr supplies saved source content and its explicit Markdown presentation
+and asset sources. `useMarkdownAssetBindings` owns DOM rewriting and cleanup;
+the injected source owns confined paths and transport. The original wrapper
+keeps its own runtime file adapter and comment bindings. Active HTML grants,
+binary streaming/PDF, canvas editors and their native acceptance remain separate.

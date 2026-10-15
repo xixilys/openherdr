@@ -400,14 +400,41 @@ scroll on return. `TextFileEditor` supplies the original shared theme/language
 extensions, Find/Replace, line navigation, wrapping and generic code preview.
 Hidden and preview modes remove the source highlighting extensions; they retain
 the document and undo history. Dynamic language loads are cancelled on hide or
-file changes. Preview uses the complete current draft and the caller's real
-scrolling element. Markdown, JSON, HTML and other artifact-specific previews
-remain separate work.
+file changes. Generic code preview uses the complete current draft and the
+caller's real scrolling element.
+
+Text artifacts reuse the original `MarkdownFilePreview`, `JsonFilePreview`,
+`MermaidFilePreview`, `ImageArtifact` and `TableArtifact`. Markdown, JSON/JSONC/
+GeoJSON, SVG, Mermaid and CSV/TSV previews show the saved `baseContent`, matching
+FilesView's specialized preview behavior. Unsaved source remains in its draft;
+a confirmed Save advances the preview. JSON5 uses the original strict parser,
+including its visible error and return to source. Excalidraw Markdown, HTML and
+canvas formats retain their separate source-only paths in this increment.
+
+`FileEditorsState.viewModes` keeps each document's chosen source/preview mode
+with its full draft identity. Rename moves that mode with the document; close
+removes it. New specialized documents use the original shipped preview default.
+A captured current-file request with a line number opens source for that jump.
+Markdown's original search bar, heading links and scroll restoration stay scoped
+to the active document. Preview/source transitions retain its editor undo state;
+switching documents preserves text drafts without promising cross-file undo.
+
+Files supplies an explicit `MarkdownPresentationContext` with the selected
+theme, paired origin and root. `file-preview-source.ts` resolves Markdown images
+and links against the captured document directory, allowing sibling paths within
+that root and refusing root escape, `.git`, invalid references and active image
+MIME types. Only the captured HostClient reads images; returned root/path and
+byte counts must match. URL references decode once, while already resolved file
+paths keep literal percent, colon, query and fragment characters. Missing or
+refused local resources show a document-scoped failure. No preview request uses
+the original runtime's `/api/fs/raw` or an outside-workspace option. Hidden,
+superseded or changed-transport previews abort reads and retire object URLs.
 
 `createFileDraft` normalizes UTF-8 host text to LF and records its preferred
-LF/CRLF line ending with the original helper. `prepareFileSave` serializes only
+LF/CRLF line ending with the original helper. Its `bytes` counts the raw loaded
+UTF-8 snapshot before normalization. `prepareFileSave` serializes only
 the captured outbound content. A confirmed write updates the normalized saved
-baseline while retaining later edits. The dominant-ending policy normalizes
+baseline and its actual outbound byte count while retaining later edits. The dominant-ending policy normalizes
 mixed endings and lone CR characters; it is not arbitrary encoding conversion.
 Drafts are in memory and require no stored-format migration.
 
@@ -419,7 +446,7 @@ Discard removes only the explicitly selected local draft and preserves delivery
 records. Clean close selects the next file, otherwise the previous one. Reopen
 reads the host again. Menus and dialogs unmount while the panel is hidden.
 
-The mobile Back layer closes editor search or line navigation before returning
+The mobile Back layer closes source or rendered-Markdown search or line navigation before returning
 from a file to its browser,
 then clears search, then moves up within the canonical root. The shell closes
 only after those inner routes are exhausted. Creation, rename, delete, upload,

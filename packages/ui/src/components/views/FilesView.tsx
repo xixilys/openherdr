@@ -35,8 +35,6 @@ import { PreviewToggleButton } from './PreviewToggleButton';
 import { createFileContentPoller } from './fileContentPoller';
 import { hasFileStatChanged, openFilePollStep } from './fileStatChange';
 import { pendingFileNavigationStep } from './pendingFileNavigation';
-import { JsonTreeView } from '@/components/ui/JsonTreeView';
-import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { languageByExtension, loadLanguageByExtension } from '@/lib/codemirror/languageByExtension';
 import { createFileEditorExtensions } from '@/lib/codemirror/fileEditorExtensions';
 import { revealEditorSelectionAboveKeyboard } from '@/lib/codemirror/keyboardOcclusion';
@@ -88,6 +86,7 @@ import { FontArtifact } from './files/previews/FontArtifact';
 import { ImageArtifact } from './files/previews/ImageArtifact';
 import { MediaArtifact } from './files/previews/MediaArtifact';
 import { TableArtifact } from './files/previews/TableArtifact';
+import { JsonFilePreview, MarkdownFilePreview, MermaidFilePreview } from './files/previews/TextArtifactViews';
 import { useMarkdownLocalAssets } from './files/previews/useMarkdownLocalAssets';
 import { useHtmlPreviewUrl } from './files/useHtmlPreviewUrl';
 import { useConfigStore } from '@/stores/useConfigStore';
@@ -96,7 +95,6 @@ import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRan
 import { opencodeClient } from '@/lib/opencode/client';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
-import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { cancelWhenLayoutSettled, runWhenLayoutSettled } from '@/lib/layoutAnimation';
@@ -3723,29 +3721,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (isTable && tableViewMode === 'table') {
       return <TableArtifact path={file.path} content={fileContent} sizeBytes={artifactSize} />;
     }
-    if (isMermaid && mermaidViewMode === 'preview') {
-      return (
-        // The whole panel is the diagram: the same fill-the-container styling
-        // the fullscreen mermaid dialog uses, not the chat block's capped height.
-        <div className="h-full min-h-0 overflow-hidden">
-          <ErrorBoundary
-            fallback={
-              <div className="m-3 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
-                <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
-                <div className="text-sm text-muted-foreground">{t('filesView.error.switchToEditMode')}</div>
-              </div>
-            }
-          >
-            <SimpleMarkdownRenderer
-              content={`\`\`\`mermaid\n${fileContent}\n\`\`\``}
-              className="markdown-mermaid-fullscreen h-full"
-              enableFileReferences={false}
-              allowMermaidWheelEvents
-            />
-          </ErrorBoundary>
-        </div>
-      );
-    }
+    if (isMermaid && mermaidViewMode === 'preview') return <MermaidFilePreview content={fileContent} />;
     return null;
   };
   const artifactPreview = selectedFile && !fileLoading && !isPdfAssetAuthLoading && !fileError
@@ -3882,7 +3858,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (!root) return;
     useUIStore.getState().openContextFile(root, absolutePath);
   }, [root]);
-  const markdownLocalAssetsActive = isMarkdown && mdViewMode === 'preview' && !fileLoading;
+  const markdownLocalAssetsActive = visible && isMarkdown && mdViewMode === 'preview' && !fileLoading;
   const markdownColorScheme = currentTheme.metadata.variant === 'light' ? 'light' : 'dark';
   useMarkdownLocalAssets({
     container: mdPreviewNode,
@@ -4844,76 +4820,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               />
             </div>
           ) : selectedFile && isJson && jsonViewMode === 'tree' ? (
-            <ErrorBoundary
-              fallback={
-                <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
-                  <div className="mb-1 font-medium text-destructive">{t('filesView.error.jsonViewerUnavailable')}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {t('filesView.error.switchToTextMode')}
-                  </div>
-                </div>
-              }
-            >
-              <div className="h-full overflow-auto">
-                <JsonTreeView
-                  jsonString={fileContent}
-                  format={selectedFile.path.toLowerCase().endsWith('.jsonc') ? 'jsonc' : 'json'}
-                  maxHeight="100%"
-                  initiallyExpandedDepth={2}
-                />
-              </div>
-            </ErrorBoundary>
+            <JsonFilePreview path={selectedFile.path} content={fileContent} />
           ) : selectedFile && isMarkdown && getMdViewMode() === 'preview' ? (
-            <div className="relative h-full min-h-0">
-              <div
-                className="oc-file-preview h-full overflow-auto p-3 outline-none"
-                // Focusable so Cmd/Ctrl+F reaches the find bar: the keybind only
-                // fires when the event target sits inside this container, and a
-                // plain div never holds focus. -1 keeps it out of the tab order.
-                tabIndex={-1}
-                onMouseDown={focusMdPreviewContainer}
-                ref={setMainMarkdownScroller}
-              >
-                <FilePreviewCommentMenu
-                  containerRef={markdownPreviewRef}
-                  filePath={selectedFile.path}
-                  fileContent={fileContent}
-                />
-                {fileContent.length > 500 * 1024 && (
-                  <div className="mb-3 rounded-md border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-                    {t('filesView.warning.largeFilePreviewLimited', { sizeKb: Math.round(fileContent.length / 1024) })}
-                  </div>
-                )}
-                <ErrorBoundary
-                  fallback={
-                    <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
-                      <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {t('filesView.error.switchToEditMode')}
-                      </div>
-                    </div>
-                  }
-                >
-                  <div style={previewFontStyle}>
-                    <SimpleMarkdownRenderer
-                      content={fileContent}
-                      className="typography-markdown-body"
-                      stripFrontmatter
-                      enableFileReferences={false}
-                      allowRawHtml
-                    />
-                  </div>
-                </ErrorBoundary>
-              </div>
-              {!isFullscreen && (
-                <MarkdownPreviewSearch
-                  containerRef={mdPreviewContainerRef}
-                  open={mdPreviewFindOpen}
-                  onOpenChange={setMdPreviewFindOpen}
-                  focusNonce={mdPreviewFindFocusNonce}
-                />
-              )}
-            </div>
+            <MarkdownFilePreview content={fileContent} scrollerRef={setMainMarkdownScroller}
+              onMouseDown={focusMdPreviewContainer} fontStyle={previewFontStyle}
+              commentMenu={<FilePreviewCommentMenu containerRef={markdownPreviewRef} filePath={selectedFile.path} fileContent={fileContent} />}
+              search={!isFullscreen && <MarkdownPreviewSearch containerRef={mdPreviewContainerRef} open={mdPreviewFindOpen}
+                onOpenChange={setMdPreviewFindOpen} focusNonce={mdPreviewFindFocusNonce} />} />
           ) : selectedFile && isHtml && htmlViewMode === 'preview' ? (
             !runtime.isVSCode && htmlPreview.status === 'loading' ? (
               <div className="flex h-full items-center justify-center text-muted-foreground typography-ui-label">
@@ -5176,57 +5089,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           ) : artifactPreview ? (
             artifactPreview
           ) : isMarkdown && getMdViewMode() === 'preview' ? (
-            // The find bar is a sibling of the scroll container, never a child:
-            // inside it, its own "1/3" and "No matches" text would be walked and
-            // highlighted by the search it drives.
-            <div className="relative h-full min-h-0">
-            <div
-              className="oc-file-preview h-full overflow-auto p-4 outline-none"
-              tabIndex={-1}
-              onMouseDown={focusMdPreviewContainer}
-              ref={setFullscreenMarkdownScroller}
-            >
-              {selectedFile ? (
-                <FilePreviewCommentMenu
-                  containerRef={mdFullscreenPreviewContainerRef}
-                  filePath={selectedFile.path}
-                  fileContent={fileContent}
-                />
-              ) : null}
-              {fileContent.length > 500 * 1024 && (
-                  <div className="mb-3 rounded-md border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-                    {t('filesView.warning.largeFilePreviewLimited', { sizeKb: Math.round(fileContent.length / 1024) })}
-                  </div>
-                )}
-              <ErrorBoundary
-                fallback={
-                  <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
-                    <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {t('filesView.error.switchToEditMode')}
-                    </div>
-                  </div>
-                }
-              >
-                <div style={previewFontStyle}>
-                  <SimpleMarkdownRenderer
-                    content={fileContent}
-                    className="typography-markdown-body"
-                    stripFrontmatter
-                    enableFileReferences={false}
-                    allowRawHtml
-                  />
-                </div>
-              </ErrorBoundary>
-            </div>
-              <MarkdownPreviewSearch
-                containerRef={mdFullscreenPreviewContainerRef}
-                open={mdPreviewFindOpen}
-                onOpenChange={setMdPreviewFindOpen}
-                focusNonce={mdPreviewFindFocusNonce}
-                className="inset-e-4 top-16"
-              />
-            </div>
+            <MarkdownFilePreview content={fileContent} scrollerRef={setFullscreenMarkdownScroller}
+              onMouseDown={focusMdPreviewContainer} fontStyle={previewFontStyle} fullscreen
+              commentMenu={selectedFile ? <FilePreviewCommentMenu containerRef={mdFullscreenPreviewContainerRef} filePath={selectedFile.path} fileContent={fileContent} /> : null}
+              search={<MarkdownPreviewSearch containerRef={mdFullscreenPreviewContainerRef} open={mdPreviewFindOpen}
+                onOpenChange={setMdPreviewFindOpen} focusNonce={mdPreviewFindFocusNonce} className="inset-e-4 top-16" />} />
           ) : canUseShikiFileView && textViewMode === 'view' ? (
             <CodeFilePreview path={selectedFile.path} name={selectedFile.name} content={draftContent}
               theme={currentTheme} lightTheme={lightTheme} darkTheme={darkTheme} wrapLines={wrapLines}

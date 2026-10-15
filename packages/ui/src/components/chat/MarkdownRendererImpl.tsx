@@ -1,6 +1,7 @@
 import React from 'react';
 import morphdom from 'morphdom';
 import { renderMermaidASCII, renderMermaidSVG } from 'beautiful-mermaid';
+import { sanitizeMermaidSvg } from './markdown/sanitizeMermaidSvg';
 import type { Part } from '@/lib/opencode/model';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
@@ -934,7 +935,8 @@ const useDecorateContext = (
       cachedMermaidRender(`${themeId}:${mode}:${source}`, () => {
         try {
           if (mode === 'ascii') return { ascii: renderMermaidASCII(source) };
-          return { svg: renderMermaidSVG(source, colors) };
+          const svg = sanitizeMermaidSvg(renderMermaidSVG(source, colors));
+          return svg ? { svg } : {};
         } catch {
           return {};
         }

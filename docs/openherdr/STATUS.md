@@ -30,11 +30,92 @@ public main. The file-navigation increment is published at `0d2415a30`. It serve
 `herdr-CF2mEnjj.js`. The previously published slash increment served and packaged
 `herdr-CIO7wjLL.js`.
 
-## Current UTF-8 text and code editor increment
+## Current text artifact preview increment
+
+Files now reuses the original Markdown, JSON/JSONC/GeoJSON, SVG, Mermaid and
+CSV/TSV previews and controls. Each document retains its text draft and chosen
+source/preview mode. Specialized previews show saved content; generic code
+preview shows the current draft. JSON5 keeps the original strict-parser error.
+Markdown includes rendered Find, safe raw HTML, heading navigation, picture/
+srcset images and confined local-file links. Its host adapter captures the
+paired server, machine, pane, canonical root and document. It never falls back
+to the original file runtime or reads beyond the selected root.
+
+Hidden, replaced and invalid-root previews cancel image reads and retire their
+object URLs. Live identity checks also reject completions before passive
+cleanup during an auth-transport replacement. A recovered image clears only
+its matching obsolete error. The original runtime adapter keeps its existing
+outside-workspace policy, deadline and size limit. The shared image viewer now
+retains dimensions when a data-URL load finishes before its initialization
+effect; the actual 480x240 SVG can zoom and return to Fit.
+
+Generated Mermaid SVG is cleaned before entering the renderer cache. SVG
+elements, references and CSS values are checked; external paint URLs, font
+imports and active content are removed. Theme colors, mono text, chart styles,
+markers and controls remain. All shared Markdown renderer callers use this
+boundary, including original runtime callers. Display and download use the same
+clean string. Independent source review found no remaining P1/P2 in this change.
+
+There are 183 passing focused and retained cases: controller/editor/Files 78,
+resource bindings and original adapter 16, confined source and host client 42,
+generated SVG 23, JSON/raw-HTML/i18n 24. The final combined type/lint/Knip/
+anti-slop gate passes. Earlier attempts exposed unsupported test assertion
+declarations and a control-character regex lint error; equivalent typed
+assertions and explicit character-code validation corrected them. Logs include
+`.tmp/text-artifact-controller-final.log`,
+`.tmp/text-artifact-bindings-live-scope-final.log`,
+`.tmp/file-preview-source-typed-rejections-tests.log`,
+`.tmp/mermaid-generated-svg-assertion-final.log` and
+`.tmp/check-text-artifacts-final-freeze.log`.
+
+The actual 412x915 paired CF browser passed rendered Markdown search with 30
+matches, local pictures, heading/file navigation, full-text CRLF save readback,
+JSONC error/save/recovery and quoted CSV editing. A table source draft stayed
+out of its saved preview until Save; disk readback retained its BOM and CRLF.
+A saved WSL machine supplied a Markdown image that decoded at 480x160 and a
+relative Chinese CSV link through the same public connection. The task-owned
+remote workspace and marked directory were removed after validation. Evidence
+is under `.tmp/artifact-browser/` and `.tmp/artifact-ssh-setup.json`.
+
+The real Chrome renderer also removed a continuous script/iframe/form/input/
+javascript-link fixture and the hostile Mermaid external paint/import fixture,
+while retaining escaped labels and graph geometry. The combined HTML fixture
+exposed a Happy DOM NodeIterator deletion defect, so DOM cases test each unsafe
+element independently and the actual Chrome result covers their combination.
+No browser network trace was available. Clicking Download SVG did not produce
+a tool download event, and browser policy blocks the downloads page. Actual
+download completion remains unverified; the real renderer integration tests
+check the exact clean download Blob. Screenshots `assets/artifact-markdown-ssh.png`
+and `assets/artifact-mermaid.png` contain only task-owned material.
+
+Original Web, Herdr and Android builds pass. The new debug APK is 42,309,073
+bytes and contains `herdr-Cz-DRZK5.js`. Its HTML and entry bytes exactly match
+the Herdr build. Scanner and secure-storage registrations and 12 native
+libraries remain present. Gradle passed in 9 seconds with 245 tasks, 27 executed
+and 218 up-to-date. Receipts are `.tmp/text-artifact-apk.json`,
+`.tmp/build-web-text-artifacts-release.log`,
+`.tmp/build-herdr-text-artifacts-release.log` and
+`.tmp/build-text-artifacts-android-final.log`.
+
+Both existing bridge PIDs, ports and CF origins are unchanged. Their public
+health routes return 200, unauthenticated private routes return 401, and both
+serve the exact final entry bytes. The default page still reads the same Kansas
+worker window with `readOnly=true` and `inputmode=none`. See
+`.tmp/text-artifact-runtime-public-final.json` and
+`.tmp/artifact-browser/default-monitor-identity.json`. No terminal input, model
+request, Git mutation or remote file write was used for this browser flow.
+
+This APK has not been installed or interactively tested. The fixed first-phone
+APK and public prerelease remain unchanged. Android Back/IME, camera, KeyStore,
+process death and physical-phone use remain unverified. Active HTML grants,
+binary streaming/PDF/media, canvas/draw.io, fullscreen, comments, autosave and
+the wider original feature/UI parity remain unfinished.
+
+## Previous UTF-8 text and code editor increment
 
 Files now shares the original language/theme extensions, Find/Replace, wrapping,
-line navigation, open-file menu and full-text code preview. Multiple drafts keep
-their own undo state. Closing a dirty active or inactive file offers Save,
+line navigation, open-file menu and full-text code preview. Multiple files keep
+independent text drafts. Closing a dirty active or inactive file offers Save,
 Discard and Cancel. Confirmed Save closes only the same unchanged document;
 later edits, owner/root changes, failures and unknown delivery keep it open.
 Drafts normalize to LF and serialize the original preferred LF/CRLF style on

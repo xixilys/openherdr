@@ -51,7 +51,9 @@ export const ImageArtifact: React.FC<{
   const dragRef = React.useRef<DragState | null>(null);
 
   React.useEffect(() => {
-    setNatural(null);
+    const image = imageRef.current;
+    setNatural(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0
+      ? { width: image.naturalWidth, height: image.naturalHeight } : null);
     setScale(null);
   }, [src]);
 

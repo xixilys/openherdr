@@ -29,6 +29,8 @@ import { useUIStore } from '@/stores/useUIStore';
 import { registerBackLayer } from '@/lib/mobileBackLayers';
 import { workspaceFilePath, type WorkspaceDiffRequest, type WorkspaceFileRequest } from './workspace-navigation';
 import type { Theme } from '@/types/theme';
+import { createHerdrMarkdownAssetSource } from './file-preview-source';
+import { initialFileViewMode, textFilePreviewKind, type FileViewMode } from './file-view-mode';
 
 const TextEditor = lazy(() => import('./TextFileEditor').then((module) => ({ default: module.TextFileEditor })));
 
@@ -42,7 +44,7 @@ type FileDialog =
   | { kind: 'delete'; owner: string; choice: FileChoice }
   | { kind: 'reload'; owner: string; draftId: string }
   | { kind: 'close'; owner: string; draftId: string };
-type FileEditorsState = { documents: Map<string, FileDraft>; selected: Map<string, string | null>; dialog: FileDialog | null };
+type FileEditorsState = { documents: Map<string, FileDraft>; selected: Map<string, string | null>; viewModes: Map<string, FileViewMode>; dialog: FileDialog | null };
 
 function removeFileDocument(state: FileEditorsState, id: string, owner: string): FileEditorsState {
   const siblings = [...state.documents.entries()].filter(([, document]) => targetKey(document.server, document.target) === owner).map(([key]) => key);
@@ -50,8 +52,10 @@ function removeFileDocument(state: FileEditorsState, id: string, owner: string):
   if (index < 0) return state;
   const documents = new Map(state.documents);
   documents.delete(id);
+  const viewModes = new Map(state.viewModes);
+  viewModes.delete(id);
   const selected = state.selected.get(owner) === id ? new Map(state.selected).set(owner, siblings[index + 1] ?? siblings[index - 1] ?? null) : state.selected;
-  return { documents, selected, dialog: null };
+  return { documents, selected, viewModes, dialog: null };
 }
 type BinaryFile = z.infer<typeof hostSchemas.download> & { owner: string; image: string | null };
 const emptyPaths = new Set<string>();
@@ -119,7 +123,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const [rootEpoch, setRootEpoch] = useState(0);
   const [query, setQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editors, setEditors] = useState<FileEditorsState>(() => ({ documents: new Map(), selected: new Map(), dialog: null }));
+  const [editors, setEditors] = useState<FileEditorsState>(() => ({ documents: new Map(), selected: new Map(), viewModes: new Map(), dialog: null }));
   const { documents, selected, dialog: dialogState } = editors;
   const setDocuments = useCallback((update: (previous: Map<string, FileDraft>) => Map<string, FileDraft>) => {
     setEditors(previous => { const documents = update(previous.documents); return documents === previous.documents ? previous : { ...previous, documents }; });
@@ -175,6 +179,8 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const search = usePolling(readSearch, !!searchTerm && !!root && enabled, 15000, `${owner}:${root}:${searchTerm}`);
   const activeId = selected.get(editorOwner) ?? null;
   const draft = activeId ? documents.get(activeId) : undefined;
+  const markdownAssetSource = useMemo(() => draft && textFilePreviewKind(draft.path) === 'markdown' && draft.root === root && targetKey(draft.server, draft.target) === owner
+    ? createHerdrMarkdownAssetSource(client, draft.root, draft.path) : null, [client, draft, owner, root]);
   const binaryFile = binary?.owner === owner ? binary : null;
   const openDocuments = [...documents.entries()].filter(([, document]) => targetKey(document.server, document.target) === editorOwner);
   const writable = enabled && !mutationBlocked && !!root && !listing.error && !actions.busy && !opening;
@@ -205,7 +211,9 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     if ((replaceDraft || !captured) && fileConflict?.path === path && fileConflict.expectedRoot === expectedRoot && actions.error) actions.clearError(actions.error);
     const selectRequestedLine = () => {
       if (!source) return;
-      setFocusLine(source.line && Number.isInteger(source.line) && source.line > 0 ? { id: source.id, draftId: id, line: source.line } : null);
+      const line = source.line && Number.isInteger(source.line) && source.line > 0 ? source.line : null;
+      setFocusLine(line ? { id: source.id, draftId: id, line } : null);
+      if (line) setEditors(previous => ({ ...previous, viewModes: new Map(previous.viewModes).set(id, 'edit') }));
     };
     setOpeningOwner(owner); setFailure(null);
     const stillCurrent = () => currentOwner.current === owner && openingRequest.current === request && readScope.current.enabled && (!source || currentRequestedFile.current?.id === source.id);
@@ -228,7 +236,11 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
         if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
         if (!await confirmSource()) return;
         const document = createFileDraft({ ...identity, revision: result.revision, content: result.content });
-        setDocuments((previous) => new Map(previous).set(id, acceptFileReload(previous.get(id), captured, document)));
+        setEditors(previous => ({
+          ...previous,
+          documents: new Map(previous.documents).set(id, acceptFileReload(previous.documents.get(id), captured, document)),
+          viewModes: previous.viewModes.has(id) ? previous.viewModes : new Map(previous.viewModes).set(id, initialFileViewMode(path, document.content)),
+        }));
         selectRequestedLine(); selectDraft(id);
       } catch (error) {
         if (!(error instanceof TransportError) || error.code !== 'binary_file') throw error;
@@ -368,23 +380,33 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       : { operation: 'files.delete', expectedRoot: choice.root, path: choice.path, expectedRevision: choice.revision }, hostSchemas.fileMutation);
     if (!result) return;
     if (dialog.kind === 'rename') {
-      let movedSelection = activeId;
-      setDocuments((previous) => {
-        const next = new Map(previous);
-        for (const [id, document] of previous) {
+      setEditors(previous => {
+        const documents = new Map(previous.documents);
+        const viewModes = new Map(previous.viewModes);
+        let movedSelection = previous.selected.get(owner) ?? null;
+        for (const [id, document] of previous.documents) {
           if (targetKey(document.server, document.target) !== owner || document.root !== choice.root || (document.path !== choice.path && !(choice.isDirectory && document.path.startsWith(choice.path + '/')))) continue;
           const moved = { ...document, path: newPath + document.path.slice(choice.path.length) };
-          next.delete(id); next.set(draftKey(moved), moved);
+          const movedId = draftKey(moved);
+          documents.delete(id); documents.set(movedId, moved);
+          const mode = viewModes.get(id);
+          viewModes.delete(id);
+          if (mode) viewModes.set(movedId, mode);
+          if (movedSelection === id) movedSelection = movedId;
         }
-        return next;
+        return { ...previous, documents, viewModes, selected: new Map(previous.selected).set(owner, movedSelection) };
       });
-      // The selected editor is moved by its actual file identity, including unsaved text.
-      const current = activeId ? documentsRef.current.get(activeId) : undefined;
-      if (current && current.root === choice.root && (current.path === choice.path || (choice.isDirectory && current.path.startsWith(choice.path + '/')))) movedSelection = draftKey({ ...current, path: newPath + current.path.slice(choice.path.length) });
-      setSelected((previous) => new Map(previous).set(owner, movedSelection));
     }
     if (dialog.kind === 'delete') {
-      setDocuments((previous) => new Map([...previous].filter(([, document]) => targetKey(document.server, document.target) !== owner || document.root !== choice.root || document.path !== choice.path || document.content !== document.baseContent)));
+      setEditors(previous => {
+        const documents = new Map([...previous.documents].filter(([, document]) => targetKey(document.server, document.target) !== owner || document.root !== choice.root || document.path !== choice.path || document.content !== document.baseContent));
+        const selectedId = previous.selected.get(owner);
+        return {
+          ...previous, documents,
+          viewModes: new Map([...previous.viewModes].filter(([id]) => documents.has(id))),
+          selected: selectedId && !documents.has(selectedId) ? new Map(previous.selected).set(owner, null) : previous.selected,
+        };
+      });
     }
     setDialog(null); setRefresh((value) => value + 1);
   };
@@ -410,7 +432,12 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
 
   const editorContent = draft && activeId ? <div className="flex min-h-0 flex-1 flex-col">
     <Suspense fallback={<p className="herdr-detail">{t('common.loading')}</p>}>
-      <TextEditor key={activeId} id={activeId} path={draft.path} content={draft.content} theme={theme} enabled={enabled} isMobile={isMobile}
+      <TextEditor key={activeId} id={activeId} server={draft.server} root={draft.root} path={draft.path} content={draft.content} baseContent={draft.baseContent} sizeBytes={draft.bytes} theme={theme} enabled={enabled} isMobile={isMobile}
+        mode={editors.viewModes.get(activeId) ?? initialFileViewMode(draft.path, draft.content)}
+        onModeChange={mode => setEditors(previous => enabled && previous.selected.get(owner) === activeId
+          ? { ...previous, viewModes: new Map(previous.viewModes).set(activeId, mode) } : previous)}
+        assetSource={enabled && !listing.error ? markdownAssetSource : null}
+        onOpenFile={path => { if (enabled && root === draft.root && currentOwner.current === owner) void loadFile(path, draft.root); }}
         readOnly={draft.root !== root || targetKey(draft.server, draft.target) !== owner}
         onViewReady={focusEditor} onViewDestroy={() => { editorView.current = null; }}
         canSave={writable && draft.root === root && targetKey(draft.server, draft.target) === owner && draft.content !== draft.baseContent}

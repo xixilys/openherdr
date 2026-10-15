@@ -1,6 +1,9 @@
 /** File viewer artifact strings (media, fonts, tables, images, binaries) — merged into each locale's main dictionary. */
 export const fileArtifactsI18n = {
   en: {
+    'filesView.artifact.localAsset.invalidReference': "This file reference is invalid.",
+    'filesView.artifact.localAsset.outsideProject': "This file is outside the current project.",
+    'filesView.artifact.localAsset.notImage': "This file cannot be shown as an image.",
     'filesView.artifact.image.fit': 'Fit',
     'filesView.artifact.image.fitTitle': 'Fit the image to the panel',
     'filesView.artifact.image.actualTitle': 'Show the image at its actual size',
@@ -20,6 +23,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber does not decode {extension} files. Download it to open it in another app.',
   },
   nl: {
+    'filesView.artifact.localAsset.invalidReference': "Deze bestandsverwijzing is ongeldig.",
+    'filesView.artifact.localAsset.outsideProject': "Dit bestand staat buiten het huidige project.",
+    'filesView.artifact.localAsset.notImage': "Dit bestand kan niet als afbeelding worden weergegeven.",
     'filesView.artifact.image.fit': 'Passen',
     'filesView.artifact.image.fitTitle': 'De afbeelding in het paneel passen',
     'filesView.artifact.image.actualTitle': 'De afbeelding op werkelijke grootte tonen',
@@ -39,6 +45,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber kan {extension}-bestanden niet decoderen. Download het om het in een andere app te openen.',
   },
   de: {
+    'filesView.artifact.localAsset.invalidReference': "Dieser Dateiverweis ist ungültig.",
+    'filesView.artifact.localAsset.outsideProject': "Diese Datei liegt außerhalb des aktuellen Projekts.",
+    'filesView.artifact.localAsset.notImage': "Diese Datei kann nicht als Bild angezeigt werden.",
     'filesView.artifact.image.fit': 'Einpassen',
     'filesView.artifact.image.fitTitle': 'Bild in das Panel einpassen',
     'filesView.artifact.image.actualTitle': 'Bild in Originalgröße anzeigen',
@@ -58,6 +67,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber kann {extension}-Dateien nicht dekodieren. Lade sie herunter, um sie in einer anderen App zu öffnen.',
   },
   es: {
+    'filesView.artifact.localAsset.invalidReference': "Esta referencia de archivo no es válida.",
+    'filesView.artifact.localAsset.outsideProject': "Este archivo está fuera del proyecto actual.",
+    'filesView.artifact.localAsset.notImage': "Este archivo no se puede mostrar como imagen.",
     'filesView.artifact.image.fit': 'Ajustar',
     'filesView.artifact.image.fitTitle': 'Ajustar la imagen al panel',
     'filesView.artifact.image.actualTitle': 'Mostrar la imagen a tamaño real',
@@ -77,6 +89,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber no decodifica archivos {extension}. Descárgalo para abrirlo en otra aplicación.',
   },
   fr: {
+    'filesView.artifact.localAsset.invalidReference': "Cette référence de fichier n'est pas valide.",
+    'filesView.artifact.localAsset.outsideProject': "Ce fichier est en dehors du projet actuel.",
+    'filesView.artifact.localAsset.notImage': "Ce fichier ne peut pas être affiché comme une image.",
     'filesView.artifact.image.fit': 'Ajuster',
     'filesView.artifact.image.fitTitle': 'Ajuster l\'image au panneau',
     'filesView.artifact.image.actualTitle': 'Afficher l\'image à sa taille réelle',
@@ -96,6 +111,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber ne décode pas les fichiers {extension}. Téléchargez-le pour l\'ouvrir dans une autre application.',
   },
   ja: {
+    'filesView.artifact.localAsset.invalidReference': "このファイル参照は無効です。",
+    'filesView.artifact.localAsset.outsideProject': "このファイルは現在のプロジェクトの外にあります。",
+    'filesView.artifact.localAsset.notImage': "このファイルは画像として表示できません。",
     'filesView.artifact.image.fit': 'フィット',
     'filesView.artifact.image.fitTitle': '画像をパネルに合わせる',
     'filesView.artifact.image.actualTitle': '画像を実際のサイズで表示',
@@ -115,6 +133,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber は {extension} ファイルをデコードしません。ダウンロードして別のアプリで開いてください。',
   },
   ko: {
+    'filesView.artifact.localAsset.invalidReference': "이 파일 참조는 올바르지 않습니다.",
+    'filesView.artifact.localAsset.outsideProject': "이 파일은 현재 프로젝트 밖에 있습니다.",
+    'filesView.artifact.localAsset.notImage': "이 파일은 이미지로 표시할 수 없습니다.",
     'filesView.artifact.image.fit': '맞춤',
     'filesView.artifact.image.fitTitle': '이미지를 패널에 맞춤',
     'filesView.artifact.image.actualTitle': '이미지를 실제 크기로 표시',
@@ -134,6 +155,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber는 {extension} 파일을 해석하지 않습니다. 다운로드하여 다른 앱에서 여세요.',
   },
   pl: {
+    'filesView.artifact.localAsset.invalidReference': "To odwołanie do pliku jest nieprawidłowe.",
+    'filesView.artifact.localAsset.outsideProject': "Ten plik znajduje się poza bieżącym projektem.",
+    'filesView.artifact.localAsset.notImage': "Tego pliku nie można wyświetlić jako obrazu.",
     'filesView.artifact.image.fit': 'Dopasuj',
     'filesView.artifact.image.fitTitle': 'Dopasuj obraz do panelu',
     'filesView.artifact.image.actualTitle': 'Pokaż obraz w rzeczywistym rozmiarze',
@@ -153,6 +177,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber nie dekoduje plików {extension}. Pobierz go, aby otworzyć w innej aplikacji.',
   },
   'pt-BR': {
+    'filesView.artifact.localAsset.invalidReference': "Esta referência de arquivo é inválida.",
+    'filesView.artifact.localAsset.outsideProject': "Este arquivo está fora do projeto atual.",
+    'filesView.artifact.localAsset.notImage': "Este arquivo não pode ser exibido como imagem.",
     'filesView.artifact.image.fit': 'Ajustar',
     'filesView.artifact.image.fitTitle': 'Ajustar a imagem ao painel',
     'filesView.artifact.image.actualTitle': 'Mostrar a imagem no tamanho real',
@@ -172,6 +199,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'O OpenChamber não decodifica arquivos {extension}. Baixe-o para abrir em outro aplicativo.',
   },
   tr: {
+    'filesView.artifact.localAsset.invalidReference': "Bu dosya başvurusu geçersiz.",
+    'filesView.artifact.localAsset.outsideProject': "Bu dosya geçerli projenin dışında.",
+    'filesView.artifact.localAsset.notImage': "Bu dosya görüntü olarak gösterilemiyor.",
     'filesView.artifact.image.fit': 'Sığdır',
     'filesView.artifact.image.fitTitle': 'Görseli panele sığdır',
     'filesView.artifact.image.actualTitle': 'Görseli gerçek boyutunda göster',
@@ -191,6 +221,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber {extension} dosyalarının kodunu çözmez. Başka bir uygulamada açmak için indirin.',
   },
   uk: {
+    'filesView.artifact.localAsset.invalidReference': "Це посилання на файл недійсне.",
+    'filesView.artifact.localAsset.outsideProject': "Цей файл розташований поза поточним проєктом.",
+    'filesView.artifact.localAsset.notImage': "Цей файл неможливо показати як зображення.",
     'filesView.artifact.image.fit': 'Вписати',
     'filesView.artifact.image.fitTitle': 'Вписати зображення в панель',
     'filesView.artifact.image.actualTitle': 'Показати зображення у справжньому розмірі',
@@ -210,6 +243,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber не декодує файли {extension}. Завантажте його, щоб відкрити в іншому застосунку.',
   },
   'zh-CN': {
+    'filesView.artifact.localAsset.invalidReference': "此文件引用无效。",
+    'filesView.artifact.localAsset.outsideProject': "此文件位于当前项目之外。",
+    'filesView.artifact.localAsset.notImage': "此文件无法显示为图片。",
     'filesView.artifact.image.fit': '适应',
     'filesView.artifact.image.fitTitle': '将图片适应面板大小',
     'filesView.artifact.image.actualTitle': '以实际大小显示图片',
@@ -229,6 +265,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber 不解码 {extension} 文件。请下载后用其他应用打开。',
   },
   'zh-TW': {
+    'filesView.artifact.localAsset.invalidReference': "此檔案參照無效。",
+    'filesView.artifact.localAsset.outsideProject': "此檔案位於目前專案之外。",
+    'filesView.artifact.localAsset.notImage': "此檔案無法顯示為圖片。",
     'filesView.artifact.image.fit': '適應',
     'filesView.artifact.image.fitTitle': '將圖片適應面板大小',
     'filesView.artifact.image.actualTitle': '以實際大小顯示圖片',
@@ -248,6 +287,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber 不解碼 {extension} 檔案。請下載後用其他應用程式開啟。',
   },
   ar: {
+    'filesView.artifact.localAsset.invalidReference': "مرجع الملف هذا غير صالح.",
+    'filesView.artifact.localAsset.outsideProject': "هذا الملف خارج المشروع الحالي.",
+    'filesView.artifact.localAsset.notImage': "لا يمكن عرض هذا الملف كصورة.",
     'filesView.artifact.image.fit': 'ملاءمة',
     'filesView.artifact.image.fitTitle': 'ملاءمة الصورة مع اللوحة',
     'filesView.artifact.image.actualTitle': 'عرض الصورة بحجمها الفعلي',
@@ -267,6 +309,9 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.descriptionWithType': 'لا يفك OpenChamber ترميز ملفات {extension}. نزّله لفتحه في تطبيق آخر.',
   },
   he: {
+    'filesView.artifact.localAsset.invalidReference': "ההפניה לקובץ הזה אינה תקינה.",
+    'filesView.artifact.localAsset.outsideProject': "הקובץ הזה נמצא מחוץ לפרויקט הנוכחי.",
+    'filesView.artifact.localAsset.notImage': "לא ניתן להציג את הקובץ הזה כתמונה.",
     'filesView.artifact.image.fit': 'התאם',
     'filesView.artifact.image.fitTitle': 'התאם את התמונה לחלונית',
     'filesView.artifact.image.actualTitle': 'הצג את התמונה בגודלה האמיתי',

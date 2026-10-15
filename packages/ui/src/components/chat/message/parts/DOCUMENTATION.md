@@ -86,6 +86,38 @@ its logical gutter, allowing adjacent Arabic and English items. Inline code
 and code widgets have explicit LTR attributes so they do not choose the
 containing item's direction. Direction changes preserve source and copy text.
 
+### Generated Mermaid SVG
+
+`MarkdownRendererImpl` sanitizes the installed beautiful-mermaid output before
+placing it in the render cache. `markdown/sanitizeMermaidSvg.ts` owns that
+boundary for chat and standalone file previews. The cached clean string supplies
+the displayed SVG, the viewer signature, `data-md-original-svg` and SVG download.
+The source-copy action retains the original Mermaid source. ASCII rendering is
+unchanged. A parser or sanitizer failure produces the existing source fallback.
+
+The sanitizer parses an inert SVG document, restricts elements and classes to
+renderer output, and runs a dedicated DOMPurify instance without Markdown's
+application-link hooks. It removes active elements, event handlers, hrefs and
+external resource references. IDs are rebased before purification; retained
+marker references must target a surviving marker in that generated SVG.
+
+CSS is parsed in an unadopted constructed stylesheet. Only the renderer's text,
+mono and non-interactive xychart selector vocabulary is retained, with approved
+properties rebuilt as inline styles on matching graph elements. At-rules,
+unknown selectors/properties, CSS escapes and comment-spliced declarations are
+dropped. The library's commented theme block is replaced with its fixed derived
+color variables and system/mono font stacks. Xychart color and bar-fill variables
+remain local to the SVG. Color expressions permit known local variables with
+validated fallbacks and approved color functions; platform color support alone
+does not authorize arbitrary var, attr or env expressions. No font import or
+style element remains in the output.
+
+This boundary runs identically on web, Electron, VS Code, hosted mobile and
+Capacitor. It adds no external destination or enterprise-mode setting. Missing
+SVG/CSSOM support fails closed to the existing source view. Browser rendering,
+network observation and native Android support require runtime validation beyond
+the focused DOM/parser tests.
+
 ### Turn footer copy and image
 
 The footer under a turn's last assistant message copies and saves the whole

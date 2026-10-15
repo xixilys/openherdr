@@ -1,6 +1,43 @@
 # Native build validation
 
-## Latest UTF-8 editor artifact
+## Latest text artifact preview build
+
+The new debug APK is 42,309,073 bytes and contains `herdr-Cz-DRZK5.js`.
+Its HTML and entry bytes exactly match the Herdr build in
+`.tmp/text-artifact-apk.json`. The scanner, secure-storage plugin and 12 native
+libraries remain packaged. The fixed first-phone-test APK and prerelease are
+unchanged. This new APK has not been installed or interactively tested.
+
+Original Web and Herdr builds pass. Asset preparation, Capacitor Android sync
+and Gradle assembleDebug pass with the existing task cache and NDK 27.1.
+Gradle reports 9 seconds and 245 tasks, 27 executed and 218 up-to-date. Logs are
+`.tmp/build-web-text-artifacts-release.log`,
+`.tmp/build-herdr-text-artifacts-release.log` and
+`.tmp/build-text-artifacts-android-final.log`.
+
+This build adds original Markdown, JSON/JSONC, SVG, Mermaid and CSV/TSV preview
+presentation around Herdr's existing editor and confined file transport.
+The paired 412x915 CF browser passed Markdown search/images/local links/save,
+JSONC error recovery, quoted CSV source/save, SVG dimensions/zoom/Fit, and
+Mermaid geometry/controls/copy. Saved WSL Markdown images and a relative Chinese
+CSV were read through the same CF route. The owned remote fixture was removed.
+Actual Chrome cleaned the combined unsafe raw-HTML and Mermaid fixtures.
+
+The focused and retained checks total 183 passing cases. Independent source
+reviews and the final type/lint/Knip/anti-slop gate pass. The default CF page
+still reads its existing Kansas worker window through a read-only terminal;
+both bridges retain their original PID, port and public origin. Browser receipts
+are in `.tmp/artifact-browser/`, with public task-owned screenshots under
+`docs/openherdr/assets/artifact-markdown-ssh.png` and `artifact-mermaid.png`.
+
+No browser network trace was available. Download SVG was clicked, but its tool
+event timed out and browser policy blocks the downloads page; actual download
+completion remains unverified. Real-renderer tests verify the clean download
+Blob. Native Back/IME, camera, KeyStore, process death, rotation and physical-phone
+use remain unverified. Remaining HTML/binary/media/canvas editor features and
+complete original feature/UI parity stay in scope.
+
+## Previous UTF-8 editor artifact
 
 The final debug APK is 42,305,988 bytes and packages `herdr-CMDSuBJY.js`.
 Its HTML and entry bytes exactly match the Herdr web build in

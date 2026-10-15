@@ -74,13 +74,15 @@ export type FileDraft = {
   revision: string | null;
   baseContent: string;
   content: string;
+  bytes: number;
   lineEnding: FileLineEnding;
   editVersion: number;
   reloadConflict?: boolean;
 };
 export function createFileDraft(input: Pick<FileDraft, 'server' | 'target' | 'root' | 'path' | 'revision' | 'content'>): FileDraft {
+  const bytes = new TextEncoder().encode(input.content).byteLength;
   const prepared = prepareFileEditorContent(input.content);
-  return { ...input, baseContent: prepared.content, content: prepared.content, lineEnding: prepared.lineEnding, editVersion: 0 };
+  return { ...input, baseContent: prepared.content, content: prepared.content, bytes, lineEnding: prepared.lineEnding, editVersion: 0 };
 }
 export function draftKey(draft: Pick<FileDraft, 'server' | 'target' | 'root' | 'path'>): string {
   return JSON.stringify([draft.server, draft.target.machine, draft.target.pane_id, draft.root, draft.path]);
@@ -94,7 +96,8 @@ export function prepareFileSave(draft: FileDraft, client: HostClient, currentRoo
 }
 export function finishFileSave(current: FileDraft, saved: FileDraft, result: z.infer<typeof hostSchemas.write>): FileDraft {
   if (draftKey(current) !== draftKey(saved) || result.root !== saved.root || result.path !== saved.path) throw new TransportError('INVALID_RESPONSE', 'The saved file does not match this editor', true);
-  return { ...current, revision: result.revision, baseContent: saved.content, reloadConflict: false };
+  const bytes = new TextEncoder().encode(serializeEditorContent(saved.content, saved.lineEnding)).byteLength;
+  return { ...current, revision: result.revision, baseContent: saved.content, bytes, reloadConflict: false };
 }
 
 

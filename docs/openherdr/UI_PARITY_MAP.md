@@ -221,9 +221,34 @@ total 113 passing cases; source review, the combined gate and affected web/Andro
 builds pass. `assets/code-editor.png` and `assets/code-preview-large.png` show
 task-owned browser fixtures. This does not establish native Android IME/Back.
 
+The text-artifact increment also shares the original Markdown frame, JSON tree,
+Mermaid viewer, SVG image controls and delimited table preview. Herdr supplies
+saved content and a confined Markdown asset source; original FilesView retains
+its existing runtime reader and outside-workspace policy. Each Herdr document
+keeps its mode and text draft. Source-line requests open the editor. Markdown
+search, raw-HTML cleaning, app-theme picture/srcset, headings and local links
+use the captured owner without initializing OpenCode.
+
+Resource reads stop on hide, root failure or owner/auth replacement, including
+the window before effect cleanup. A successful retry clears only its matching
+resource error. Generated Mermaid SVG is sanitized before caching and uses the
+same clean string for display/download. Theme, graph and marker behavior remain
+covered. The shared image viewer handles already-decoded data URLs before its
+initialization effect so dimensions and zoom controls remain available.
+
+The actual CF browser exercised local editing/preview/save, JSONC error recovery,
+SVG zoom/Fit, Mermaid geometry/controls/copy and hostile HTML/SVG cleaning. A
+saved WSL Markdown image and relative CSV opened over the same CF connection;
+the owned remote fixture was then removed. The 183 passing focused/retained
+cases, independent source review, final static gate and Web/Android builds are
+recorded in STATUS.md. Public captures are `assets/artifact-markdown-ssh.png`
+and `assets/artifact-mermaid.png`. Network traces and real download completion
+were unavailable through the browser tool; native Android execution remains
+unverified.
+
 Full editor parity still needs the remaining original `FilesView` capabilities
-and runtime adaptations, including Markdown/HTML/JSON/media/canvas artifact
-previews, fullscreen, comments and autosave. `FilesView` depends on Git/config/
+and runtime adaptations, including active HTML grants, binary streaming/PDF/
+media/canvas previews, fullscreen, comments and autosave. `FilesView` depends on Git/config/
 file-tab state, effective directory, inline review and raw-asset paths in
 addition to `RuntimeAPIs.files`. The implemented
 host file service already supports confined listing/search, text/binary reads,

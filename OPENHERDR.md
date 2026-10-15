@@ -155,6 +155,42 @@ extensions and code preview. Original VS Code retains its own file bridge and
 does not mount the Herdr editor. The shared CodeMirror read-only facet applies
 to every existing caller. The default CF service and fixed first APK remain live.
 
+The active text-artifact increment restores Markdown, JSON/JSONC/GeoJSON,
+Mermaid, SVG and CSV/TSV as one complete Files flow. Use the original renderer,
+controls and source/preview behavior. Specialized previews show the saved/base
+content as in FilesView; the generic code preview continues to show the current
+draft. Mode changes preserve the active editor and dirty text. Keep each open
+document's chosen mode. JSON5 retains the original strict parser and visible
+error; this does not add full JSON5 support. Excalidraw Markdown stays on its
+separate canvas path. Markdown includes rendered search, safe raw HTML,
+relative images/picture/srcset, app-theme picture selection, heading links and
+navigation to confined local files. Its explicit Herdr presentation/asset source
+uses the captured server, machine, pane, root and file. Hidden or superseded
+previews cancel reads and revoke their object URLs. No request falls back to
+OpenCode or permits reading outside the selected pane root.
+
+For this text-artifact increment, Herdr web/PWA and hosted mobile use the same
+confined host adapter and shared preview presentation. Herdr Capacitor Android
+and iOS bundle that flow; touch, Back, IME and native lifecycle acceptance remain
+separate. Original web and Electron keep FilesView's controller and runtime
+file reader around shared presentation. Original hosted and Capacitor mobile
+keep those same existing controllers. Original VS Code does not mount this file
+viewer and retains its own runtime bridge. The Herdr entrypoint stays separate
+from Electron and VS Code. No backend operation, dependency, provider, server
+restart or credential change is included. Binary streaming/PDF, active HTML
+grants, draw.io/canvas, comments, autosave and fullscreen remain explicit later
+parity work. Preserve the default CF services and fixed first test APK.
+
+This text family now passes 183 focused/retained cases, independent source
+reviews, the combined static gate and Web/Android builds. The paired CF browser
+exercised local source/preview/save, JSON error recovery, SVG/Mermaid controls,
+and saved-WSL Markdown images/local CSV links. Generated Mermaid SVG is cleaned
+before caching for every shared renderer caller, including original VS Code
+chat. Actual Chrome cleaning and image decode are recorded; browser network
+tracing, real download completion and native Android interaction remain
+unverified. Default CF services and the first-phone APK remain unchanged. See
+STATUS.md for current artifact details and limits.
+
 Runtime scope for this increment: browser and hosted mobile use manual pairing
 and saved origins; OpenHerdr Capacitor Android also exposes the registered native
 scanner and precise app-link intake. OpenHerdr Capacitor iOS keeps its vault and

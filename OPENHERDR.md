@@ -118,6 +118,14 @@ The default runtime uses port 4318;
 4310 belongs to QQ. `docs/openherdr/STATUS.md` records runtime validation and
 remaining feature/native limits.
 
+The shared tool, attachment and stepped-form increment is committed at
+`965f2f346` and verified on public main. Its current browser build displayed a
+real owned-fixture edit diff and a saved inline attachment. The rebuilt APK
+displays Connect; connected native interaction remains unverified. Browser
+download completion and exact native startup readiness remain unknown.
+Dot received the source/validation update in message
+`d4082711-b2cd-4bc8-8b0b-028522e32f15`; storage was accepted, reading is unconfirmed.
+
 ## Validation and safe experiments
 
 Use a new named Herdr session `openherdr-test`, explicit returned IDs and an owned fixture directory. Never send input to existing user panes. Check actual phone-sized browser rendering and real HTTP input/output through the installed Herdr API. Verify unauthenticated rejection, invalid origin, one-use pairing, revoke, target switching and unknown mutation receipts. Test a real remote connection path when available. Native compile, simulator validation and physical-phone validation are distinct claims.

@@ -14,6 +14,8 @@ establish complete UI or feature parity. The original OpenChamber entrypoint
 is retained. Public `xixilys/openherdr` hosts the development source. The first
 published integration revision was `c1b07b395`. The current chat presentation
 iteration follows that baseline; complete native interaction remains pending.
+The shared tool/attachment/form source increment is `965f2f346`, verified on
+public main. The default bridge serves its current `herdr-BEKetIzv.js` asset.
 
 ## Integrated source
 
@@ -158,3 +160,6 @@ authenticated snapshot of the real default Herdr session. This check sent no
 terminal input; its temporary client was revoked. Source review and UI findings
 were reported back to dot with revision `556d2e9be`; receipt of that follow-up
 does not establish a further review.
+The subsequent tool/attachment/form source and validation limits were sent in
+message `d4082711-b2cd-4bc8-8b0b-028522e32f15`. Storage acceptance is confirmed;
+reading and another review are unconfirmed.

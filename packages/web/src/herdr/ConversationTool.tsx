@@ -2,7 +2,7 @@ import React from 'react';
 import type { Theme } from '@openchamber/ui/types/theme';
 import { getDefaultTheme } from '@openchamber/ui/lib/theme/themes';
 import type { ToolPart } from '@openchamber/ui/lib/opencode/model';
-import { isFileChangeTool, isShellTool, isSubagentTool, normalizeToolName } from '@openchamber/ui/lib/opencode/tools';
+import { isFileChangeTool, isShellTool, isSubagentTool, normalizeToolName, toolReadTarget } from '@openchamber/ui/lib/opencode/tools';
 import { detectToolOutputLanguage, formatToolInput, getToolMetadata } from '@openchamber/ui/lib/toolHelpers';
 import { useI18n } from '@openchamber/ui/lib/i18n';
 import { WorkerHighlightedCode } from '@openchamber/ui/components/code/WorkerHighlightedCode';
@@ -12,13 +12,17 @@ import { ToolSummaryView } from '@openchamber/ui/components/chat/message/parts/T
 import { getToolIcon } from '@openchamber/ui/components/chat/message/parts/toolPresentation';
 import { getRelativePath, getToolDescription } from '@openchamber/ui/components/chat/message/parts/toolDescription';
 import { ToolShellInput, ToolShellOutput, ToolScrollableSection, ToolDiffEntries } from '@openchamber/ui/components/chat/message/parts/ToolOutputPresentation';
-import { getDiffPatchEntries, getToolFallbackDiff } from '@openchamber/ui/components/chat/message/parts/toolDiffUtils';
+import { extractFirstChangedLineFromDiff, getDiffPatchEntries, getToolFallbackDiff, resolveToolQuickOpenTarget } from '@openchamber/ui/components/chat/message/parts/toolDiffUtils';
 import { getToolOutput } from '@openchamber/ui/components/chat/message/parts/toolOutput';
 import { capToolOutputText, tryParseJsonOutput } from '@openchamber/ui/components/chat/message/toolOutputText';
 import { prepareTaskToolOutput } from '@openchamber/ui/components/chat/message/parts/taskToolModel';
 import { JsonSummaryView } from '@openchamber/ui/components/chat/message/parts/JsonSummaryView';
 import { DiffViewToggle, type DiffViewMode } from '@openchamber/ui/components/chat/message/DiffViewToggle';
 import { useStreamingTextThrottle } from '@openchamber/ui/components/chat/hooks/useStreamingTextThrottle';
+import { Icon } from '@openchamber/ui/components/icon/Icon';
+import { Button } from '@openchamber/ui/components/ui/button';
+import { useHerdrText } from './herdr.i18n';
+import { workspaceFilePath } from './workspace-navigation';
 
 export type ConversationToolProps = {
   part: ToolPart;
@@ -26,15 +30,22 @@ export type ConversationToolProps = {
   theme?: Theme;
   directory: string;
   attachments?: React.ReactNode;
+  onOpenFile?: (path: string, line?: number) => void;
 };
 
 /** Herdr owns the source record; the shared views receive genuine results and explicit theme. */
-export function ConversationTool({ part, live, theme: suppliedTheme, directory, attachments }: ConversationToolProps) {
+export function ConversationTool({ part, live, theme: suppliedTheme, directory, attachments, onOpenFile }: ConversationToolProps) {
   const markdownSource = React.useContext(MarkdownPresentationContext);
   const fallbackTheme = React.useMemo(() => getDefaultTheme(false), []);
   const theme = suppliedTheme ?? markdownSource?.theme ?? fallbackTheme;
   const { t } = useI18n();
+  const h = useHerdrText();
   const state = part.state;
+  const metadata = 'metadata' in state ? state.metadata : undefined;
+  const quickTarget = state.status === 'completed'
+    ? toolReadTarget(part.tool, state.input) ?? resolveToolQuickOpenTarget(part.tool, state.input, metadata)
+    : null;
+  const quickPath = quickTarget ? workspaceFilePath(quickTarget.filePath, directory) : null;
   const [expanded, setExpanded] = React.useState(false);
   return <ToolSummaryView
     title={getToolMetadata(part.tool).displayName}
@@ -46,13 +57,15 @@ export function ConversationTool({ part, live, theme: suppliedTheme, directory, 
     endedAt={state.status === 'completed' || state.status === 'error' ? state.time.end : undefined}
     expanded={expanded}
     onToggle={() => setExpanded((value) => !value)}
+    titleActions={onOpenFile && quickTarget && quickPath ? <FileAction label={h('openCurrentFile')} onClick={() => onOpenFile(quickPath, quickTarget.line)} /> : undefined}
   >
-    {expanded ? <ConversationToolDetails part={part} live={live} theme={theme} directory={directory} attachments={attachments} /> : null}
+    {expanded ? <ConversationToolDetails part={part} live={live} theme={theme} directory={directory} attachments={attachments} onOpenFile={onOpenFile} /> : null}
   </ToolSummaryView>;
 }
 
-function ConversationToolDetails({ part, live, theme, directory, attachments }: ConversationToolProps & { theme: Theme }) {
+function ConversationToolDetails({ part, live, theme, directory, attachments, onOpenFile }: ConversationToolProps & { theme: Theme }) {
   const { t } = useI18n();
+  const h = useHerdrText();
   const markdownSource = React.useContext(MarkdownPresentationContext);
   const state = part.state;
   const shell = isShellTool(part.tool);
@@ -89,7 +102,10 @@ function ConversationToolDetails({ part, live, theme, directory, attachments }: 
     </ToolScrollableSection> : null}
     {entries.length > 0 ? <div>
       {entries.some((entry) => entry.renderMode === 'diff') ? <div className="mb-1 flex items-center justify-end gap-2"><DiffViewToggle mode={diffMode} onModeChange={setDiffMode} /></div> : null}
-      <ToolScrollableSection className="p-1"><div className="space-y-3"><ToolDiffEntries entries={entries} mode={diffMode} theme={theme} /></div></ToolScrollableSection>
+      <ToolScrollableSection className="p-1"><div className="space-y-3"><ToolDiffEntries entries={entries} mode={diffMode} theme={theme} renderActions={onOpenFile && state.status === 'completed' ? (entry) => {
+        const path = entry.filePath ? workspaceFilePath(entry.filePath, directory) : null;
+        return path ? <FileAction label={h('openCurrentFile')} onClick={() => onOpenFile(path, extractFirstChangedLineFromDiff(entry.patch))} /> : null;
+      } : undefined} /></div></ToolScrollableSection>
     </div> : null}
     {output.trim() ? <ToolScrollableSection className={shell ? 'p-1 rounded-none' : 'p-1'} maxHeightClass={shell ? 'max-h-[46vh]' : undefined} followKey={streamingShell ? output : undefined}>
       {renderOutput()}
@@ -100,4 +116,8 @@ function ConversationToolDetails({ part, live, theme, directory, attachments }: 
     </div> : null}
     {attachments}
   </div>;
+}
+
+function FileAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return <Button size="icon" variant="ghost" title={label} aria-label={label} onClick={(event) => { event.stopPropagation(); onClick(); }} className="h-4 w-4 shrink-0 rounded text-muted-foreground opacity-60 transition-opacity hover:opacity-100 focus-visible:opacity-100"><Icon name="external-link" className="h-3 w-3" /></Button>;
 }

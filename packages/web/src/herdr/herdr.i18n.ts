@@ -2,6 +2,7 @@ import { useI18n, type Locale } from '@/lib/i18n';
 
 const en = {
   currentFile: 'Current file',
+  openCurrentFile: 'Open current file',
   preferencesLoadError: "Preferences could not be loaded. Your current settings are kept.",
   preferencesSaveError: "Preferences could not be saved. Your changes are kept. Try again.",
   preferencesConflict: "Preferences changed on another device. Refresh to review the latest values before saving.",
@@ -65,7 +66,7 @@ const rows = {
   he: ["Enter מוסיף שורה · Ctrl/⌘+Enter שולח","בדיקת מסירה","בדקתי את המסוף","Herdr אישר מסירה. בדקו את המסוף לפני המשך הקלדה.","Herdr דחה את הבקשה. לא נשלחה בקשה חוזרת.","לא ניתן לפתוח את מעקב המסירה. בדקו את המסוף לפני הסרת האזהרה.","לא ניתן לפתוח את פרטי האימות. בטלו את נעילת המכשיר ופתחו שוב את היישום.","פרטי האימות נשמרים בכספת המאובטחת של המכשיר.",'סביבות עבודה','מחשבים','מכשירים מותאמים','כתובת שרת','קישור התאמה','פתחו קישור מהמחשב או הדביקו אותו כאן.','צרו קישור חד פעמי במחשב באמצעות openherdr connect.','מחובר','מנותק','עדיין אין סביבות עבודה','סביבת עבודה חדשה','בחרו חלונית להצגת המסוף.','ממתין לפלט המסוף...','שליחת טקסט לחלונית זו...','Enter שולח · Shift+Enter מוסיף שורה','מצב המסירה לא ידוע. בדקו את המסוף לפני שליחה חוזרת.','יעד','פיצול חלונית','הפעלת סוכן','שליחת הנחיה לסוכן','ביטול גישה','לסגור פריט זה ולעצור את התהליכים שלו?','לבטל גישה למכשיר? יהיה צורך בקישור חדש.','הקישור לא תקין. צרו קישור חדש במחשב.','הזינו כתובת שרת HTTP או HTTPS ללא נתיב.','אין פריטים','צילום פלט','הפלט הישן נחתך.','הדפדפן שומר את פרטי האימות במכשיר זה.','מעקב אחר הפלט','תיקיית עבודה'],
 } satisfies Record<Exclude<Locale, 'en'>, string[]>;
 
-const extraOrder: Key[] = ["hostUnknown", "hostChecked", "hostTargetChanged", "conversations", "newConversation", "history", "nativeReadOnly", "createFirst", "rebind", "rebindConfirm", "noNativeSession", "draftPlaceholder", "conversationDisconnected", "unknownSourceFields", "messageError", "catalogLoading", "enqueued", "attachmentTooLarge", "preferencesLoadError", "preferencesSaveError", "preferencesConflict", "currentFile"];
+const extraOrder: Key[] = ["hostUnknown", "hostChecked", "hostTargetChanged", "conversations", "newConversation", "history", "nativeReadOnly", "createFirst", "rebind", "rebindConfirm", "noNativeSession", "draftPlaceholder", "conversationDisconnected", "unknownSourceFields", "messageError", "catalogLoading", "enqueued", "attachmentTooLarge", "preferencesLoadError", "preferencesSaveError", "preferencesConflict", "currentFile", "openCurrentFile"];
 const extraRows = {
   "zh-CN": [
     "结果未知。再次操作前，请先检查文件、仓库或对话。",
@@ -89,7 +90,8 @@ const extraRows = {
     "无法加载偏好设置。当前设置已保留。",
     "无法保存偏好设置。修改内容已保留，请重试。",
     "另一台设备更改了偏好设置。请刷新并检查最新设置后再保存。",
-    "当前文件"
+    "当前文件",
+    "打开当前文件"
   ],
   "zh-TW": [
     "結果未知。再次操作前，請先檢查檔案、儲存庫或對話。",
@@ -113,7 +115,8 @@ const extraRows = {
     "無法載入偏好設定。目前設定已保留。",
     "無法儲存偏好設定。修改內容已保留，請重試。",
     "另一台裝置更改了偏好設定。請重新整理並檢查最新設定後再儲存。",
-    "目前檔案"
+    "目前檔案",
+    "開啟目前檔案"
   ],
   "de": [
     "Das Ergebnis ist unklar. Prüfe Dateien, Repository oder Unterhaltung vor einem weiteren Versuch.",
@@ -137,7 +140,8 @@ const extraRows = {
     "Die Einstellungen konnten nicht geladen werden. Deine aktuellen Einstellungen bleiben erhalten.",
     "Die Einstellungen konnten nicht gespeichert werden. Deine Änderungen bleiben erhalten. Versuche es erneut.",
     "Die Einstellungen wurden auf einem anderen Gerät geändert. Aktualisiere sie vor dem Speichern und prüfe die neuen Werte.",
-    "Aktuelle Datei"
+    "Aktuelle Datei",
+    "Aktuelle Datei öffnen"
   ],
   "fr": [
     "Le résultat est inconnu. Vérifiez les fichiers, le dépôt ou la conversation avant de réessayer.",
@@ -161,7 +165,8 @@ const extraRows = {
     "Impossible de charger les préférences. Vos paramètres actuels sont conservés.",
     "Impossible d'enregistrer les préférences. Vos modifications sont conservées. Réessayez.",
     "Les préférences ont changé sur un autre appareil. Actualisez et vérifiez les nouvelles valeurs avant d'enregistrer.",
-    "Fichier actuel"
+    "Fichier actuel",
+    "Ouvrir le fichier actuel"
   ],
   "nl": [
     "Het resultaat is onbekend. Controleer bestanden, repository of gesprek voordat je het opnieuw probeert.",
@@ -185,7 +190,8 @@ const extraRows = {
     "Voorkeuren konden niet worden geladen. Je huidige instellingen blijven behouden.",
     "Voorkeuren konden niet worden opgeslagen. Je wijzigingen blijven behouden. Probeer opnieuw.",
     "Voorkeuren zijn op een ander apparaat gewijzigd. Vernieuw en controleer de laatste waarden voordat je opslaat.",
-    "Huidig bestand"
+    "Huidig bestand",
+    "Huidig bestand openen"
   ],
   "uk": [
     "Результат невідомий. Перевірте файли, репозиторій або розмову перед повторною спробою.",
@@ -209,7 +215,8 @@ const extraRows = {
     "Не вдалося завантажити налаштування. Поточні налаштування збережено.",
     "Не вдалося зберегти налаштування. Ваші зміни збережено. Спробуйте ще раз.",
     "Налаштування змінилися на іншому пристрої. Оновіть і перевірте останні значення перед збереженням.",
-    "Поточний файл"
+    "Поточний файл",
+    "Відкрити поточний файл"
   ],
   "es": [
     "El resultado es desconocido. Revisa los archivos, el repositorio o la conversación antes de reintentar.",
@@ -233,7 +240,8 @@ const extraRows = {
     "No se pudieron cargar las preferencias. Se conservan tus ajustes actuales.",
     "No se pudieron guardar las preferencias. Se conservan tus cambios. Inténtalo de nuevo.",
     "Las preferencias cambiaron en otro dispositivo. Actualiza y revisa los últimos valores antes de guardar.",
-    "Archivo actual"
+    "Archivo actual",
+    "Abrir archivo actual"
   ],
   "pt-BR": [
     "O resultado é desconhecido. Confira os arquivos, repositório ou conversa antes de tentar novamente.",
@@ -257,7 +265,8 @@ const extraRows = {
     "Não foi possível carregar as preferências. Seus ajustes atuais foram mantidos.",
     "Não foi possível salvar as preferências. Suas alterações foram mantidas. Tente novamente.",
     "As preferências mudaram em outro dispositivo. Atualize e revise os novos valores antes de salvar.",
-    "Arquivo atual"
+    "Arquivo atual",
+    "Abrir arquivo atual"
   ],
   "ko": [
     "결과를 알 수 없습니다. 다시 시도하기 전에 파일, 저장소 또는 대화를 확인하세요.",
@@ -281,7 +290,8 @@ const extraRows = {
     "환경설정을 불러올 수 없습니다. 현재 설정은 유지됩니다.",
     "환경설정을 저장할 수 없습니다. 변경 내용은 유지됩니다. 다시 시도하세요.",
     "다른 기기에서 환경설정이 변경되었습니다. 저장하기 전에 새로 고쳐 최신 값을 확인하세요.",
-    "현재 파일"
+    "현재 파일",
+    "현재 파일 열기"
   ],
   "pl": [
     "Wynik jest nieznany. Sprawdź pliki, repozytorium lub rozmowę przed kolejną próbą.",
@@ -305,7 +315,8 @@ const extraRows = {
     "Nie udało się wczytać preferencji. Bieżące ustawienia zachowano.",
     "Nie udało się zapisać preferencji. Twoje zmiany zachowano. Spróbuj ponownie.",
     "Preferencje zmieniły się na innym urządzeniu. Odśwież i sprawdź najnowsze wartości przed zapisaniem.",
-    "Bieżący plik"
+    "Bieżący plik",
+    "Otwórz bieżący plik"
   ],
   "ja": [
     "結果が不明です。再試行する前にファイル、リポジトリ、または会話を確認してください。",
@@ -329,7 +340,8 @@ const extraRows = {
     "設定を読み込めませんでした。現在の設定は保持されます。",
     "設定を保存できませんでした。変更内容は保持されます。再試行してください。",
     "別のデバイスで設定が変更されました。更新して最新の値を確認してから保存してください。",
-    "現在のファイル"
+    "現在のファイル",
+    "現在のファイルを開く"
   ],
   "tr": [
     "Sonuç bilinmiyor. Yeniden denemeden önce dosyaları, depoyu veya konuşmayı kontrol edin.",
@@ -353,7 +365,8 @@ const extraRows = {
     "Tercihler yüklenemedi. Mevcut ayarlarınız korundu.",
     "Tercihler kaydedilemedi. Değişiklikleriniz korundu. Yeniden deneyin.",
     "Tercihler başka bir cihazda değiştirildi. Kaydetmeden önce yenileyip son değerleri kontrol edin.",
-    "Güncel dosya"
+    "Güncel dosya",
+    "Geçerli dosyayı aç"
   ],
   "ar": [
     "النتيجة غير معروفة. افحص الملفات أو المستودع أو المحادثة قبل إعادة المحاولة.",
@@ -377,7 +390,8 @@ const extraRows = {
     "تعذر تحميل التفضيلات. تم الاحتفاظ بإعداداتك الحالية.",
     "تعذر حفظ التفضيلات. تم الاحتفاظ بتغييراتك. حاول مرة أخرى.",
     "تغيرت التفضيلات على جهاز آخر. حدّث وراجع القيم الأخيرة قبل الحفظ.",
-    "الملف الحالي"
+    "الملف الحالي",
+    "فتح الملف الحالي"
   ],
   "he": [
     "התוצאה אינה ידועה. בדקו את הקבצים, המאגר או השיחה לפני ניסיון נוסף.",
@@ -401,7 +415,8 @@ const extraRows = {
     "לא ניתן לטעון את ההעדפות. ההגדרות הנוכחיות נשמרו.",
     "לא ניתן לשמור את ההעדפות. השינויים נשמרו. נסו שוב.",
     "ההעדפות השתנו במכשיר אחר. רעננו ובדקו את הערכים העדכניים לפני השמירה.",
-    "הקובץ הנוכחי"
+    "הקובץ הנוכחי",
+    "פתיחת הקובץ הנוכחי"
   ]
 } satisfies Record<Exclude<Locale, 'en'>, string[]>;
 

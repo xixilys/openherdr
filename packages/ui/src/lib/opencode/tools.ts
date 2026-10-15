@@ -118,6 +118,7 @@ const inputSchema = z
     // v2 file tools use `path`; the other two keep MCP and plugin tools that
     // use the older naming working.
     path: optionalText,
+    offset: optionalCount,
     filePath: optionalText,
     file_path: optionalText,
     command: optionalText,
@@ -207,6 +208,15 @@ export type ToolFileDiff = z.infer<typeof fileDiffSchema> & { file: string }
 export function toolInputPath(input: ToolInput | undefined): string | undefined {
   const parsed = readInput(input)
   return parsed.path ?? parsed.filePath ?? parsed.file_path
+}
+
+/** Read offsets are one-based line numbers supplied by the actual tool input. */
+export function toolReadTarget(toolName: ToolName, input: ToolInput | undefined): { filePath: string; line?: number } | null {
+  if (normalizeToolName(toolName) !== OPENCODE_TOOLS.read) return null
+  const parsed = readInput(input)
+  const filePath = parsed.path ?? parsed.filePath ?? parsed.file_path
+  if (!filePath) return null
+  return { filePath, line: parsed.offset && parsed.offset > 0 ? parsed.offset : undefined }
 }
 
 /**

@@ -175,6 +175,95 @@ test('Git stage, unstage, commit, log and branches use a real owned repository a
   } finally { await f.close(); }
 });
 
+test('Git single-file diffs include untracked text as valid additions and preserve tracked and staged behavior', async () => {
+  const f = await fixture();
+  const run = (args) => exec('git', ['-C', f.root, ...args]);
+  try {
+    await run(['init', '-q', '-b', 'main']);
+    await fs.writeFile(path.join(f.root, 'tracked.txt'), 'initial\n');
+    await run(['add', '--', 'tracked.txt']);
+    await run(['-c', 'user.name=OpenHerdr Test', '-c', 'user.email=openherdr-test@localhost', 'commit', '-qm', 'Diff fixture']);
+    const additions = [
+      ['new.txt', 'first\nsecond\n'],
+      ['-leading space.txt', 'no final newline'],
+      ['empty.txt', ''],
+      ['blank.txt', '\n'],
+      ['crlf.txt', 'first\r\nsecond\r\n'],
+      ['odd\n"\\雪.txt', 'Unicode 雪\u2028within one line\n'],
+    ];
+    const patch = path.join(f.directory, 'addition.patch');
+    for (const [name, content] of additions) {
+      await fs.writeFile(path.join(f.root, name), content);
+      const { diff } = await f.request('git.diff', { path: './' + name });
+      assert.match(diff, /^diff --git /);
+      assert.match(diff, /\nnew file mode 100644\n/);
+      await fs.writeFile(patch, diff);
+      const { stdout } = await run(['apply', '--numstat', '-z', '--', patch]);
+      assert.equal(stdout, `${content ? content.split('\n').length - (content.endsWith('\n') ? 1 : 0) : 0}\t0\t${name}\0`);
+      await run(['apply', '--reverse', '--check', '--', patch]);
+      assert.equal((await f.request('git.diff', { path: name, staged: true })).diff, '');
+      if (content && !content.endsWith('\n')) assert.match(diff, /\n\\ No newline at end of file\n$/);
+    }
+    await run(['config', 'core.fileMode', 'true']);
+    for (const [name, permissions, expectedMode] of [
+      ['group-executable.txt', 0o654, '100644'],
+      ['other-executable.txt', 0o645, '100644'],
+      ['owner-executable.txt', 0o744, '100755'],
+    ]) {
+      await fs.writeFile(path.join(f.root, name), 'mode fixture\n');
+      await fs.chmod(path.join(f.root, name), permissions);
+      const { diff } = await f.request('git.diff', { path: name });
+      const mode = diff.match(/\nnew file mode (\d+)\n/)?.[1];
+      await run(['add', '--', name]);
+      const { stdout } = await run(['ls-files', '--stage', '--', name]);
+      assert.equal(stdout.split(' ')[0], expectedMode);
+      assert.equal(mode, expectedMode);
+      await run(['reset', '-q', 'HEAD', '--', name]);
+    }
+    assert.equal((await f.request('git.diff')).diff, '');
+    await fs.mkdir(path.join(f.root, 'folder'));
+    await fs.writeFile(path.join(f.root, 'folder', 'nested.txt'), 'nested\n');
+    assert.equal((await f.request('git.diff', { path: 'folder' })).diff, '');
+    assert.match((await f.request('git.diff', { path: 'folder/nested.txt' })).diff, /\+nested\n/);
+    await fs.writeFile(path.join(f.root, '.gitignore'), 'ignored.txt\n');
+    await fs.writeFile(path.join(f.root, 'ignored.txt'), 'ignored\n');
+    assert.equal((await f.request('git.diff', { path: 'ignored.txt' })).diff, '');
+    await fs.writeFile(path.join(f.root, 'tracked.txt'), 'staged\n');
+    await run(['add', '--', 'tracked.txt']);
+    await fs.writeFile(path.join(f.root, 'tracked.txt'), 'working\n');
+    for (const staged of [false, true]) {
+      const { stdout } = await run(['diff', '--no-ext-diff', '--no-textconv', '--no-color', ...(staged ? ['--cached'] : []), '--', 'tracked.txt']);
+      assert.equal((await f.request('git.diff', { path: 'tracked.txt', staged })).diff, stdout);
+    }
+  } finally { await f.close(); }
+});
+
+test('Git untracked diffs reject symlinks, binary files and oversized reads without losing metadata guards', async () => {
+  const f = await fixture();
+  try {
+    await exec('git', ['init', '-q', '-b', 'main', f.root]);
+    await fs.writeFile(path.join(f.directory, 'private.txt'), 'private outside content\n');
+    await fs.symlink(path.join(f.directory, 'private.txt'), path.join(f.root, 'link'));
+    await assert.rejects(f.request('git.diff', { path: 'link' }), { code: 'path_forbidden', confirmedNoEffect: true });
+    for (const [name, bytes] of [['nul.bin', Buffer.from('binary\0data')], ['invalid.bin', Buffer.from([255])]]) {
+      await fs.writeFile(path.join(f.root, name), bytes);
+      await assert.rejects(f.request('git.diff', { path: name }), { code: 'binary_file', confirmedNoEffect: true });
+    }
+    await fs.writeFile(path.join(f.root, 'huge.txt'), Buffer.alloc(8 * 1024 * 1024 + 1, 'a'));
+    await assert.rejects(f.request('git.diff', { path: 'huge.txt' }), { code: 'file_too_large', confirmedNoEffect: true });
+    await fs.writeFile(path.join(f.root, 'many-lines.txt'), Buffer.alloc(8 * 1024 * 1024, '\n'));
+    await assert.rejects(f.request('git.diff', { path: 'many-lines.txt' }), { code: 'host_output_too_large', confirmedNoEffect: true });
+    await assert.rejects(f.request('git.diff', { path: '.git/config' }), { code: 'invalid_host_request' });
+    await fs.writeFile(path.join(f.root, 'safe.txt'), 'safe\n');
+    await exec('git', ['-C', f.root, 'config', 'filter.probe.clean', 'false']);
+    await assert.rejects(f.request('git.diff', { path: 'safe.txt' }), { code: 'git_filters_require_trust', confirmedNoEffect: true });
+    await exec('git', ['-C', f.root, 'config', '--unset', 'filter.probe.clean']);
+    await fs.symlink(path.join(f.directory, 'private.txt'), path.join(f.root, '.git', 'index'));
+    await assert.rejects(f.request('git.diff', { path: 'safe.txt' }), { code: 'git_metadata_mismatch', confirmedNoEffect: true });
+    assert.equal(await fs.readFile(path.join(f.directory, 'private.txt'), 'utf8'), 'private outside content\n');
+  } finally { await f.close(); }
+});
+
 test('SSH host transport keeps all request bytes in stdin and rejects broken framing or duplicate JSON', async () => {
   const f = await fixture();
   try {

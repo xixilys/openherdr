@@ -421,6 +421,32 @@ def verify_git_write_paths(git_directory, common_directory, current_ref, request
                 metadata_path(base, relative)
 
 
+def untracked_diff(root_fd, value):
+    data, _, info = read_file(root_fd, value)
+    try:
+        content = data.decode('utf-8')
+    except UnicodeDecodeError:
+        fail(422, 'binary_file', 'This file is not UTF-8 text')
+    if '\0' in content:
+        fail(422, 'binary_file', 'This file contains binary data')
+
+    def quote_path(path):
+        escaped = ''.join('\\' + chr(byte) if byte in [34, 92] else chr(byte) if 32 <= byte < 127 else '\\' + format(byte, '03o') for byte in path.encode('utf-8'))
+        return '"' + escaped + '"' if escaped != path else path
+
+    before, after = quote_path('a/' + value), quote_path('b/' + value)
+    mode = '100755' if info.st_mode & 0o100 else '100644'
+    diff = 'diff --git ' + before + ' ' + after + '\nnew file mode ' + mode + '\n'
+    if content:
+        count = content.count('\n') + (0 if content.endswith('\n') else 1)
+        body = '+' + content.replace('\n', '\n+')
+        body = body[:-1] if content.endswith('\n') else body + '\n\\ No newline at end of file\n'
+        diff += '--- /dev/null\n+++ ' + after + '\n@@ -0,0 +1' + (',' + str(count) if count != 1 else '') + ' @@\n' + body
+    if len(diff.encode('utf-8')) > MAX_OUTPUT:
+        fail(413, 'host_output_too_large', 'The host operation exceeds its output limit')
+    return diff
+
+
 def git(root, root_fd, request):
     global changed
     env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
@@ -510,8 +536,12 @@ def git(root, root_fd, request):
     if op == 'git.diff':
         paths = []
         if request.get('path'):
-            parts(request['path'])
+            value = '/'.join(parts(request['path']))
             paths = [request['path']]
+            if not request['staged']:
+                _, untracked = run(['ls-files', '--others', '--exclude-standard', '--directory', '-z', '--', value])
+                if value in untracked.split('\0'):
+                    return {'root': root, 'diff': untracked_diff(root_fd, value)}
         _, diff = run(['diff', '--no-ext-diff', '--no-textconv', '--no-color'] + (['--cached'] if request['staged'] else []) + ['--'] + paths)
         return {'root': root, 'diff': diff}
     if op == 'git.log':

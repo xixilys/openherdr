@@ -11,11 +11,11 @@ Keep the separate OpenHerdr entrypoint and authenticated transport. Replace its 
 
 The subsequent integration shares `HerdrMobileShell`, user bubbles/text,
 tool summaries/descriptions, the pill composer, session switcher and
-return-to-latest presentation with the original wrappers. The next presentation
-increment shares shell/diff output, attachment/image views and stepped forms.
-Herdr supplies their real source records, confined asset reads and isolated drafts.
-It has real Files/Git,
-project context, preferences and an owned OpenCode conversation driver. This
+return-to-latest presentation with the original wrappers. Shell/diff output,
+attachment/image views, stepped forms and the phone Files browser now share their
+original presentation too. Herdr supplies real source records, confined asset
+reads and isolated drafts. It has host Files/Git, project context, preferences
+and an owned OpenCode conversation driver. This
 inventory's route limitations describe its initial state, and do not replace
 the current contracts in the owning module documentation. Full UI and feature
 parity remains unfinished.
@@ -64,29 +64,69 @@ The original actions in `sync/session-actions.ts` include create/delete/rename, 
 
 ### Files and editor
 
-The mobile route is `apps/MobileFilesSurface.tsx` -> directory browser -> `components/views/FilesView.tsx` in `editor-only` mode. The mobile browser already uses `RuntimeAPIs.files.listDirectory/search`, tracks loading errors and owns browser/editor routes. It gets its root through `hooks/useEffectiveDirectory.ts`, which itself depends on OpenCode session/worktree state.
+The original `apps/MobileFilesSurface.tsx` and Herdr `FilesPanel` now consume
+`apps/MobileFilesView.tsx`. This extracted view owns the original phone browser,
+header, search, file rows and browser/file route presentation. It reads no
+OpenCode stores, effective directory or runtime APIs. The original wrapper keeps
+its directory/search/upload subscriptions and lazy `FilesView` editor. Herdr
+keeps its host client, revision-pinned drafts, manual Save and CodeMirror editor.
+This shares the existing browser without replacing the full `FilesView` runtime.
 
-`FilesView` receives `visible`, `mode` and `onCloseFile`; it is not currently parameterized by an explicit project root. It consumes `RuntimeAPIs.files`, Git state, theme/diff workers, file tabs and config. It also bypasses the runtime abstraction in real paths:
+A real Read/Edit tool can open its current disk file through the captured
+conversation target. Files checks the request's server, machine, pane, canonical
+root and native identity before opening, then checks identity/root again after
+reading before publishing the bytes. Current-file labels distinguish those bytes
+from the historical tool result. Hidden reads stop, pending completions cannot
+cross owners, and unfinished edits survive hiding. Inner Back returns from the
+file to the browser, clears search and climbs directories before the shell closes.
 
-- `opencodeClient.listLocalDirectory` for ordinary non-space directory listing.
-- `runtimeFetch` and runtime URL/auth helpers for raw assets and previews.
-- Session/project-derived effective directory and inline review/comment integration.
+The 2026-10-15 HTTPS browser acceptance used a 412×915 viewport and a genuine
+existing Read/Edit result, with no new model request. Opening the current file,
+closing/reopening the workspace with its draft, browsing/searching, manual Save
+and disk readback all passed. Changes displayed the saved untracked file as a
+2-line addition. Returning to the same chat preserved its title, unsent composer
+draft and reader `scrollTop` of 533.5. The temporary composer marker was cleared
+after recording this result. Receipts are
+`.tmp/file-navigation-browser-validation.json` and `.tmp/file-flow-browser-state.json`.
+Public screenshots are `assets/file-browser.jpg`, `assets/file-editor.jpg` and
+`assets/file-changes.jpg`; these are browser captures, not Android captures.
 
-Implement `HerdrFilesAPI` against a target-bound host file service, then replace those direct listing/raw-asset paths with the owning runtime capability or explicit browser-asset resolver. Preserve editing, unsaved drafts, encoding/line endings, syntax highlighting, search, previews and attachment paths. Existing `/api/herdr/files` only supplies bounded text list/read; it cannot satisfy full `FilesAPI` yet.
-
-Required methods are declared in `lib/api/types.ts:FilesAPI`: listing/search/create directory, optional stat/read text/read binary/write/upload/delete/rename/download. Add only server implementations actually needed by original enabled controls, including path confinement, symlink checks, binary transport, write conflict handling and explicit operation receipts. Do not map `execCommands` to arbitrary browser-supplied shell code merely to satisfy the interface.
+Full editor parity still needs the remaining original `FilesView` capabilities
+and runtime adaptations. `FilesView` depends on Git/config/file-tab state,
+effective directory, inline review and raw-asset paths in addition to
+`RuntimeAPIs.files`. Preserve encoding/line endings, syntax highlighting, search,
+previews and attachment behavior as these paths are adapted. The implemented
+host file service already supports confined listing/search, text/binary reads,
+manual revision-checked writes, create/rename/delete, upload/download and explicit
+mutation receipts. These capabilities do not establish every original editor
+interaction or native file-picker/share behavior.
 
 ### Git and worktrees
 
 `apps/MobileChangesSurface.tsx` is the actual mobile Changes screen, including per-file diffs, staging, branch/commit/PR comparisons, commit and network-operation controls. It consumes Git status/identity/branch stores, source-control account bindings, effective directory and optional session review flow. `components/views/GitView.tsx` is the desktop/full variant and has similar ownership.
 
-The existing `GitAPI` is the correct host capability family. Implement structured status, per-file diff, branches and history first, then index/worktree mutations and network operations. Current `/api/herdr/git` returns text status/full diff and cannot populate `GitStatus` or the original change tree. Use Git's machine-readable output with filename-safe parsing; do not split porcelain text on spaces. Reuse existing web Git owning modules where they accept the required authoritative root and execution policy. Avoid importing the OpenCode server lifecycle to obtain Git.
+The existing `GitAPI` is the host capability family for the remaining original
+Git screen adaptations. The initial `/api/herdr/git` route returned text
+status/full diff; the current host service supplies structured status, per-file
+diff, stage/unstage, commit, branches/checkout and history. Network operations
+and the full original screen remain unfinished. Preserve filename-safe parsing,
+the authoritative repository root and the host execution policy when adapting
+more controls. Avoid importing the OpenCode server lifecycle to obtain Git.
+
+The file-navigation increment also fixes per-file untracked text diffs in the
+host helper. A real saved WSL profile passed an owned fixture with
+`-remote diff.txt`: status reported it untracked, the unstaged diff contained the
+new-file patch and unique marker, the staged diff stayed empty, and content/revision
+readback matched. The exact created workspace was closed and its marked temporary
+directory removed. `.tmp/untracked-ssh-acceptance.json` records this SSH check.
+It covered an ordinary 0644 file; final executable-mode handling has separate
+local tests. This is a bounded Git capability, not full Git screen or native parity.
 
 Reusable original presentation includes `components/views/git/ChangesPanel.tsx` with explicit `groups`, `diffStats` and per-file callbacks, `CommitSection`, `GitHeader`, `HistorySection`, branch pickers and `PierreDiffViewer`. Some children still use stores; trace each enabled child rather than assuming all descendants are pure.
 
 Full Git parity also includes `SourceControlAPI`, `lib/source-control/repository-binding.ts`, `boundGitNetworkOperation.ts`, identity storage and operation recovery. A successful local commit does not prove push/PR/auth integration. Preserve the existing planned network-operation/grant design when exposing these controls.
 
-Worktree ownership is in `components/sections/openchamber/WorktreeSectionContent.tsx`, `useProjectWorktrees.ts`, `components/session/NewWorktreeDialog.tsx`, `lib/worktrees/worktreeManager.ts`, `worktreeCreate.ts` and `worktreeRemovalFlow.ts`, plus session attachment/repair state. Herdr itself has list/create/open/remove, while the current OpenHerdr allowlist only exposes list. Extend its typed allowlist and receipt handling, map real Herdr worktree fields to project/worktree records, and connect original create/open/remove controls. Keep worktree deletion, attached panes and dirty state explicit. A workspace close must not silently substitute for worktree removal.
+Worktree ownership is in `components/sections/openchamber/WorktreeSectionContent.tsx`, `useProjectWorktrees.ts`, `components/session/NewWorktreeDialog.tsx`, `lib/worktrees/worktreeManager.ts`, `worktreeCreate.ts` and `worktreeRemovalFlow.ts`, plus session attachment/repair state. Herdr and the current OpenHerdr allowlist expose list/create/open/remove. The remaining original-screen adaptation must map those real worktree records and receipt handling to the original controls. Keep worktree deletion, attached panes and dirty state explicit. A workspace close must not silently substitute for worktree removal.
 
 ### Settings, appearance and attachments
 
@@ -136,3 +176,12 @@ The root should settle target identity, source capability semantics and unknown-
 Do not expand all units into one shared-store rewrite. The shell and host Files/Git adapters can proceed while the source reader is being proven. Avoid concurrent edits to `RuntimeAPIs`/selected-target contracts and shared settings stores; the root owns those interfaces and schedules each integration.
 
 Full parity should be accepted by original feature and actual user flow, not by the count of copied components. The current read-only panels are useful working references and recovery routes. They should not become the permanent substitute for the original files editor, Changes screen, session/chat UI, settings or attachment flows.
+
+## File-navigation artifact and remaining acceptance
+
+The final debug APK for this increment contains `herdr-BDGqP9Kp.js`, with its
+bundled index matching `dist-herdr/herdr.html`. It has not been installed or
+interactively tested on Android. The previous `herdr-BEKetIzv.js` build supplies
+the older native Connect and cold-start evidence in
+`packages/mobile/openherdr/VALIDATION.md`. Complete editor/Git behavior, connected
+native interaction and the wider original application parity remain unfinished.

@@ -42,6 +42,7 @@ import { trackConversationMutation, type ConversationMutationRequest } from './c
 import { ConversationTool } from './ConversationTool';
 import { ConversationForm } from './ConversationForm';
 import { HerdrConversationAttachments, type HerdrConversationAttachmentsProps } from './conversation-attachments';
+import { workspaceFilePath, type WorkspaceFileRequest } from './workspace-navigation';
 
 type TargetMetadata = { workspaceId: string; tabId: string; session: string | null };
 export type ConversationPanelProps = {
@@ -57,6 +58,7 @@ export type ConversationPanelProps = {
     onTitleChange: (title: string | null) => void;
   };
   onPendingDelivery?: (record: PendingDelivery | null) => void;
+  onOpenFile?: (request: WorkspaceFileRequest) => void;
 };
 const endpoint = (operation: string) => `/api/herdr/conversations/${operation}`;
 const emptyGitHubPicker = () => {};
@@ -66,7 +68,7 @@ export function ConversationPanel(props: ConversationPanelProps) {
   return <ConversationPanelOwner key={JSON.stringify([props.transport.connection.server, props.machine, props.paneId])} {...props} />;
 }
 
-function ConversationPanelOwner({ transport, machine, paneId, disabled = false, mutationBlocked = false, targetMetadata, themeMode, theme, preferences, navigation, onPendingDelivery }: ConversationPanelProps) {
+function ConversationPanelOwner({ transport, machine, paneId, disabled = false, mutationBlocked = false, targetMetadata, themeMode, theme, preferences, navigation, onPendingDelivery, onOpenFile }: ConversationPanelProps) {
   const { t } = useI18n(); const h = useHerdrText();
   const presentationTheme = React.useMemo(() => theme ?? getDefaultTheme(themeMode === 'dark'), [theme, themeMode]);
   const fallbackError = h('messageError'), missingNative = h('noNativeSession'), disconnected = h('conversationDisconnected');
@@ -114,6 +116,14 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   const writable = !writeDisabled && activeSnapshot?.access === 'owned' && !!activeSnapshot.target;
   const selectedBound = !!selectedId && !!bound?.sessions.some((item) => item.session.id === selectedId);
   const hasSnapshot = !!activeSnapshot;
+
+  const openCurrentFile = (path: string, line?: number) => {
+    const source = activeSnapshot;
+    if (!onOpenFile || disabled || !source?.target || source.target.machine !== machine || source.target.paneId !== paneId) return;
+    const relativePath = workspaceFilePath(path, source.session.directory);
+    if (!relativePath) return;
+    onOpenFile({ id: crypto.randomUUID(), server: transport.connection.server, machine, paneId, paneIdentity: source.target.identity, sessionId: source.session.id, root: source.session.directory, path: relativePath, line });
+  };
 
   // The floating slot grows independently of the transcript, as in ChatContainer.
   React.useLayoutEffect(() => {
@@ -444,7 +454,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
         {!selectedId ? <p className="py-8 text-center typography-ui text-muted-foreground">{resolved?.nativeAccess === 'unavailable' ? h('noNativeSession') : h('createFirst')}</p> : null}
         {reading ? <p role="status" className="typography-meta text-muted-foreground">{t('common.loading')}</p> : null}
         {activeSnapshot?.cursor.next ? <Button size="sm" variant="ghost" onClick={() => { if (activeSnapshot.cursor.next) void loadOlder(activeSnapshot.cursor.next); }}>{t('chat.history.loadOlder')}</Button> : null}
-        {activeSnapshot?.messages.map((record) => <ConversationMessage key={record.message.id} record={record} attachmentSource={attachmentSource} live={!!running} streaming={!!running && record.message.id === latestAssistantId} expandReasoningWhileStreaming={preferences?.expandReasoningWhileStreaming ?? true} writable={writable && activeSnapshot.capabilities.fork === true} onFork={() => { void fork(record.message.id); }} />)}
+        {activeSnapshot?.messages.map((record) => <ConversationMessage key={record.message.id} record={record} attachmentSource={attachmentSource} live={!!running} streaming={!!running && record.message.id === latestAssistantId} expandReasoningWhileStreaming={preferences?.expandReasoningWhileStreaming ?? true} writable={writable && activeSnapshot.capabilities.fork === true} onOpenFile={onOpenFile && activeSnapshot.target && !disabled ? openCurrentFile : undefined} onFork={() => { void fork(record.message.id); }} />)}
         {activeSnapshot && activeSnapshot.access === 'read-only' ? <div className="rounded-lg border border-border bg-surface-muted p-3 typography-meta text-muted-foreground"><p>{activeSnapshot.history ? h('rebindConfirm') : h('nativeReadOnly')}</p>{activeSnapshot.history && resolved ? <Button className="mt-2" size="sm" variant="outline" disabled={writeDisabled} onClick={() => setDialog('rebind')}>{h('rebind')}</Button> : null}</div> : null}
         <div aria-hidden="true" ref={registerFloatingPanelClearanceReader} style={{ height: 'var(--chat-floating-panel-clearance, 0px)' }} />
       </div>
@@ -495,7 +505,7 @@ function ConversationPanelOwner({ transport, machine, paneId, disabled = false, 
   </section></MarkdownPresentationContext.Provider>;
 }
 
-function ConversationMessage({ record, streaming, live, writable, onFork, expandReasoningWhileStreaming, attachmentSource }: { record: ConversationRecord; streaming: boolean; live: boolean; writable: boolean; onFork: () => void; expandReasoningWhileStreaming: boolean; attachmentSource: AttachmentSource }) {
+function ConversationMessage({ record, streaming, live, writable, onFork, expandReasoningWhileStreaming, attachmentSource, onOpenFile }: { record: ConversationRecord; streaming: boolean; live: boolean; writable: boolean; onFork: () => void; expandReasoningWhileStreaming: boolean; attachmentSource: AttachmentSource; onOpenFile?: (path: string, line?: number) => void }) {
   const { t, locale } = useI18n(); const message = record.message;
   const [expanded, setExpanded] = React.useState(false);
   const [truncatedParts, setTruncatedParts] = React.useState<ReadonlySet<string>>(() => new Set());
@@ -520,7 +530,7 @@ function ConversationMessage({ record, streaming, live, writable, onFork, expand
     </DropdownMenuContent></DropdownMenu>
   </div> : null;
   const body = <>
-    {record.parts.map((part) => part.type === 'text' ? message.role === 'assistant' ? <AssistantTextPart key={part.id} part={part} messageId={message.id} streamPhase={active ? 'streaming' : 'completed'} /> : <ConversationUserText key={part.id} id={part.id} text={part.text} expanded={expanded} onExpand={expandMessage} onTruncation={onTruncation} /> : part.type === 'reasoning' ? <ReasoningTimelineBlock key={part.id} blockId={part.id} text={part.text} time={part.time} isStreaming={active} expandWhileStreaming={expandReasoningWhileStreaming} /> : part.type === 'tool' ? <ConversationTool key={part.id} part={part} live={live} theme={attachmentSource.theme} directory={attachmentSource.directory ?? ''} attachments={part.state.status === 'completed' && part.state.attachments?.length ? <HerdrConversationAttachments {...attachmentSource} files={part.state.attachments} /> : undefined} /> : null)}
+    {record.parts.map((part) => part.type === 'text' ? message.role === 'assistant' ? <AssistantTextPart key={part.id} part={part} messageId={message.id} streamPhase={active ? 'streaming' : 'completed'} /> : <ConversationUserText key={part.id} id={part.id} text={part.text} expanded={expanded} onExpand={expandMessage} onTruncation={onTruncation} /> : part.type === 'reasoning' ? <ReasoningTimelineBlock key={part.id} blockId={part.id} text={part.text} time={part.time} isStreaming={active} expandWhileStreaming={expandReasoningWhileStreaming} /> : part.type === 'tool' ? <ConversationTool key={part.id} part={part} live={live} theme={attachmentSource.theme} directory={attachmentSource.directory ?? ''} onOpenFile={onOpenFile} attachments={part.state.status === 'completed' && part.state.attachments?.length ? <HerdrConversationAttachments {...attachmentSource} files={part.state.attachments} /> : undefined} /> : null)}
     {record.parts.some((part) => part.type === 'file') ? <HerdrConversationAttachments {...attachmentSource} files={record.parts.filter((part) => part.type === 'file')} /> : null}
     {'text' in message && message.text ? <SimpleMarkdownRenderer content={message.text} enableFileReferences={false} /> : null}
     {message.role === 'compaction' && message.summary ? <SimpleMarkdownRenderer content={message.summary} variant="reasoning" enableFileReferences={false} /> : null}

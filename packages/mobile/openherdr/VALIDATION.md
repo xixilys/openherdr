@@ -1,17 +1,62 @@
 # Native build validation
 
-## Android-first integration
+## Latest file-navigation artifact
 
-The 2026-10-15 frozen UI integration was rebuilt with the existing root
+The 2026-10-15 file-navigation increment was built with
+`bun run mobile:herdr:android` on `xixilys-macmini`, using the existing Android
+SDK and Java 21 installation. The final log is
+`.tmp/android-file-navigation-release.log`. Gradle reported `BUILD SUCCESSFUL`
+in 2 seconds with 213 tasks, 27 executed and 186 up-to-date.
+
+The current `android/app/build/outputs/apk/debug/app-debug.apk` is 16,467,798 bytes
+and contains `assets/herdr-BDGqP9Kp.js`. Its `assets/public/index.html` exactly
+matches the rebuilt `dist-herdr/herdr.html`. The package remains
+`dev.openherdr.mobile`, versionCode 2 / versionName 0.1.0, minimum SDK 24 and
+target SDK 36. This APK includes the shared `MobileFilesView`, current-file tool
+navigation and the existing manual host editor.
+
+This latest APK has not been installed or tested interactively on Android. The
+Connect screen and cold-start observations below belong to the older
+`herdr-BEKetIzv.js` build. No new native startup, connected chat, Back, keyboard,
+file sharing or physical-phone acceptance is claimed for the current artifact.
+
+The actual HTTPS browser at 412×915 loaded `herdr-BDGqP9Kp.js` and completed a
+real tool current-file action, close/reopen with file draft retained, directory
+Back and search, manual edit/Save with exact disk readback, and Changes showing
+the saved untracked file as a 2-line addition. Returning to the original chat
+preserved its title, unsent composer draft and reader `scrollTop` of 533.5. The
+owned composer marker was then cleared. Receipts are
+`.tmp/file-navigation-browser-validation.json` and `.tmp/file-flow-browser-state.json`.
+Public captures are `docs/openherdr/assets/file-browser.jpg`, `file-editor.jpg`
+and `file-changes.jpg`. These browser checks do not establish native Android
+interaction.
+
+A separate real saved-WSL check ran on `PC-20260204VNLG`. Its owned workspace,
+created with `focus:false`, wrote `-remote diff.txt` under a marked `/tmp`
+directory. Status confirmed untracked content; the unstaged diff contained the
+new-file patch and unique marker, the staged diff remained empty, and file
+content/revision readback matched. Cleanup closed only that workspace and removed
+its marked temporary directory. `.tmp/untracked-ssh-acceptance.json` records this
+ordinary 0644 file case; final executable-mode behavior has separate local tests.
+No existing agents, providers or shared services were changed by that fixture.
+
+Complete editor/Git parity and connected native interaction remain unfinished.
+The previous browser download completion is still unknown, and the older native
+startup sample below does not characterize startup of the current APK.
+
+## Previous shared-chat Android integration
+
+The preceding 2026-10-15 shared-chat UI integration was rebuilt with the existing root
 `bun run mobile:herdr:android` command on `xixilys-macmini`. The command rebuilt
 `dist-herdr`, copied it, synchronized Capacitor and compiled the Android debug
 APK using Java 21.0.9, SDK 36 and Gradle 8.14.3. Vite completed in 12.68 seconds;
 Gradle completed in 3 seconds and reported `BUILD SUCCESSFUL` with 213 tasks, 27 executed and 186 up-to-date.
 The log is `.tmp/android-ui-presentation-build.log`.
 
-The APK is `android/app/build/outputs/apk/debug/app-debug.apk`, 16,462,669 bytes.
-Its bundled `assets/public/index.html` equals the rebuilt `dist-herdr/herdr.html`,
-and it contains the current `herdr-BEKetIzv.js` bundle. This build includes the
+That previous APK was `android/app/build/outputs/apk/debug/app-debug.apk`,
+16,462,669 bytes. The path now holds the newer artifact documented above.
+At that validation, its bundled `assets/public/index.html` matched the then-built
+`dist-herdr/herdr.html` and contained `herdr-BEKetIzv.js`. That build included the
 restored shared chat/composer presentation, session popup, keyboard geometry,
 tool/attachment adapters and step-by-step forms together with the existing host, conversation, preferences and
 project-context modules. The package remains `dev.openherdr.mobile`,
@@ -70,8 +115,8 @@ connected. The local/public HTTPS checks in STATUS.md prove their HTTP paths,
 not Android interaction.
 
 The human's supplied OpenChamber screenshot is a private local visual reference.
-The current shared chat/composer integration is packaged in this APK. Its
-connected native display and interactions remain unverified. iOS below records
+That previous APK packaged the shared chat/composer integration. Its connected
+native display and interactions were not verified. iOS below records
 the older terminal baseline.
 
 ## Previously validated terminal baseline

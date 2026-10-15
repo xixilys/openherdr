@@ -28,6 +28,15 @@ when opening a new per-file diff. The terminal panel sets `ownsEscape: true`.
 The owner supplies active/visible flags to data-owning panel content; keeping a
 visited view mounted does not authorize hidden polling.
 
+`../MobileFilesView.tsx` owns the original phone Files header, browser search,
+file rows, loading/empty states and file back row. It receives a root, a browser
+or file route, entries, search state and navigation callbacks. Entry action
+nodes, browser actions, file-header actions and editor children are presentation
+slots. It reads no OpenCode stores, effective directory or runtime APIs.
+`MobileFilesSurface` retains the original directory, search, uploads, file-change
+subscription, pending global file focus and lazy full editor. Herdr supplies its
+host-owned directory and manual editor through the same view.
+
 ## Controller contract
 
 `types.ts` defines the exact input records:

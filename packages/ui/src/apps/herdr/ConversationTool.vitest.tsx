@@ -38,8 +38,8 @@ beforeEach(async () => {
   host = document.createElement('div'); document.body.appendChild(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root?.unmount()); await dom.happyDOM.close(); try { expect(requests).toEqual([]); } finally { restore(); } });
-const render = async (part: ToolPart, live = true, attachments?: React.ReactNode) => {
-  await act(async () => root.render(<I18nProvider><ConversationTool part={part} live={live} theme={theme} directory="/fixture" attachments={attachments} /></I18nProvider>));
+const render = async (part: ToolPart, live = true, attachments?: React.ReactNode, onOpenFile?: (path: string, line?: number) => void) => {
+  await act(async () => root.render(<I18nProvider><ConversationTool part={part} live={live} theme={theme} directory="/fixture" attachments={attachments} onOpenFile={onOpenFile} /></I18nProvider>));
 };
 const expand = async () => { const row = host.querySelector<HTMLElement>('[role="button"]'); if (!row) throw new Error('Missing tool summary'); await act(async () => row.click()); };
 
@@ -117,4 +117,36 @@ test('a caller without a theme uses a pure default and bounds large final shell 
   expect(host.querySelector('code')?.textContent).toContain('Source output');
   expect(host.querySelector('code')?.textContent).toContain('output truncated');
   expect(host.querySelector('code')?.textContent?.length).toBeLessThan(output.length);
+});
+
+test('current-file actions use each source patch path and actual changed line', async () => {
+  const opened: { path: string; line?: number }[] = [];
+  const onOpen = (path: string, line?: number) => { opened.push({ path, line }); };
+  await render({ ...base, tool: 'patch', state: { status: 'completed', input: {}, output: '', metadata: { files: [
+    { file: '/fixture/a.ts', patch: '--- a/a.ts\n+++ b/a.ts\n@@ -7 +7 @@\n-before\n+after' },
+    { file: '/fixture/nested/b.ts', patch: 'malformed source patch retained' },
+    { file: '/other/private.ts', patch: 'outside source patch retained' },
+  ] }, time: { start: 1, end: 2 } } }, false, undefined, onOpen);
+  const headerAction = host.querySelector<HTMLButtonElement>('[aria-label="Open current file"]');
+  expect(headerAction).not.toBeNull();
+  await act(async () => headerAction?.click());
+  expect(host.querySelector('pre')).toBeNull();
+  expect(opened).toEqual([{ path: 'a.ts', line: 7 }]);
+  await expand();
+  const actions = host.querySelectorAll<HTMLButtonElement>('[aria-label="Open current file"]');
+  expect(actions).toHaveLength(3);
+  await act(async () => actions[2]?.click());
+  expect(opened.at(-1)).toEqual({ path: 'nested/b.ts', line: undefined });
+});
+
+test('read actions retain a real offset and unavailable sources expose no action', async () => {
+  const opened: { path: string; line?: number }[] = [];
+  const part: ToolPart = { ...base, tool: 'read', state: { status: 'completed', input: { path: '/fixture/a.ts', offset: 4 }, output: 'source text', time: { start: 1, end: 2 } } };
+  await render(part, false, undefined, (path, line) => { opened.push({ path, line }); });
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Open current file"]')?.click());
+  expect(opened).toEqual([{ path: 'a.ts', line: 4 }]);
+  await render(part, false);
+  expect(host.querySelector('[aria-label="Open current file"]')).toBeNull();
+  await render({ ...part, state: { ...part.state, input: { path: '/outside/a.ts' } } }, false, undefined, () => { throw new Error('Outside path must not be actionable'); });
+  expect(host.querySelector('[aria-label="Open current file"]')).toBeNull();
 });

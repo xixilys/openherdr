@@ -111,7 +111,17 @@ the original terminal normalization and output bound. JSON uses the original
 summary; subtask results reuse Markdown without inventing child controls.
 Background-job and child-session actions still need their source ownership
 contracts. Generic/read output retains the bounded source text; diagnostics,
-file navigation and persisted JSON display-mode controls are not copied yet.
+persisted JSON display-mode controls are not copied yet. Completed read and
+file-change tools can open a current project file. The action uses the tool's
+actual path and optional read offset or first changed line. Each reported file
+in a multi-file patch has its own action; unscoped patch text grants no file
+access. Files re-resolves the captured conversation target, including its
+native identity, before reading and before publishing the opened file.
+Saved history has no bound target and
+cannot borrow the selected pane. Historical patches retain their source bytes;
+the editor labels its current file content separately.
+Positive read offsets map directly to lines, following the one-based contract
+in [OpenCode 2.0.29's read tool](https://github.com/anomalyco/opencode/blob/v2.0.29/packages/core/src/tool/plugin/read.ts#L17-L24).
 
 `ConversationForm` adapts the original `SteppedFormView`. Its page-lifetime
 memory holds up to 50 drafts, evicting the least recently saved draft after
@@ -150,6 +160,44 @@ root or revision refuses the write. Files/Changes remain mounted after their
 first visit, while hidden reads stop. Git operations retain actual error and
 conflict results. A pending host write uses the same durable mutation record
 as terminal and conversation operations.
+
+Workspace file requests capture server, machine, pane identity, conversation,
+canonical root, relative path and optional source line. Files consumes a request
+only while visible and after a successful directory read matches its root. An
+owner/root change rejects the request. Closing the workspace retains the chat
+component, selected conversation, draft, attachments and reading position.
+
+For this file-navigation increment, the dedicated Herdr browser/PWA, hosted
+mobile and Capacitor mobile use the same explicit host operations. The original
+web, Electron, VS Code, hosted-mobile and Capacitor entrypoints retain their
+OpenCode controller around the shared Files presentation. Herdr remains a
+separate browser application on Electron; it is not mounted in VS Code.
+
+Mobile Files uses `MobileFilesView`, shared with the original mobile file
+browser. `FilesPanel` keeps host operations, drafts and revision checks. Its
+optional `requestedFile` captures server, machine, pane, conversation identity,
+canonical root, relative path and an optional real line. The conversation owner
+captures the verified pane identity and session in the request. Files waits
+until visible/enabled and until a successful listing confirms the same canonical
+root. A different target is ignored; a different root reports a changed target
+without reading the file or changing roots. Requested navigation resolves the
+captured pane identity before opening a file or selecting a retained draft, and
+resolves it again after a text or binary read before displaying returned bytes.
+Both resolves require the captured canonical root and identity. A failed or
+changed source keeps existing drafts and displays an error. These extra resolves
+apply only to conversation requests; manual file browsing keeps its host path.
+The current request ID is consumed
+once, so polling or a root refresh cannot reopen it. A later request replaces
+the pending editor read. Owner changes, hiding and user navigation withdraw late
+file completions. Requested line focus uses the existing CodeMirror view.
+
+The editor labels host bytes as the current file, keeps manual Save and existing
+binary preview/download behavior, and retains drafts while hidden. CodeMirror
+detaches its DOM while disabled or hidden and restores its existing view and
+scroll on return. The mobile Back layer first returns from a file to its browser,
+then clears search, then moves up within the canonical root. The shell closes
+only after those inner routes are exhausted. Creation, rename, delete, upload,
+reload conflicts and downloaded files still use the existing host client.
 
 `packages/ui/src/lib/herdr-native.ts` reuses native chrome, Back and lifecycle
 helpers. Android Enter inserts a newline; Ctrl/Meta+Enter sends, with an IME
@@ -205,3 +253,10 @@ with the typed project-context client. New and existing drafts include the
 resolved project owner. Unknown project owners disable creation. A confirmed
 write invalidates older outstanding reads of that same target. Hiding a panel
 pauses reads, while stored drafts remain available when the owner returns.
+
+`packages/ui/src/apps/herdr/FilesPanel.vitest.tsx` covers the shared view without
+source I/O, visible/root-scoped request consumption, real line focus, stale
+owner replies, occupant replacement before or during file reads, draft and CodeMirror scroll retention, manual save ownership,
+inner Back routing, binary fallback and failed-listing behavior. These DOM
+checks do not establish physical Android Back, native file sharing, or the
+integrated chat-to-Files-to-Changes return flow.

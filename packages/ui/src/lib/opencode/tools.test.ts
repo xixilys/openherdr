@@ -18,7 +18,16 @@ import {
   toolDescription,
   toolFileDiffs,
   toolInputPath,
+  toolReadTarget,
 } from "./tools"
+
+test("read file navigation preserves only supplied valid line offsets", () => {
+  expect(toolReadTarget("read", { path: "src/a.ts", offset: 7 })).toEqual({ filePath: "src/a.ts", line: 7 })
+  expect(toolReadTarget("read", { path: "src/a.ts", offset: -1 })).toEqual({ filePath: "src/a.ts", line: undefined })
+  expect(toolReadTarget("read", { path: "src/a.ts", offset: "7" })).toEqual({ filePath: "src/a.ts", line: undefined })
+  expect(toolReadTarget("read", {})).toBeNull()
+  expect(toolReadTarget("shell", { path: "src/a.ts", offset: 7 })).toBeNull()
+})
 
 describe("tool identity", () => {
   test("recognizes the v2 names, not the v1 ones", () => {

@@ -105,6 +105,28 @@ support inline previews and explicit reads of current project files; the latter
 are labelled as current content. Stepped forms keep page-lifetime drafts across
 conversation changes and retain them after failed or unknown replies.
 
+Tool file actions now open the shared original mobile Files browser and existing
+host editor with a captured conversation identity and canonical root. The editor
+labels the loaded bytes as the current file. A changed pane identity or root
+refuses navigation; it preserves existing drafts. Manual Save retains revision
+checks and Changes shows a new untracked text file as an added-file diff.
+
+The actual HTTPS browser flow at 412×915 passed current-file opening from a real
+tool result, draft retention while closing/reopening the workspace, browsing and
+search, manual Save with disk readback, Changes and return to the same chat.
+The chat title, unsent composer draft and reader position survived. A separate
+owned saved-WSL fixture verified untracked status, the unstaged new-file patch,
+an empty staged diff and unchanged readback; its workspace and marked temporary
+directory were cleaned up. These results are recorded in
+`.tmp/file-navigation-browser-validation.json`, `.tmp/file-flow-browser-state.json`
+and `.tmp/untracked-ssh-acceptance.json`.
+
+The new Android debug APK includes `herdr-BDGqP9Kp.js` and has not been installed
+or tested interactively on Android. Older native Connect/cold-start observations
+belong to the previous `herdr-BEKetIzv.js` build. Complete editor/Git behavior,
+connected native interaction and full original-feature parity remain unfinished.
+The earlier browser download completion is still unknown.
+
 Ordinary workspaces need a trusted project-root registration before project context
 is available. Pane cwd changes never choose another notes owner. Worktrees of
 one repository on the same machine share context; another machine stays separate.
@@ -142,3 +164,12 @@ The current outcome and remaining checks are in [STATUS.md](STATUS.md).
 Server and UI module documentation describe the transport and state behavior.
 
 ![Actual tool diff in the mobile-width browser](assets/chat-presentation.png)
+
+The file flow below was captured in the actual mobile-width HTTPS browser. The
+browser image shows search results; the editor image shows the saved file.
+
+![Shared mobile Files browser search](assets/file-browser.jpg)
+
+![Current-file editor after manual Save](assets/file-editor.jpg)
+
+![Saved untracked file shown in Changes](assets/file-changes.jpg)

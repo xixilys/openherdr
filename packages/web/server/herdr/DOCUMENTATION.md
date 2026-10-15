@@ -179,6 +179,13 @@ gates as other private routes. It accepts JSON bodies up to 16 MiB. Other
 routes keep their 128 KiB limit. The response is the parsed operation result,
 with no synthesized file, Git or revision data. Failed reads remain errors.
 
+An unstaged `git.diff` request naming one untracked regular UTF-8 file returns
+an addition patch for that file. Its read uses the file API's symlink confinement
+and 8 MiB limit; binary data and read failures return explicit errors. Ignored
+files, directory requests, staged diffs and diffs without a path retain Git's
+existing behavior. The helper never runs external diff drivers or textconv,
+and repositories with executable Git filters still require terminal access.
+
 Every host mutation requires a unique requestId. The shared receipt journal
 writes and fsyncs `unknown` before dispatch, using the operation as its method
 and the selected machine as its target. Input content is hashed and is not

@@ -108,7 +108,8 @@ The current shared UI has real HTTPS browser validation, a rebuilt Android APK
 and an observed native connection screen. The subsequent presentation increment
 shares shell/diff output, attachment/image previews and the original stepped
 form flow. Native connected-chat interaction, source-owned child controls,
-diagnostic/file-navigation actions and full feature parity remain unfinished.
+diagnostic actions and full feature parity remain unfinished. Current-file
+navigation has since passed the browser flow recorded below.
 Dot was sent the prior source and validation limits in message
 `d681f1e0-9177-42de-80b4-5903ee7fc2a4`; this follow-up is stored, with reading
 unconfirmed. The owning default bridge was restarted on the current code and
@@ -125,6 +126,22 @@ displays Connect; connected native interaction remains unverified. Browser
 download completion and exact native startup readiness remain unknown.
 Dot received the source/validation update in message
 `d4082711-b2cd-4bc8-8b0b-028522e32f15`; storage was accepted, reading is unconfirmed.
+
+The current file-navigation increment connects a bound chat tool's current
+project file to the original mobile Files browser presentation, existing manual
+editor and Changes view. The actual HTTPS browser flow returned to the same
+chat with its draft and reading position. The original wrapper retains its
+OpenCode controller. Herdr file actions capture the server, machine, pane
+identity, conversation, root and relative file path. Saved history and paths
+outside that root cannot borrow the active pane. A real saved-SSH fixture also
+verified the corrected untracked-file addition diff. The rebuilt APK packages
+`herdr-BDGqP9Kp.js` and has not received native interaction acceptance.
+Complete editor and Git parity remain later work.
+
+After recording this increment, the next bounded UI task is the original
+expanded composer, followed by native conversation identity and read-only
+Codex history. Keep those tasks tied to the full Android experience; do not
+extend the tool-detail branch into an open-ended series of small display tests.
 
 ## Validation and safe experiments
 

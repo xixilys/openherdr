@@ -16,6 +16,11 @@ import { HerdrTransport, TransportError, clearPendingDelivery, loadPendingDelive
 import { HostClient, hostSchemas, targetKey, draftKey, editFileDraft, prepareFileSave, finishFileSave, acceptFileReload, isConfirmedHostRefusal, fileBytesToBase64, downloadBytes, type FileDraft, type HostMutation } from './host-client';
 import { usePolling } from './usePolling';
 import { useHerdrText } from './herdr.i18n';
+import { EditorView } from '@codemirror/view';
+import { driverResolveSchema } from '@/lib/opencode/herdr-driver';
+import { MobileFilesView } from '@/apps/MobileFilesView';
+import { registerBackLayer } from '@/lib/mobileBackLayers';
+import type { WorkspaceFileRequest } from './workspace-navigation';
 import type { Theme } from '@/types/theme';
 
 const CodeEditor = lazy(() => import('@/components/ui/CodeMirrorEditor').then((module) => ({ default: module.CodeMirrorEditor })));
@@ -76,11 +81,12 @@ function useHostActions(client: HostClient, disabled: boolean, onPendingDelivery
   return { busy, execute, clearError: () => setFailure(null), error: failure?.owner === owner ? failure.error : null };
 }
 
-export function FilesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, onPendingDelivery }: PanelProps) {
+export function FilesPanel({ transport, machine, paneId, disabled = false, mutationBlocked = false, onPendingDelivery, requestedFile, isMobile = false, visible = true }: PanelProps & { requestedFile?: WorkspaceFileRequest | null; isMobile?: boolean; visible?: boolean }) {
   const { t } = useI18n();
   const h = useHerdrText();
   const client = useMemo(() => new HostClient(transport, { machine, pane_id: paneId }), [transport, machine, paneId]);
   const owner = targetKey(transport.connection.server, client.target);
+  const enabled = visible && !disabled && !!paneId;
   const currentOwner = useRef(owner);
   currentOwner.current = owner;
   const lastEditorOwner = useRef(owner);
@@ -106,8 +112,21 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   const opening = openingOwner === owner;
   const [failure, setFailure] = useState<{ owner: string; error: Error } | null>(null);
   const openingRequest = useRef(0);
+  const readScope = useRef({ owner, enabled, transport });
+  if (readScope.current.owner !== owner || readScope.current.enabled !== enabled || readScope.current.transport !== transport) {
+    openingRequest.current += 1;
+    readScope.current = { owner, enabled, transport };
+  }
+  useEffect(() => { setOpeningOwner(null); }, [owner, enabled, transport]);
+  useEffect(() => () => { openingRequest.current += 1; }, []);
+  const currentRequestedFile = useRef(requestedFile);
+  currentRequestedFile.current = requestedFile;
+  const consumedRequest = useRef<string | null>(null);
+  const [focusLine, setFocusLine] = useState<{ id: string; draftId: string; line: number } | null>(null);
+  const editorView = useRef<EditorView | null>(null);
+  const appliedFocus = useRef<string | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
-  const actions = useHostActions(client, disabled || mutationBlocked || !paneId, onPendingDelivery);
+  const actions = useHostActions(client, !enabled || mutationBlocked, onPendingDelivery);
   const readDirectory = useCallback(async (signal: AbortSignal) => {
     void refresh;
     const result = await client.read({ operation: 'files.list', path: folder }, hostSchemas.list, signal);
@@ -117,22 +136,23 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     pinnedRoots.current.set(owner, result.root);
     return result;
   }, [client, folder, owner, refresh]);
-  const listing = usePolling(readDirectory, !!paneId && !disabled, 15000, `${owner}:${folder}:${rootEpoch}`);
+  const listing = usePolling(readDirectory, enabled, 15000, `${owner}:${folder}:${rootEpoch}`);
   const root = listing.data?.root ?? pinnedRoots.current.get(owner) ?? null;
   const readSearch = useCallback(async (signal: AbortSignal) => {
     const result = await client.read({ operation: 'files.search', path: '', query: searchTerm, maxResults: 100, includeHidden: false }, hostSchemas.search, signal);
     if (root && result.root !== root) throw new TransportError('target_changed', 'hostTargetChanged');
     return result;
   }, [client, searchTerm, root]);
-  const search = usePolling(readSearch, !!searchTerm && !!root && !disabled, 15000, `${owner}:${root}:${searchTerm}`);
+  const search = usePolling(readSearch, !!searchTerm && !!root && enabled, 15000, `${owner}:${root}:${searchTerm}`);
   const activeId = selected.get(editorOwner) ?? null;
   const draft = activeId ? documents.get(activeId) : undefined;
   const binaryFile = binary?.owner === owner ? binary : null;
   const openDocuments = [...documents.entries()].filter(([, document]) => targetKey(document.server, document.target) === editorOwner);
-  const writable = !disabled && !mutationBlocked && !!paneId && !!root && !listing.error && !actions.busy && !opening;
+  const writable = enabled && !mutationBlocked && !!root && !listing.error && !actions.busy && !opening;
   const error = actions.error ?? (failure?.owner === owner ? failure.error : null) ?? listing.error ?? search.error;
   const report = (error: Error) => setFailure({ owner, error });
   const selectDraft = (id: string | null) => {
+    openingRequest.current += 1; setOpeningOwner(null);
     setSelected((previous) => new Map(previous).set(editorOwner, id));
     setBinary(null);
   };
@@ -143,26 +163,46 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     pinnedRoots.current.delete(owner);
     setDirectory(''); setDirectoryOwner(owner); setRootEpoch((value) => value + 1); setFailure(null); setDialog(null); actions.clearError(); setSearchTerm(''); setQuery('');
   };
-  const loadFile = async (path: string, expectedRoot: string, replaceDraft = false) => {
+  const loadFile = async (path: string, expectedRoot: string, replaceDraft = false, source?: WorkspaceFileRequest) => {
+    if (!enabled) return;
+    const request = ++openingRequest.current;
     const identity = { server: transport.connection.server, target: client.target, root: expectedRoot, path };
     const id = draftKey(identity);
-    if (!replaceDraft && documentsRef.current.has(id)) { selectDraft(id); return; }
     const captured = documentsRef.current.get(id);
-    const request = ++openingRequest.current;
+    const selectRequestedLine = () => {
+      if (!source) return;
+      setFocusLine(source.line && Number.isInteger(source.line) && source.line > 0 ? { id: source.id, draftId: id, line: source.line } : null);
+    };
     setOpeningOwner(owner); setFailure(null);
+    const stillCurrent = () => currentOwner.current === owner && openingRequest.current === request && readScope.current.enabled && (!source || currentRequestedFile.current?.id === source.id);
+    const confirmSource = async () => {
+      if (!source) return stillCurrent();
+      if (!stillCurrent()) return false;
+      const current = await transport.request('/api/herdr/conversations/resolve', driverResolveSchema, {
+        method: 'POST', body: JSON.stringify({ request: { target: { machine: source.machine, paneId: source.paneId, identity: source.paneIdentity } } }),
+      });
+      if (!stillCurrent()) return false;
+      if (current.target.machine !== source.machine || current.target.paneId !== source.paneId || current.target.identity !== source.paneIdentity || current.directory !== source.root) throw new TransportError('target_changed', 'hostTargetChanged');
+      return true;
+    };
     try {
+      if (!await confirmSource()) return;
+      if (!replaceDraft && documentsRef.current.has(id)) { selectRequestedLine(); selectDraft(id); return; }
       try {
         const result = await client.read({ operation: 'files.read', path }, hostSchemas.file);
         if (currentOwner.current !== owner || openingRequest.current !== request) return;
         if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
+        if (!await confirmSource()) return;
         const document: FileDraft = { ...identity, revision: result.revision, baseContent: result.content, content: result.content, editVersion: 0 };
         setDocuments((previous) => new Map(previous).set(id, acceptFileReload(previous.get(id), captured, document)));
-        selectDraft(id);
+        selectRequestedLine(); selectDraft(id);
       } catch (error) {
         if (!(error instanceof TransportError) || error.code !== 'binary_file') throw error;
+        if (currentOwner.current !== owner || openingRequest.current !== request) return;
         const result = await client.read({ operation: 'files.download', path }, hostSchemas.download);
         if (currentOwner.current !== owner || openingRequest.current !== request) return;
         if (result.root !== expectedRoot || result.path !== path) throw new TransportError('target_changed', 'hostTargetChanged');
+        if (!await confirmSource()) return;
         const safeImage = /^image\/(png|jpeg|gif|webp|avif|bmp)$/.test(result.mime);
         setSelected((previous) => new Map(previous).set(owner, null));
         setBinary({ ...result, owner, image: safeImage ? `data:${result.mime};base64,${result.base64}` : null });
@@ -170,6 +210,44 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     } catch (error) { if (currentOwner.current === owner && openingRequest.current === request) report(error instanceof Error ? error : new Error(String(error))); }
     finally { if (openingRequest.current === request) setOpeningOwner((previous) => previous === owner ? null : previous); }
   };
+  const loadRequestedFile = useRef(loadFile);
+  loadRequestedFile.current = loadFile;
+  useEffect(() => {
+    if (!enabled || !requestedFile || consumedRequest.current === requestedFile.id) return;
+    if (requestedFile.server !== transport.connection.server || requestedFile.machine !== machine || requestedFile.paneId !== paneId) return;
+    if (!listing.data || listing.loading || listing.error) return;
+    consumedRequest.current = requestedFile.id;
+    if (requestedFile.root !== listing.data.root) {
+      setFailure({ owner, error: new TransportError('target_changed', 'hostTargetChanged') });
+      return;
+    }
+    setQuery(''); setSearchTerm('');
+    void loadRequestedFile.current(requestedFile.path, requestedFile.root, false, requestedFile);
+  }, [enabled, requestedFile, transport.connection.server, machine, paneId, owner, listing.data, listing.loading, listing.error, client]);
+  const focusEditor = useCallback((view: EditorView) => {
+    editorView.current = view;
+    if (!enabled || !focusLine || activeId !== focusLine.draftId || appliedFocus.current === focusLine.id) return;
+    const line = view.state.doc.line(Math.min(focusLine.line, view.state.doc.lines));
+    view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) });
+    appliedFocus.current = focusLine.id;
+  }, [enabled, focusLine, activeId]);
+  useEffect(() => { if (editorView.current) focusEditor(editorView.current); }, [focusEditor, draft]);
+  const innerBack = useRef(() => {});
+  innerBack.current = () => {
+    if (draft || binaryFile) selectDraft(null);
+    else if (query || searchTerm) { setQuery(''); setSearchTerm(''); }
+    else if (folder) navigate(parentPath(folder));
+  };
+  const hasInnerRoute = !!(draft || binaryFile || query || searchTerm || folder);
+  useEffect(() => {
+    if (!isMobile || !enabled || !hasInnerRoute) return;
+    return registerBackLayer(() => innerBack.current());
+  }, [isMobile, enabled, hasInnerRoute]);
+  useEffect(() => {
+    if (!isMobile || !enabled) return;
+    const timer = setTimeout(() => setSearchTerm(query.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [isMobile, enabled, query]);
   const save = async () => {
     if (!draft || !activeId) return;
     const saved = draft;
@@ -276,6 +354,44 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
   };
   const dialogTitle = dialog?.kind === 'reload' ? t('filesView.unsaved.title') : dialog?.kind === 'rename' ? t('filesView.dialog.rename.title') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.title') : dialog?.kind === 'folder' ? t('filesView.dialog.createFolder.title') : t('filesView.dialog.createFile.title');
 
+  const editorContent = draft ? <div className="flex min-h-0 flex-1 flex-col" dir="ltr"><Suspense fallback={<p className="herdr-detail">{t('common.loading')}</p>}><CodeEditor key={activeId ?? binaryFile?.path} detached={!enabled} onViewReady={focusEditor} onViewDestroy={() => { editorView.current = null; }} value={draft.content} readOnly={!enabled || draft.root !== root || targetKey(draft.server, draft.target) !== owner} onChange={(content) => { if (!activeId) return; setDocuments((previous) => { const current = previous.get(activeId); return current ? new Map(previous).set(activeId, editFileDraft(current, content)) : previous; }); }} className="min-h-0 flex-1 overflow-auto oc-surface-code" enableSearch /></Suspense><p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground">{draft.content === draft.baseContent ? t('filesView.editor.saved') : t('filesView.unsaved.title')}</p></div> : binaryFile ? <div className="min-h-0 flex-1">{binaryFile.image ? <ImageArtifact src={binaryFile.image} name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} sizeBytes={binaryFile.bytes} /> : <BinaryArtifact name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} path={binaryFile.path} sizeBytes={binaryFile.bytes} />}</div> : null;
+  const fileDialog = <Dialog open={dialog !== null && enabled} onOpenChange={(open) => { if (!open && !actions.busy) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialogTitle}</DialogTitle><DialogDescription>{dialog?.kind === 'reload' ? t('filesView.unsaved.description') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.description', { name: dialog.choice.name }) : dialog?.kind === 'rename' ? t('filesView.dialog.rename.description', { name: dialog.choice.name }) : t(dialog?.kind === 'folder' ? 'filesView.dialog.createFolder.description' : 'filesView.dialog.createFile.description', { path: folder || '/' })}</DialogDescription></DialogHeader>{dialog && dialog.kind !== 'delete' && dialog.kind !== 'reload' && <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('filesView.dialog.namePlaceholder')} aria-label={t('filesView.dialog.namePlaceholder')} dir="ltr" autoFocus onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void confirmDialog(); } }} />}<DialogFooter><Button variant="outline" disabled={actions.busy} onClick={() => setDialog(null)}>{t('filesView.dialog.cancel')}</Button><Button variant={dialog?.kind === 'delete' ? 'destructive' : 'default'} disabled={!writable || !!dialog && !['delete', 'reload'].includes(dialog.kind) && !name.trim()} onClick={() => void confirmDialog()}>{dialog?.kind === 'reload' ? t('filesView.unsaved.discard') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.confirm') : t('filesView.dialog.confirm')}</Button></DialogFooter></DialogContent></Dialog>;
+  if (isMobile) {
+    const file = draft ?? binaryFile;
+    const viewDirectory = folder ? `${root === '/' ? '' : root}/${folder}` : root ?? '';
+    const rowActions = (entry: FileEntry) => <>
+      <Button variant="ghost" size="icon" aria-label={t('filesView.dialog.rename.description', { name: entry.name })} disabled={!writable || entry.isSymbolicLink} onClick={() => void chooseEntryAction('rename', entry)}><Icon name="edit" className="size-4" /></Button>
+      <Button variant="ghost" size="icon" aria-label={t('filesView.dialog.delete.description', { name: entry.name })} disabled={!writable || entry.isSymbolicLink} onClick={() => void chooseEntryAction('delete', entry)}><Icon name="delete-bin" className="size-4" /></Button>
+    </>;
+    const fileActions = <>
+      {draft && <Button size="sm" disabled={!writable || draft.root !== root || targetKey(draft.server, draft.target) !== owner || draft.content === draft.baseContent} onClick={() => void save()}>{actions.busy ? t('filesView.editor.saving') : t('filesView.fileEditor.save')}</Button>}
+      {file && <Button variant="ghost" size="icon" aria-label={t('sidebarFilesTree.menu.download')} disabled={!enabled} onClick={() => void download(file.path, file.root)}><Icon name="download" className="size-4" /></Button>}
+      <Button variant="ghost" size="icon" aria-label={t('mobile.files.refreshAria')} disabled={opening || !enabled} onClick={() => draft ? refreshFile() : setRefresh(value => value + 1)}><Icon name="refresh" className="size-4" /></Button>
+    </>;
+    const notices = <>
+      {error && <div className="herdr-banner herdr-error" role="alert"><p>{error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message === 'outcomeUnknown' ? h('hostUnknown') : error.message}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button size="sm" onClick={reloadRoot}>{t('contextPanel.browser.reload')}</Button>}</div>}
+      {file && <p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground">{h('currentFile')}</p>}
+      {draft?.reloadConflict && <p className="herdr-banner herdr-warning" role="alert">{t('filesView.unsaved.title')}. {t('filesView.unsaved.description')}</p>}
+      {(listing.data?.truncated || search.data?.truncated) && <p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground">{t('mobile.files.file.truncated')}</p>}
+      {opening && <p className="shrink-0 px-3 py-2 typography-meta text-muted-foreground" role="status">{t('common.loading')}</p>}
+    </>;
+    return <section className="herdr-content" aria-label={t('mobile.files.rootDirectory')}>
+      <MobileFilesView root={root ?? file?.root ?? ''} route={file ? { type: 'file', path: file.path, returnDirectory: viewDirectory } : { type: 'browser', directory: viewDirectory }}
+        entries={(listing.data?.entries ?? []).map(entry => ({ ...entry, disabled: entry.isSymbolicLink || !enabled, actions: rowActions(entry) }))}
+        isLoadingDirectory={listing.loading} directoryError={!root && error ? error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message : null} query={query} searchResults={search.data?.results ?? []} isSearching={search.loading && !!searchTerm}
+        onQueryChange={setQuery} onOpenDirectory={path => navigate(path === root ? '' : root && path.startsWith(root === '/' ? '/' : `${root}/`) ? path.slice(root === '/' ? 1 : root.length + 1) : path)}
+        onOpenFile={path => { if (root && enabled) void loadFile(path, root); }} onBack={() => innerBack.current()}
+        onRefresh={() => setRefresh(value => value + 1)} fileActions={fileActions}
+        browserActions={<>{notices}<div className="flex shrink-0 flex-wrap gap-2 px-3 py-2">
+          <Button variant="outline" size="sm" disabled={!writable} onClick={() => { if (root) { setDialog({ kind: 'file', owner, root, directory: folder }); setName(''); } }}>{t('sidebarFilesTree.menu.newFile')}</Button>
+          <Button variant="outline" size="sm" disabled={!writable} onClick={() => { if (root) { setDialog({ kind: 'folder', owner, root, directory: folder }); setName(''); } }}>{t('sidebarFilesTree.menu.newFolder')}</Button>
+        </div></>}
+        canUpload={writable} isUploading={actions.busy} onUpload={() => uploadInput.current?.click()}
+      >{notices}{openDocuments.length > 0 && <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2" aria-label={t('filesView.editor.openFilesAria')}>{openDocuments.map(([id, document]) => <Button key={id} variant="chip" size="sm" aria-pressed={activeId === id} onClick={() => selectDraft(id)}><span className="max-w-44 truncate" dir="auto">{document.path.split('/').at(-1)}{document.content !== document.baseContent ? ' *' : ''}</span></Button>)}</div>}{editorContent}</MobileFilesView>
+      <input ref={uploadInput} type="file" className="hidden" aria-label={t('sidebarFilesTree.menu.uploadFiles')} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} />
+      {fileDialog}
+    </section>;
+  }
   return <section className="herdr-content" aria-label={t('mobile.files.rootDirectory')}>
     <div className="herdr-content-toolbar flex-wrap">
       <Button variant="ghost" size="sm" onClick={() => draft || binaryFile ? selectDraft(null) : navigate(parentPath(folder))} disabled={!draft && !binaryFile && !folder}><Icon name="arrow-go-back" className="size-4" />{t('mobile.files.parentDirectory')}</Button>
@@ -287,10 +403,9 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
     {openDocuments.length > 0 && <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2" aria-label={t('filesView.editor.openFilesAria')}>{openDocuments.map(([id, document]) => <Button key={id} variant="chip" size="sm" aria-pressed={activeId === id} onClick={() => selectDraft(id)}><span className="max-w-44 truncate" dir="auto">{document.path.split('/').at(-1)}{document.content !== document.baseContent ? ' *' : ''}</span></Button>)}</div>}
     {error && <div className="herdr-banner herdr-error" role="alert"><p>{error instanceof TransportError && error.code === 'target_changed' ? h('hostTargetChanged') : error.message === 'outcomeUnknown' ? h('hostUnknown') : error.message === 'deliveryStorage' ? h('deliveryStorage') : error.message}</p>{error instanceof TransportError && error.code === 'target_changed' && <Button size="sm" variant="outline" onClick={reloadRoot}>{t('contextPanel.browser.reload')}</Button>}</div>}
     {draft?.reloadConflict && <p className="herdr-banner herdr-warning" role="alert">{t('filesView.unsaved.title')}. {t('filesView.unsaved.description')}</p>}
-    {disabled && draft && <p className="herdr-detail">{h('hostTargetChanged')}</p>}
     {(opening || listing.loading && !draft && !binaryFile) && <p className="herdr-detail" role="status">{t('common.loading')}</p>}
     {!paneId && <p className="herdr-detail">{h('noPane')}</p>}
-    {draft ? <div className="flex min-h-0 flex-1 flex-col" dir="ltr"><Suspense fallback={<p className="herdr-detail">{t('common.loading')}</p>}><CodeEditor value={draft.content} readOnly={disabled || draft.root !== root || targetKey(draft.server, draft.target) !== owner} onChange={(content) => { if (!activeId) return; setDocuments((previous) => { const current = previous.get(activeId); return current ? new Map(previous).set(activeId, editFileDraft(current, content)) : previous; }); }} className="min-h-0 flex-1 overflow-auto oc-surface-code" enableSearch /></Suspense><p className="herdr-detail">{draft.content === draft.baseContent ? t('filesView.editor.saved') : t('filesView.unsaved.title')}</p></div> : binaryFile ? <div className="min-h-0 flex-1">{binaryFile.image ? <ImageArtifact src={binaryFile.image} name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} sizeBytes={binaryFile.bytes} /> : <BinaryArtifact name={binaryFile.path.split('/').at(-1) ?? binaryFile.path} path={binaryFile.path} sizeBytes={binaryFile.bytes} />}</div> : <>
+    {draft || binaryFile ? editorContent : <>
       <form className="flex shrink-0 gap-2 p-3" onSubmit={(event) => { event.preventDefault(); setSearchTerm(query.trim()); }}><Input inputSize="compact" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('mobile.files.search.placeholder')} aria-label={t('mobile.files.search.placeholder')} /><Button type="submit" size="sm" variant="outline" aria-label={t('mobile.files.search.placeholder')}><Icon name="search" className="size-4" /></Button>{searchTerm && <Button size="sm" variant="ghost" aria-label={t('sidebarFilesTree.search.clearAria')} onClick={() => { setSearchTerm(''); setQuery(''); }}><Icon name="close" className="size-4" /></Button>}</form>
       <div className="flex shrink-0 flex-wrap gap-2 px-3 pb-3"><Button variant="outline" size="sm" disabled={!writable} onClick={() => { if (root) { setDialog({ kind: 'file', owner, root, directory: folder }); setName(''); } }}>{t('sidebarFilesTree.menu.newFile')}</Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => { if (root) { setDialog({ kind: 'folder', owner, root, directory: folder }); setName(''); } }}>{t('sidebarFilesTree.menu.newFolder')}</Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => uploadInput.current?.click()}>{t('sidebarFilesTree.menu.uploadFiles')}</Button><input ref={uploadInput} type="file" className="hidden" aria-label={t('sidebarFilesTree.menu.uploadFiles')} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} /></div>
       <div className="herdr-file-list">
@@ -298,7 +413,7 @@ export function FilesPanel({ transport, machine, paneId, disabled = false, mutat
       </div>
     </>}
     <footer className="herdr-content-root" dir="ltr">{draft?.root ?? binaryFile?.root ?? root}</footer>
-    <Dialog open={dialog !== null && !disabled} onOpenChange={(open) => { if (!open && !actions.busy) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialogTitle}</DialogTitle><DialogDescription>{dialog?.kind === 'reload' ? t('filesView.unsaved.description') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.description', { name: dialog.choice.name }) : dialog?.kind === 'rename' ? t('filesView.dialog.rename.description', { name: dialog.choice.name }) : t(dialog?.kind === 'folder' ? 'filesView.dialog.createFolder.description' : 'filesView.dialog.createFile.description', { path: folder || '/' })}</DialogDescription></DialogHeader>{dialog && dialog.kind !== 'delete' && dialog.kind !== 'reload' && <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('filesView.dialog.namePlaceholder')} aria-label={t('filesView.dialog.namePlaceholder')} dir="ltr" autoFocus onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void confirmDialog(); } }} />}<DialogFooter><Button variant="outline" disabled={actions.busy} onClick={() => setDialog(null)}>{t('filesView.dialog.cancel')}</Button><Button variant={dialog?.kind === 'delete' ? 'destructive' : 'default'} disabled={!writable || !!dialog && !['delete', 'reload'].includes(dialog.kind) && !name.trim()} onClick={() => void confirmDialog()}>{dialog?.kind === 'reload' ? t('filesView.unsaved.discard') : dialog?.kind === 'delete' ? t('filesView.dialog.delete.confirm') : t('filesView.dialog.confirm')}</Button></DialogFooter></DialogContent></Dialog>
+    {fileDialog}
   </section>;
 }
 

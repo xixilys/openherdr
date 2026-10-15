@@ -15,7 +15,8 @@ is retained. Public `xixilys/openherdr` hosts the development source. The first
 published integration revision was `c1b07b395`. The current chat presentation
 iteration follows that baseline; complete native interaction remains pending.
 The shared tool/attachment/form source increment is `965f2f346`, verified on
-public main. The default bridge serves its current `herdr-BEKetIzv.js` asset.
+public main. The current file-navigation increment serves `herdr-BDGqP9Kp.js` from the
+default bridge and packages the same asset in the rebuilt Android APK.
 
 ## Integrated source
 
@@ -32,9 +33,15 @@ public main. The default bridge serves its current `herdr-BEKetIzv.js` asset.
   The original stepped form flow retains answers across permission hiding and
   conversation navigation. Field changes invalidate old answers; a late reply
   cannot clear a newer draft after returning to the same conversation.
+- The original mobile Files browser presentation now serves both wrappers. A
+  bound chat tool can open its current project file, browse/search, edit and
+  save manually, inspect Changes, then return to the same chat. File navigation
+  captures the conversation and host identity and refuses stale or unrelated
+  roots. Saved history cannot borrow the active pane.
 - Local and saved-SSH Files/Git provide real manual editing, revision conflict
   refusal, uploads/downloads, status/diff, stage/unstage, commits, branches and
-  checkout. Native Herdr worktree create/open/remove is connected.
+  checkout. Single untracked text files now show an addition patch in Changes.
+  Native Herdr worktree create/open/remove is connected.
 - The local OpenCode 2 driver supplies real messages, streaming, model/agent
   selection, permissions/forms, attachments, history and explicit rebind.
   Existing native sessions remain read-only when a verified binding exists.
@@ -81,6 +88,20 @@ public main. The default bridge serves its current `herdr-BEKetIzv.js` asset.
   produced no application error, but the browser download event timed out and
   no file appeared in the known default Downloads directory. Download completion
   remains unknown; the action was not repeated.
+- The latest HTTPS browser flow opened a file from a real owned-conversation
+  tool record. An unsaved edit survived closing and reopening the workspace;
+  disk bytes changed only after Save. Directory navigation/search and the
+  untracked-file addition diff worked. Returning to chat retained its title,
+  unsent draft and measured reading position of 533.5 pixels. Screenshots are
+  `assets/file-browser.jpg`, `assets/file-editor.jpg` and `assets/file-changes.jpg`.
+- A new disposable WSL workspace passed write/read and untracked-file diff
+  through the saved SSH profile. Staged diff stayed empty. The exact workspace
+  and marked temporary directory were removed afterward. Final local tests
+  also compare owner/group/other executable bits against actual Git index modes.
+- The file-navigation increment passes 22 UI tests across 4 suites, 24 tool/path
+  helper tests with 92 assertions and 13 host-operation tests. Independent
+  source review found no blocking issue; its executable-bit correction is
+  included in the final host tests. These checks do not establish native UI use.
 - The current DOM integration check covers stream failure/recovery, viewport
   changes, reader position, return to latest, permission-before-form docking and
   retaining a form answer while a permission temporarily hides it. Shared
@@ -108,8 +129,10 @@ public main. The default bridge serves its current `herdr-BEKetIzv.js` asset.
   system-bar backdrop/contrast correction has source review and a rebuilt APK.
   Latest runtime screenshots and remaining interaction checks are recorded in
   packages/mobile/openherdr/VALIDATION.md.
-  The latest APK packages `herdr-BEKetIzv.js` and matches the current web page.
-  One cold-start sample returned Activity success in 5.246 seconds, still showed
+  That native sample used `herdr-BEKetIzv.js`. The latest file-navigation APK
+  packages `herdr-BDGqP9Kp.js`; its HTML matches the web build byte for byte.
+  This latest APK has not been installed or interactively tested on Android.
+  One cold-start sample of the older build returned Activity success in 5.246 seconds, still showed
   a blank loading frame at 7.573 seconds, and displayed Connect in a later capture
   within 29 seconds. The exact visible-ready time and cause remain unknown.
 
@@ -146,8 +169,9 @@ docks and native interaction. The current integration addresses navigation,
 message-level expansion, independent running/queue/abort controls and dock
 priority. Native interaction and the remaining tool-specific views still need
 work. Shared shell/diff output, attachment previews and stepped forms have since
-been integrated. Source-owned child/background controls, diagnostics, file
-navigation and persistent JSON display choices remain unfinished. The reviewer's actual model is unconfirmed; no Android runtime acceptance
+been integrated, and current-file navigation now has actual browser acceptance.
+Source-owned child/background controls, diagnostics and persistent JSON display
+choices remain unfinished. Full editor and Git interaction parity also remains. The reviewer's actual model is unconfirmed; no Android runtime acceptance
 was claimed by that review.
 
 The historical terminal baseline was committed at `9991c6f8d`; its validations
@@ -157,7 +181,9 @@ Existing user Herdr panes, agents and unrelated services remain preserved.
 The default bridge now runs the current server code on port 4318. Its renewed
 Cloudflare path passed public health, unauthenticated rejection and an
 authenticated snapshot of the real default Herdr session. This check sent no
-terminal input; its temporary client was revoked. Source review and UI findings
+terminal input; its temporary client was revoked and a subsequent request with
+that token returned 401. The current web asset was fetched through the public
+path. Source review and UI findings
 were reported back to dot with revision `556d2e9be`; receipt of that follow-up
 does not establish a further review.
 The subsequent tool/attachment/form source and validation limits were sent in
